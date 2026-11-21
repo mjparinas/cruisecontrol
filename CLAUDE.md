@@ -48,6 +48,14 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   sdkmanager for `platforms;android-37.2` and set `ANDROID_HOME`. Maven Central may answer 429; just rerun.
 - CI skips pushes that only change Markdown files, except AGENTS.md: `AgentsDocTest` checks it against the code.
 
+## Releasing
+
+- Cutting a release means moving CHANGELOG's Unreleased notes (plus any merged features they missed) into a version
+  entry and pointing the README's release example at it; `ChangelogTest` checks both. After the pull request merges,
+  the owner runs the Release workflow with that version. The agent can't push tags.
+- Release when a PR is merged is on for this repo, so every merge publishes a patch tag. Check the real latest
+  version with `git ls-remote --tags origin`. The local `main` branch can be stale: branch from `origin/main`.
+
 ## Conventions
 
 - Tests live in `core/src/test/kotlin/dev/aiauto/core`, one file per area, using kotlin.test with fakes for
