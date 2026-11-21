@@ -57,7 +57,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 
 - Cutting a release means moving CHANGELOG's Unreleased notes (plus any merged features they missed) into a version
   entry and pointing the README's release example at it; `ChangelogTest` checks both. After the pull request merges,
-  the owner runs the Release workflow with that version. The agent can't push tags.
+  the owner runs the Release workflow with that version. The agent can't push tags. If the newest changelog
+  version still has no tag (v0.8.0 didn't as of v0.7.20), fold the Unreleased notes into it instead of adding a new one.
 - Release when a PR is merged is on for this repo, so every merge publishes a patch tag. Check the real latest
   version with `git ls-remote --tags origin`. The local `main` branch can be stale: branch from `origin/main`.
 

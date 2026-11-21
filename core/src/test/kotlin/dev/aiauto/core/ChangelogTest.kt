@@ -24,6 +24,14 @@ class ChangelogTest {
         }
     }
 
+    @Test fun everyVersionEntryHasNotes() {
+        val changelog = File(root, "CHANGELOG.md").readText()
+        versions.forEach { version ->
+            val body = changelog.substringAfter("## $version\n").substringBefore("\n## ")
+            assertTrue(body.lines().any { it.startsWith("- ") }, "CHANGELOG.md entry $version has no notes")
+        }
+    }
+
     @Test fun readmeReleaseExampleIsTheNewestVersion() {
         val readme = File(root, "README.md").readText()
         val example = Regex("""enter the next version, like `(v[\d.]+)`""").find(readme)?.groupValues?.get(1)
