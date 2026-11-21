@@ -70,7 +70,8 @@ either switch off, the app asks first, and you can say yes or "fix it".
 
 These switches, and **Release when a PR is merged**, are set for each repo: see [Per-repo settings](#per-repo-settings).
 
-You can **Stop** a working task, **Clear** one, or clear every finished task at once. On the phone's task list,
+On the phone, the task list has **Active** and **Archived** tabs. The Active tab shows how many tasks are running
+right now, like **Active (2)**. You can **Stop** a working task, **Clear** one, or clear every finished task at once. On the phone's task list,
 swipe a card left to archive it (with undo) or right to clear it (the app asks first). On the Archived tab, swipe a
 card right to clear it for good, again after the app asks. Each task shows what it has cost so far, and a **daily
 limit** (default $20, set in Settings) stops Claude when the day's total reaches it.

@@ -82,6 +82,21 @@ class CoreTest {
         assertEquals(listOf("2", "4", "1", "3"), tasks.needsYouFirst().map { it.id })
     }
 
+    @Test fun countsRunningTasks() {
+        fun task(id: String, status: TaskStatus, interrupted: Boolean = false, archived: Boolean = false) =
+            Task(id, RepoRef("a", "b"), id, id, status = status, interrupted = interrupted, archived = archived, createdMillis = 0, updatedMillis = 0)
+        val tasks = listOf(
+            task("1", TaskStatus.Working),
+            task("2", TaskStatus.Starting),
+            task("3", TaskStatus.Failed, interrupted = true),
+            task("4", TaskStatus.NeedsInput),
+            task("5", TaskStatus.Done),
+            task("6", TaskStatus.Working, archived = true),
+        )
+        assertEquals(3, tasks.runningCount())
+        assertEquals(0, emptyList<Task>().runningCount())
+    }
+
     @Test fun saysChecksAreRunningUntilTheyFinish() {
         fun task(status: TaskStatus = TaskStatus.Done, pr: Int? = 5, prState: PrState? = PrState.Open, checks: Checks? = Checks.Pending) =
             Task("1", RepoRef("a", "b"), "t", "b", status = status, prNumber = pr, prState = prState,
