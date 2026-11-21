@@ -103,6 +103,9 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
 
 ## Claude and voice settings
 
+Type in the **Search settings** box at the top of Settings to show only the settings that match, by name, section or
+a related word like "colour" or "money". Clear it to see everything again.
+
 - **Model and effort.** Settings > Claude picks the model (Opus 5.5, Sonnet 5.5 or Haiku 5.5) and effort for coding
   tasks, and separately for the spoken car chat, which defaults to low effort so answers come back quickly.
 - **Allow web search.** Lets Claude search the web and read pages while it works. Its workspace then runs with open
