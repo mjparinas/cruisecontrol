@@ -1,0 +1,249 @@
+# AGENTS.md
+
+This file is for anyone, human or AI agent, who changes this repository. It records the product, development and
+engineering decisions the owner has made for Cruise Control, so new work follows them instead of undoing them. The
+README explains how to use the app; this file explains why it is built the way it is.
+
+## Keep this file in sync
+
+The code is the source of truth. This file must always describe the repository as it is on `main`.
+
+- Every change that makes, changes or reverses a decision below updates this file in the same pull request: edit
+  the section it belongs to and add a line to the decision log at the end.
+- If you find this file disagrees with the code, fix this file in your change (or the code, if the code is the
+  mistake) and say so in the pull request. Never leave the two out of step.
+- Commit messages and old pull requests can be wrong about the final state (for example, PR 52 describes OkHttp 5,
+  but OkHttp stayed on 4.12.0). Check the code, not the history.
+- `AgentsDocTest` in `core/src/test/kotlin/dev/aiauto/core/AgentsDocTest.kt` fails the build when the versions and
+  numbers below drift from the build files and code, or when a path named here no longer exists. CI runs it on
+  every push and pull request, including ones that only touch this file.
+- `CLAUDE.md` only points here, so Claude agents load these rules too. Put new rules in this file, not there.
+
+## Product decisions
+
+What the app is:
+
+- Cruise Control (renamed from AIAuto in PR 34) lets the owner talk to Claude from Android Auto. You pick one of your
+  GitHub repos, say what you want, and Claude makes the change in the cloud on a new branch, runs the tests and the
+  app opens a pull request. Updates come back as messages read aloud in the car.
+- It is a personal app installed from GitHub releases, not the Play Store. Play doesn't accept general AI apps for
+  Android Auto, so the full car screen needs Android Auto's Unknown sources setting.
+- The applicationId, package (`dev.aiauto`) and signing key never change, so every release installs over the last
+  one. The rename only changed labels, text and the APK name.
+
+Driving safety comes first:
+
+- Everything Claude says is written to be heard: plain sentences, no markdown, lists, code or URLs, and nothing that
+  asks the driver to look at a screen. `SpokenStatus` cleans agent text before it is shown or spoken.
+- Tool calls that the agent's permission check flags for review are declined automatically, because nobody can
+  review them while driving. The driver hears that a step was skipped and the task carries on.
+- Voice input sends as soon as the driver stops talking on the app's own car screen. The car screen opens on one big
+  Talk button and starts listening when it opens. Android Auto's messaging view always asks for Send, which apps
+  can't turn off, so the app explains how to avoid it.
+- The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
+- Short replies (status, stop, merge it, fix it, yes, no) are handled by the app without starting a Claude turn.
+  Anything longer goes to Claude.
+- A merge the driver asks for always asks for confirmation first, and the car assistant only merges on a yes in a
+  later turn. The app only merges on its own when Merge when checks pass is on. Failing checks, conflicting pull
+  requests and checks the token can't read are never merged.
+
+Claude and cost:
+
+- Coding tasks default to Opus 5.5 at high effort. The car chat defaults to Opus 5.5 at low effort so answers come
+  back quickly. Both can be changed in Settings, along with web search and standing rules.
+- Changing the model, effort, web search or standing rules makes a new agent for the next task. Running tasks keep
+  the agent they started with.
+- Web search is off by default and only applies to coding tasks. With it on, tasks run in an environment with open
+  internet access; otherwise the sandbox only reaches package registries.
+- A daily spending limit (default $20) stops Claude when the day's total reaches it, and is also set as each
+  session's budget on Anthropic's side so it holds even when the phone loses signal. Costs are list prices.
+- Claude writes in Canadian spelling (colour, centre, cancelled, organize) in app text, spoken answers, commit
+  messages and pull requests (PR 54).
+
+Pull requests and automation:
+
+- After a pull request opens, the app watches its checks for 3 hours, announces the result and, with Merge when
+  checks pass on (the default), turns on GitHub's auto-merge or merges once every check is green.
+- Fix merge conflicts automatically and Fix failing checks automatically are on by default. After 3 automatic fixes
+  on a task the app goes back to asking, so it can never loop.
+- Alerts for failed checks, questions from Claude and stuck tasks (no update for 15 minutes) are always shown, even
+  in quiet mode, and can be answered by voice.
+- Release when a PR is merged is off by default. When on, the app publishes the next patch version on that repo for
+  pull requests merged after the switch was turned on.
+
+Tasks, repos and sync:
+
+- One task is one Managed Agents session on one repo. Tasks that need a reply are listed first, and new tasks start
+  on the last-used repo.
+- On the phone, swiping a task card right archives it with undo, and swiping left clears it after asking (PR 65).
+  Archived tasks are hidden from the car and the voice assistant.
+- Repos are added from the list of repos the token can push to, several at once, by typing owner/name, or by saying
+  the name to the car assistant. Removing a repo needs a confirmation, leaves running tasks alone and changes nothing
+  on GitHub.
+- Sync across devices is opt-in and lives in a private repo named cruise-control-sync on the token owner's account.
+  It never holds the API key, GitHub token, voice, spending total or agent setup. Sync refuses to write to a public
+  repo. It replaced a secret gist (PR 58) because anyone with a gist's link can read it.
+- Synced tasks keep their last 60 messages. A task runs on the device that started it until you reply to it or
+  retry it from another device. The newer side wins for tasks and settings, and removals sync through tombstones.
+- The car chat remembers the last 20 exchanges across drives, with a switch to turn it off and a Forget button.
+- A briefing of what happened since the last drive (up to a day back) is read when the phone connects to the car.
+
+Look and accessibility:
+
+- The phone UI uses a warm paper-and-clay theme with System, Light or Dark mode and five accents (Clay, Ocean,
+  Forest, Plum, Slate). Every screen shares the grouped card style from Settings
+  (`app/src/main/java/dev/aiauto/ui/Design.kt`).
+- Text and accents meet WCAG AA contrast (4.5:1 for text, 3:1 for outlines), touch targets are at least 48 dp, and
+  TalkBack gets labels and custom actions for anything done by swiping.
+- The app icon is a cruise control speedometer (PR 38).
+
+## Engineering decisions
+
+Structure:
+
+- `core/` is plain Kotlin with no Android dependency, so the engine is unit tested on the JVM. It holds the Managed
+  Agents client, the GitHub REST calls, the task engine, sync, voice parsing and spoken text.
+- `app/` is the Android app: Jetpack Compose on the phone, the Android for Cars App Library in the car, messaging
+  notifications that Android Auto reads aloud, a foreground service, and a home-screen widget.
+- `TaskEngine` keeps the task lifecycle and the Claude session. It delegates to `TaskJournal` (task state and
+  messages), `SpendingLimit` (the daily limit and session budget) and `PullRequests` (opening, watching and
+  merging), split out in PR 20 to keep each part small.
+- Interfaces like `AgentClient`, `GitHub` and `TaskStore` exist so tests can use fakes. The real GitHub client is
+  tested against canned HTTP responses through an OkHttp interceptor.
+
+Claude:
+
+- Coding work runs as Claude Managed Agents sessions through the official Anthropic Java SDK. There is no public API
+  for claude.ai projects, so these sessions don't appear in the Claude app.
+- The repo is mounted in the session at /workspace/repo with the user's GitHub token, which Anthropic's proxy adds
+  to git requests so code in the sandbox never sees it. The agent pushes a branch; the app opens the pull request.
+- The car chat uses the Messages API directly with a small set of tools (start a task, reply to a task, add a repo,
+  get status, stop a task, merge a pull request).
+- Streams are reconnected by the engine, and past events are listed after reconnecting so nothing is reported
+  twice and turns that ended offline are caught up. Tasks cut off by a lost connection retry every 30 seconds for up
+  to two hours.
+
+Reliability on the phone:
+
+- A foreground service with a partial wake lock keeps tasks running after Android Auto disconnects or the screen
+  turns off. The app asks once to ignore battery optimization. Android 15's data-sync timeout stops the service
+  cleanly instead of crashing.
+- The car app service declares both the MESSAGING and IOT categories, so Android Auto opens the app's own screen.
+  Release builds trust Android Auto's known signing keys plus the Android Auto actually installed from Play or
+  preinstalled.
+- Unexpected errors fail the task instead of leaving it stuck on Working, and background-thread errors are logged
+  instead of crashing the app.
+
+Security:
+
+- The Claude API key and GitHub token are encrypted with an Android Keystore key
+  (`app/src/main/java/dev/aiauto/data/Secrets.kt`).
+- Updates are only accepted from APKs that GitHub serves over HTTPS, and a downloaded APK must be signed with the
+  installed app's key before the install prompt opens. Updates come from the mjparinas/cruisecontrol releases.
+- The GitHub token is only sent to api.github.com, and to gist.githubusercontent.com when moving an old sync gist,
+  never to wherever a URL in a response points.
+
+## Development process
+
+- Work happens on a branch and lands through a pull request. Claude agents name branches claude/... and never open
+  the pull request themselves; the app does.
+- Every change adds or updates tests and runs them. Keep each change small and focused, match the existing style,
+  and update the README and docs the change affects, including this file.
+- Build and test with JDK 17 and the Android SDK (API 35):
+  `./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug`. The Build workflow (`.github/workflows/build.yml`) runs that on every push and pull request, cancels superseded
+  runs, uploads the debug APK, then runs Android Lint.
+- Android Lint only reports for now (`abortOnError = false` in `app/build.gradle.kts`) until the issues it found in
+  existing code are fixed.
+- Releases come from the Release workflow (`.github/workflows/release.yml`), started from the Actions tab or by
+  pushing a tag like v0.8.0. The version name comes from the tag and the version code from the run number, so
+  nothing is bumped in code. Releases are signed with the key in the repo secrets. `CHANGELOG.md` gets an entry per
+  release.
+- Feature ideas live in `docs/FEATURE_IDEAS.md`.
+
+## Pinned versions
+
+Each line is checked against the build files by `AgentsDocTest`. When you change a version, change it here too and
+say why if the reason below no longer holds.
+
+- Gradle wrapper: 8.14.8
+- Android Gradle Plugin: 8.7.3
+- Kotlin: 2.4.21
+- JDK: 17
+- compileSdk: 35
+- targetSdk: 35
+- minSdk: 26
+- anthropic-java: 3.12.0
+- OkHttp: 4.12.0
+- kotlinx-serialization-json: 1.13.0
+- kotlinx-coroutines: 1.11.0
+- Compose BOM: 2024.12.01
+- Car App Library: 1.4.0
+
+Why these stop where they do (PR 52): Android Gradle Plugin 9 and Gradle 9 are a bigger migration and are left for
+a separate change. Newer AndroidX, Compose BOM and Car App Library releases need compileSdk 36, which needs a newer
+Android Gradle Plugin. OkHttp 5's Android artifact also needs a newer compileSdk than 35, so OkHttp stays on 4.12.0.
+
+## Numbers the code depends on
+
+Each line is checked against the code by `AgentsDocTest`.
+
+- Default coding model: Opus 5.5
+- Default coding effort: High
+- Default car chat effort: Low
+- Daily spending limit default (USD): 20
+- Pull request watch window (hours): 3
+- Automatic fixes per task: 3
+- Stuck task alert (minutes): 15
+- Car chat exchanges remembered: 20
+- Synced messages per task: 60
+- Sync repo: cruise-control-sync
+- Update source: mjparinas/cruisecontrol
+
+## Decision log
+
+Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
+
+- Latest: Added this file, `CLAUDE.md` and `AgentsDocTest` to keep a checked record of decisions. The Build
+  workflow now also runs when this file changes. Replace "Latest" with the PR number in the next change.
+- PR 65: Swipe right archives a task card, swipe left clears it after asking. App unit tests run in CI.
+- PR 62: Saved repos can be removed in Settings, and removals sync across devices.
+- PR 61, 63: Direct tests for the web search switch and the daily spending limit.
+- PR 60: The task screen shows only the repo name, without the owner.
+- PR 59: Accessibility tweaks: prompt box outline at 3:1, 48 dp swatches, less text on the car screen.
+- PR 58: Device sync moved from a secret gist into a private repo.
+- PR 57: Fixed synced clears coming back, a car New chat freeze, Android 15's service timeout and chat scrolling.
+- PR 56: Update downloads must come from GitHub over HTTPS and match the installed app's signing key.
+- PR 55: AA contrast for accents and status colours, and TalkBack labels.
+- PR 54: Canadian spelling in app text and in what Claude writes.
+- PR 53: Android Lint added to CI, report-only for now.
+- PR 52: Dependency upgrades, stopping short of Android Gradle Plugin 9, compileSdk 36 and OkHttp 5.
+- PR 51: The real GitHub client and the project view are tested against canned HTTP responses.
+- PR 50: Sync of repos, tasks, settings and car chat memory across devices.
+- PR 49: Task templates on the phone and in the car.
+- PR 48: Home-screen widget with running tasks and today's spend.
+- PR 47: Settings' grouped card style used on every screen.
+- PR 46: Alerts for failed checks, questions and stuck tasks, answerable by voice.
+- PR 45: Listen when the car screen opens, a welcome-back briefing, and memory across drives.
+- PR 44: Merge, stop and status by voice in the car, with merges confirmed in a later turn.
+- PR 42: Model, effort, web search, standing rules and voice settings.
+- PR 41: Repos are picked from the token's GitHub account, several at once.
+- PR 40: Settings restyled in a grouped card style.
+- PR 37, 38: App icon changed to the prompt sign, then to the cruise control speedometer.
+- PR 34: Renamed the app to Cruise Control, keeping the package and signing key.
+- PR 32: The car's Talk screen listens for a reply after each answer, so no tap is needed.
+- PR 31, 35: Check for updates in Settings, with the result shown as a toast.
+- PR 30: System, Light or Dark mode and five accent colours.
+- PR 28: Optional release when a pull request from the app is merged.
+- PR 27: The repo delete button was removed from Settings (brought back with a confirmation in PR 62).
+- PR 25: Automatic fixes for merge conflicts and failing checks, capped at 3 per task.
+- PR 24: Add a repo by saying its name to the car assistant.
+- PR 23: Tasks that need a reply come first, merge results are reported, and new tasks start on the last-used repo.
+- PR 21: Voice commands, merge by voice and spoken CI results.
+- PR 20: TaskEngine split into TaskJournal, SpendingLimit and PullRequests.
+- PR 19, 22: Tasks can be archived, including by swiping.
+- PR 18: Releases are signed and versioned from the tag.
+- PR 17: Tasks cut off by a lost connection keep retrying, and crashes are guarded against.
+- PR 16: Quiet mode announces only each task's result.
+- PR 15: A pull request is watched again after a follow-up turn pushes a fix.
+- PR 14: The car screen opens on one Talk button, and tasks keep running after Android Auto disconnects.
+- PR 13: Faster CI, spoken prompts sent right away, copy chat.
