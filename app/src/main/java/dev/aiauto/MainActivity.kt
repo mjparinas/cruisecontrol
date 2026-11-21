@@ -230,6 +230,13 @@ class MainActivity : ComponentActivity() {
                                 message = it?.let { v -> "Daily limit set to ${dev.aiauto.core.SpokenStatus.money(v)}." } ?: "No daily limit.",
                             )
                         },
+                        onMonthlyLimit = {
+                            g.settings.monthlyLimitUsd = it
+                            settings = settings.copy(
+                                monthlyLimitUsd = it,
+                                message = it?.let { v -> "Monthly limit set to ${dev.aiauto.core.SpokenStatus.money(v)}." } ?: "No monthly limit.",
+                            )
+                        },
                         onAgentProfile = { g.settings.agentProfile = it; settings = settings.copy(agentProfile = it) },
                         onChatProfile = { g.settings.chatProfile = it; settings = settings.copy(chatProfile = it) },
                         voices = { g.speaker.voices() },
@@ -296,6 +303,8 @@ class MainActivity : ComponentActivity() {
         autoRelease = graph.settings.autoReleaseSince != null,
         dailyLimitUsd = graph.settings.dailyLimitUsd,
         spentTodayUsd = graph.settings.spentTodayUsd,
+        monthlyLimitUsd = graph.settings.monthlyLimitUsd,
+        spentThisMonthUsd = graph.settings.spentThisMonthUsd,
         version = (application as AiAutoApp).updater.currentVersion,
         themeMode = enumOrDefault(graph.settings.themeMode, ThemeMode.System),
         accent = enumOrDefault(graph.settings.accent, Accent.Clay),

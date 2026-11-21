@@ -60,8 +60,10 @@ Claude and cost:
   to create it or fix it when it's missing or out of date, in the same pull request (PR 66).
 - Web search is off by default and only applies to coding tasks. With it on, tasks run in an environment with open
   internet access; otherwise the sandbox only reaches package registries.
-- A daily spending limit (default $20) stops Claude when the day's total reaches it, and is also set as each
-  session's budget on Anthropic's side so it holds even when the phone loses signal. Costs are list prices.
+- A daily spending limit (default $20) stops Claude when the day's total reaches it. An optional monthly limit (off
+  by default) adds up every day's spend in the calendar month and stops Claude when that reaches it. Both apply at
+  once, to tasks and the car chat, and the tighter one is also set as each session's budget on Anthropic's side so
+  it holds even when the phone loses signal. Costs are list prices.
 - Claude writes in Canadian spelling (colour, centre, cancelled, organize) in app text, spoken answers, commit
   messages and pull requests (PR 54).
 
@@ -112,7 +114,7 @@ Structure:
 - `app/` is the Android app: Jetpack Compose on the phone, the Android for Cars App Library in the car, messaging
   notifications that Android Auto reads aloud, a foreground service, and a home-screen widget.
 - `TaskEngine` keeps the task lifecycle and the Claude session. It delegates to `TaskJournal` (task state and
-  messages), `SpendingLimit` (the daily limit and session budget) and `PullRequests` (opening, watching and
+  messages), `SpendingLimit` (the daily and monthly limits and session budget) and `PullRequests` (opening, watching and
   merging), split out in PR 20 to keep each part small.
 - Interfaces like `AgentClient`, `GitHub` and `TaskStore` exist so tests can use fakes. The real GitHub client is
   tested against canned HTTP responses through an OkHttp interceptor.
@@ -218,6 +220,8 @@ Newest first. Earlier work (before PR 13) isn't in the history; add older decisi
 
 - PR 74: The phone app's mic button follows Keep listening until Stop too, listening in the app with the same
   `VoiceInput` as the car and a Stop button, instead of Google's speech dialog.
+- PR 73: An optional monthly spending limit, off by default, on top of the daily one. Both apply at once and the
+  monthly total and limit live alongside the daily ones; the limit syncs, the total stays per device.
 - PR 71: Archived task cards can be cleared by swiping left, after asking.
 - PR 69: Every dependency moved to its latest stable release, including Gradle 9, Android Gradle Plugin 9,
   compileSdk 37.2, OkHttp 5 and Car App 1.7. targetSdk stays 35 and setup-gradle stays on v5.

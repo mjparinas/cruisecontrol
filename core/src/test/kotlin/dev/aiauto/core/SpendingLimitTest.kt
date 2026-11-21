@@ -6,7 +6,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** The daily spending limit: what counts toward today's total, when Claude is stopped, and the budget it gets. */
+/** The daily and monthly spending limits: what counts toward the totals, when Claude is stopped, and the budget it gets. */
 class SpendingLimitTest {
     private val repo = RepoRef("me", "app")
 
@@ -21,6 +21,8 @@ class SpendingLimitTest {
     private class Config : EngineConfig {
         var limit: Double? = null
         var spent = 0.0
+        var monthLimit: Double? = null
+        var monthSpent = 0.0
         var spendFails = false
         override fun anthropicKey() = "key"
         override fun githubToken() = "token"
@@ -28,9 +30,12 @@ class SpendingLimitTest {
         override fun saveAgentSetup(setup: AgentSetup) {}
         override fun dailyLimitUsd() = limit
         override fun spentTodayUsd() = spent
+        override fun monthlyLimitUsd() = monthLimit
+        override fun spentThisMonthUsd() = monthSpent
         override fun addSpend(usd: Double) {
             if (spendFails) error("disk full")
             spent += usd
+            monthSpent += usd
         }
     }
 
@@ -72,6 +77,7 @@ class SpendingLimitTest {
         spending.recordCost("t", 1.25)
         assertEquals(1.25, store.get("t")!!.costUsd, 1e-9)
         assertEquals(1.25, config.spent, 1e-9)
+        assertEquals(1.25, config.monthSpent, 1e-9)
     }
 
     @Test fun neverCountsTheSameCostTwice() {
@@ -133,6 +139,75 @@ class SpendingLimitTest {
         config.spent = 7.5
         val e = assertFailsWith<IllegalStateException> { spending.checkBeforeSending() }
         assertEquals("Stopped at today's \$7.50 spending limit. Raise it in Settings to keep going.", e.message)
+    }
+
+    @Test fun overOnceThisMonthsSpendReachesTheMonthlyLimit() {
+        config.monthLimit = 100.0
+        config.monthSpent = 99.99
+        assertFalse(spending.overLimit())
+        config.monthSpent = 99.996
+        assertTrue(spending.overLimit())
+        config.monthSpent = 120.0
+        assertTrue(spending.overLimit())
+    }
+
+    @Test fun respectsBothLimitsAtOnce() {
+        config.limit = 20.0
+        config.monthLimit = 100.0
+        config.spent = 5.0
+        config.monthSpent = 50.0
+        assertFalse(spending.overLimit())
+        // A quiet day still stops once the month is used up.
+        config.monthSpent = 100.0
+        assertTrue(spending.overLimit())
+        // And a month with room left still stops at the day's limit.
+        config.monthSpent = 60.0
+        config.spent = 20.0
+        assertTrue(spending.overLimit())
+    }
+
+    @Test fun refusesToSendOnceTheMonthlyLimitIsReached() {
+        config.monthLimit = 150.0
+        config.monthSpent = 150.0
+        val e = assertFailsWith<IllegalStateException> { spending.checkBeforeSending() }
+        assertEquals("Stopped at this month's \$150.00 spending limit. Raise it in Settings to keep going.", e.message)
+    }
+
+    @Test fun namesTheMonthWhenBothLimitsAreReached() {
+        // Raising today's limit wouldn't help, so the driver hears about the month.
+        config.limit = 10.0
+        config.spent = 12.0
+        config.monthLimit = 100.0
+        config.monthSpent = 100.0
+        assertTrue(spending.limitMessage().startsWith("Stopped at this month's \$100.00 spending limit"))
+    }
+
+    @Test fun namesTheTighterLimitWhenClaudeStopsOnItsSide() {
+        config.limit = 20.0
+        config.spent = 5.0
+        config.monthLimit = 100.0
+        config.monthSpent = 98.0
+        assertTrue(spending.limitMessage().startsWith("Stopped at this month's"))
+        config.monthSpent = 50.0
+        assertTrue(spending.limitMessage().startsWith("Stopped at today's \$20.00"))
+    }
+
+    @Test fun capsTheSessionAtWhatIsLeftOfTheTighterLimit() {
+        config.limit = 10.0
+        config.spent = 4.0
+        config.monthLimit = 100.0
+        config.monthSpent = 98.0
+        spending.capSession(claude, task(costUsd = 1.5))
+        config.monthSpent = 50.0
+        spending.capSession(claude, task(costUsd = 1.5))
+        assertEquals(listOf("s" to 3.5, "s" to 7.5), claude.budgets)
+    }
+
+    @Test fun aMonthlyLimitAloneCapsTheSession() {
+        config.monthLimit = 30.0
+        config.monthSpent = 25.0
+        spending.capSession(claude, task(costUsd = 1.0))
+        assertEquals(listOf("s" to 6.0), claude.budgets)
     }
 
     @Test fun capsTheSessionAtItsCostSoFarPlusWhatIsLeftToday() {

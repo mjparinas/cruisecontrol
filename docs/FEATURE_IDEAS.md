@@ -13,7 +13,7 @@ These started on this list and are now in the app. See the README for how they w
 - **Repo by name** in the car chat, matched against saved repos so transcription slips still work.
 - **Saved prompts**, built as task templates on the phone and in the car.
 - **Welcome-back briefing** when the phone connects to the car.
-- **Spend per task** and a daily spending limit.
+- **Spend per task** and daily and monthly spending limits.
 - **Resume after lost signal**: tasks cut off by a dropped connection restart when the network comes back.
 - **Home screen widget** with running tasks and today's spend.
 
@@ -66,9 +66,8 @@ These started on this list and are now in the app. See the README for how they w
 - **Parked mode.** While driving, every step the agent's safety check flags is declined. Detecting that the car is
   parked (the Car App Library's car hardware or driving-state APIs) would let those steps wait for an approve or deny
   button on the car screen instead, so a task doesn't have to work around them.
-- **Monthly cap.** The daily limit doesn't stop a week of busy days from adding up. A monthly total and cap in
-  Settings, counted the same way as `SpendingLimit`, would pause new tasks when reached, and the briefing could say
-  how much of the month is used.
+- **Monthly spend in the briefing.** The monthly limit is built, but the welcome-back briefing, home screen and
+  widget only mention today's spend. They could say how much of the month is used.
 
 ### Phone side
 

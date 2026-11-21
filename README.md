@@ -26,7 +26,7 @@ Tap **Talk** on the car screen and say anything. Claude (Opus 5.5, low effort fo
 through the car speakers, then listens for your reply, which is sent as soon as you stop talking. Say nothing to end
 the conversation. Claude can also start a coding task in one of your saved repos or answer a running task when you
 ask it to. You can also add a repo by voice: say something like "add my repo aiauto" and Claude finds it among the
-repos your GitHub token can push to and saves it. **New chat** starts the conversation over. Each answer counts toward the daily spending limit.
+repos your GitHub token can push to and saves it. **New chat** starts the conversation over. Each answer counts toward the daily and monthly spending limits.
 
 If the car only shows Cruise Control's messaging view ("No new messages during this drive"), Android Auto is hiding the
 app screen, usually because **Unknown sources** is off (see setup below). You can still talk to Claude there: each
@@ -58,7 +58,10 @@ You can **Stop** a working task, **Clear** one, or clear every finished task at 
 swipe a card right to archive it (with undo) or left to clear it (the app asks first). On the Archived tab, swipe a
 card left to clear it for good, again after the app asks. Each task shows what it has cost so far, and a **daily
 limit** (default $20, set in Settings) stops Claude when the day's total reaches it.
-The limit is also set as the session's budget on Anthropic's side, so it holds even if the phone loses signal.
+An optional **monthly limit** (off until you set it in Settings) adds up every day's spend in the calendar month
+and stops Claude when that reaches it, so a run of busy days can't add up past it. Both limits apply at once:
+whichever is reached first stops Claude and the car chat. The tighter of the two is also set as the session's
+budget on Anthropic's side, so it holds even if the phone loses signal.
 
 While you're in the car, the app reads Claude's messages and short progress notes like "Building or testing"
 aloud, ducking your music while it talks. You can turn this off in Settings.
@@ -189,7 +192,7 @@ has the Contents permission this needs.
 - Google Play doesn't accept general AI or productivity apps for Android Auto. The full car UI is for personal
   installs and Play's internal testing track.
 - Costs are list prices as each session reports them, so they can differ a little from your invoice. The daily
-  total is counted on this phone and resets at local midnight.
+  and monthly totals are counted on this phone and reset at local midnight and on the first of the month.
 - The app's own merge-when-green only works while the app is alive, for up to three hours after a pull request
   opens. GitHub's auto-merge has no such limit, but it only waits for checks the repo marks as required.
 - While you're driving, the agent declines any step that its safety check flags for review. You'll hear that it

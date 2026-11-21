@@ -15,7 +15,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 ## Layout
 
 - `core/` is plain Kotlin (JVM 17) with all the logic and almost every unit test. Package `dev.aiauto.core`.
-  - `TaskEngine.kt` runs tasks: one session per task, prompts, the event stream, reconnects, the spending limit.
+  - `TaskEngine.kt` runs tasks: one session per task, prompts, the event stream, reconnects, and the daily and
+    monthly spending limits through `SpendingLimit.kt`.
   - `ClaudeAgents.kt` is the Managed Agents client. Its companion holds `SYSTEM_PROMPT` (baked into the agent)
     and `firstPrompt` (sent with each task). The agent is only remade when `AgentProfile` changes, so new
     per-task instructions belong in `firstPrompt`.
