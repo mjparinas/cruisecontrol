@@ -29,7 +29,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     the per-repo status view.
   - `Assistant.kt` is the spoken car chat, including the queue of questions asked with no signal, which
     `Graph.watchNetwork` sends when the phone is back online. `ChatProviders.kt` has the car chat models and talks to Claude, OpenAI
-    (Responses API) or Gemini (OpenAI-compatible endpoint); tests fake `ChatHttp`. `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
+    (Responses API) or Gemini (OpenAI-compatible endpoint); tests fake `ChatHttp`. Claude chat requests use
+    automatic prompt caching, and `ModelChoice` holds each model's cache hit price. `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
     replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `Briefing.kt` is the drive briefing;
     `VoiceShortcut.kt` turns a Google Assistant shortcut request into a repo and task (`MainActivity` runs it).
   - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases
@@ -64,6 +65,10 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   version still has no tag (v0.8.0 didn't as of v0.7.20), fold the Unreleased notes into it instead of adding a new one.
 - Release when a PR is merged is on for this repo, so every merge publishes a patch tag. Check the real latest
   version with `git ls-remote --tags origin`. The local `main` branch can be stale: branch from `origin/main`.
+- Open pull requests usually conflict in CHANGELOG.md, AGENTS.md's decision log and docs/FEATURE_IDEAS.md after
+  a release cut. To fix one, merge `origin/main` into its branch, keep only that pull request's own notes under
+  Unreleased, keep the decision log newest first, and keep both sides of list entries. Open pull requests are the
+  ones with a `refs/pull/N/merge` ref in `git ls-remote origin`; the GitHub API is rate-limited without a token.
 
 ## Conventions
 
