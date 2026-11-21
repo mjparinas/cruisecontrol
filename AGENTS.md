@@ -29,6 +29,10 @@ What the app is:
   app opens a pull request. Updates come back as messages read aloud in the car.
 - It is a personal app installed from GitHub releases, not the Play Store. Play doesn't accept general AI apps for
   Android Auto, so the full car screen needs Android Auto's Unknown sources setting.
+- The plan for Play (`docs/PLAY_STORE_RELEASE.md`) doesn't pass the app off as a messaging app: car messaging apps
+  must be peer-to-peer, and misrepresenting the app puts the developer account at risk. Instead the car build goes
+  to Play's internal and closed testing tracks, where car review doesn't block, and production gets a phone-only
+  build without Android Auto support.
 - The applicationId, package (`dev.aiauto`) and signing key never change, so every release installs over the last
   one. The rename only changed labels, text and the APK name.
 
@@ -164,7 +168,7 @@ Security:
   pushing a tag like v0.8.0. The version name comes from the tag and the version code from the run number, so
   nothing is bumped in code. Releases are signed with the key in the repo secrets. `CHANGELOG.md` gets an entry per
   release.
-- Feature ideas live in `docs/FEATURE_IDEAS.md`.
+- Feature ideas live in `docs/FEATURE_IDEAS.md`. The Play Store release plan lives in `docs/PLAY_STORE_RELEASE.md`.
 
 ## Pinned versions
 
@@ -213,6 +217,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- Play Store plan: the car build goes only to Play's internal and closed testing, production gets a phone-only build,
+  and the app is never described as a messaging app to pass review. Nothing is built yet.
 - PR 69: Every dependency moved to its latest stable release, including Gradle 9, Android Gradle Plugin 9,
   compileSdk 37.2, OkHttp 5 and Car App 1.7. targetSdk stays 35 and setup-gradle stays on v5.
 - PR 68: Added this file and `AgentsDocTest` to keep a checked record of decisions, imported from `CLAUDE.md`.

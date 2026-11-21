@@ -29,7 +29,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the
   Compose phone UI, `car/` is the Car App Library UI, `notify/` holds notifications and text-to-speech,
   `data/` holds the stores, encrypted secrets and sync, `widget/` is the home-screen widget.
-- `docs/FEATURE_IDEAS.md` lists ideas; `CHANGELOG.md` has release notes.
+- `docs/FEATURE_IDEAS.md` lists ideas; `docs/PLAY_STORE_RELEASE.md` is the plan for Google Play; `CHANGELOG.md` has
+  release notes.
 
 ## Build and test
 
