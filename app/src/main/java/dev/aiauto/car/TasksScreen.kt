@@ -30,10 +30,13 @@ class TasksScreen(carContext: CarContext) : Screen(carContext) {
 
     init {
         lifecycleScope.launch {
-            combine(g.tasks.tasks, g.repos.repos) { _, _ -> }.collect { invalidate() }
+            combine(g.tasks.tasks, g.repos.repos, g.availableRepos.repos) { _, _, _ -> }.collect { invalidate() }
         }
         lifecycle.addObserver(object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) { g.engine.refreshPullRequests() }
+            override fun onStart(owner: LifecycleOwner) {
+                g.engine.refreshPullRequests()
+                g.refreshAvailableRepos()
+            }
         })
     }
 
@@ -42,7 +45,7 @@ class TasksScreen(carContext: CarContext) : Screen(carContext) {
         // Archived tasks live on the phone's Archived tab, not in the car.
         val all = g.tasks.tasks.value.filter { !it.archived }.needsYouFirst()
         val finished = all.count { it.isFinished && !g.engine.isRunning(it.id) }
-        val canTalk = g.isConfigured && g.repos.repos.value.isNotEmpty()
+        val canTalk = g.isConfigured && g.repoChoices().isNotEmpty()
         val hasTemplates = canTalk && g.templates.templates.value.isNotEmpty()
         // Car lists hold about six rows; keep one each for "Talk to Claude", "Templates" and "Clear finished" when shown.
         val tasks = all.take(MAX_ROWS - (if (canTalk) 1 else 0) - (if (hasTemplates) 1 else 0) - (if (finished > 0) 1 else 0))

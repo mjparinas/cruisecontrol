@@ -31,6 +31,34 @@ class CoreTest {
         assertTrue(RepoRef.matchSpoken("  ", mine).isEmpty())
     }
 
+    @Test fun repoChoicesPutTheLastUsedFirst() {
+        val saved = listOf(RepoRef("me", "app"), RepoRef("me", "site"))
+        val available = listOf(RepoRef("me", "tools"), RepoRef("me", "site"), RepoRef("me", "notes"), RepoRef("me", "app"))
+        fun task(id: String, repo: RepoRef, created: Long) =
+            Task(id = id, repo = repo, title = id, branch = "b", createdMillis = created, updatedMillis = created)
+        val tasks = listOf(task("1", RepoRef("me", "site"), 10), task("2", RepoRef("me", "notes"), 30), task("3", RepoRef("me", "site"), 20))
+        assertEquals(
+            listOf("me/notes", "me/site", "me/app", "me/tools"),
+            RepoRef.choices(saved, available, tasks).map { it.fullName },
+        )
+    }
+
+    @Test fun repoChoicesWorkWithoutTasksOrTheGitHubList() {
+        val saved = listOf(RepoRef("me", "app"), RepoRef("me", "site"))
+        assertEquals(saved, RepoRef.choices(saved, emptyList(), emptyList()))
+        val available = listOf(RepoRef("me", "tools"), RepoRef("me", "app"))
+        assertEquals(listOf("me/app", "me/site", "me/tools"), RepoRef.choices(saved, available, emptyList()).map { it.fullName })
+    }
+
+    @Test fun repoChoicesKeepTheCurrentCopyAndDropDuplicates() {
+        val old = RepoRef("Me", "App", defaultBranch = "master")
+        val current = RepoRef("me", "app", defaultBranch = "main")
+        val task = Task(id = "1", repo = old, title = "t", branch = "b", createdMillis = 1, updatedMillis = 1)
+        assertEquals(listOf(current), RepoRef.choices(emptyList(), listOf(current), listOf(task)))
+        // A repo the token no longer lists still shows when a task used it.
+        assertEquals(listOf(old), RepoRef.choices(emptyList(), emptyList(), listOf(task)))
+    }
+
     @Test fun cleansMarkdownForSpeech() {
         val text = "## Done\n- Updated **README** with `make test`\n```kotlin\nfun x() {}\n```\nSee [PR](https://x)."
         assertEquals("Done Updated README with make test See PR.", SpokenStatus.clean(text))
@@ -52,6 +80,21 @@ class CoreTest {
         fun task(id: String, status: TaskStatus) = Task(id, RepoRef("a", "b"), id, id, status = status, createdMillis = 0, updatedMillis = 0)
         val tasks = listOf(task("1", TaskStatus.Working), task("2", TaskStatus.NeedsInput), task("3", TaskStatus.Done), task("4", TaskStatus.NeedsInput))
         assertEquals(listOf("2", "4", "1", "3"), tasks.needsYouFirst().map { it.id })
+    }
+
+    @Test fun countsRunningTasks() {
+        fun task(id: String, status: TaskStatus, interrupted: Boolean = false, archived: Boolean = false) =
+            Task(id, RepoRef("a", "b"), id, id, status = status, interrupted = interrupted, archived = archived, createdMillis = 0, updatedMillis = 0)
+        val tasks = listOf(
+            task("1", TaskStatus.Working),
+            task("2", TaskStatus.Starting),
+            task("3", TaskStatus.Failed, interrupted = true),
+            task("4", TaskStatus.NeedsInput),
+            task("5", TaskStatus.Done),
+            task("6", TaskStatus.Working, archived = true),
+        )
+        assertEquals(3, tasks.runningCount())
+        assertEquals(0, emptyList<Task>().runningCount())
     }
 
     @Test fun saysChecksAreRunningUntilTheyFinish() {
