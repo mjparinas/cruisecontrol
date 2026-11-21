@@ -120,6 +120,19 @@ class RepoStore(context: Context) {
     fun find(fullName: String) = list.flow.value.firstOrNull { it.fullName == fullName }
 }
 
+/**
+ * The repos the GitHub token can push to, as GitHub last listed them, kept on disk so the pickers can show them
+ * straight away, even in the car with no signal. Only on this device: it isn't synced.
+ */
+class AvailableRepoStore(context: Context) {
+    private val list = JsonListFile(File(context.filesDir, "available_repos.json"), RepoRef.serializer())
+    val repos: StateFlow<List<RepoRef>> = list.flow
+
+    fun set(repos: List<RepoRef>) {
+        if (repos != list.flow.value) list.set(repos)
+    }
+}
+
 /** Past car-chat exchanges, newest last, so the next drive can pick up where this one left off. */
 class FileChatMemory(context: Context) : dev.aiauto.core.ChatMemory {
     private val list = JsonListFile(File(context.filesDir, "chat_memory.json"), dev.aiauto.core.ChatExchange.serializer())

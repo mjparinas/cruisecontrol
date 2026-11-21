@@ -25,7 +25,7 @@ as messages that the car reads aloud. Every task starts by having Claude read th
 
 Tap **Talk** on the car screen and say anything. Claude (Opus 5.5, low effort for quick answers) replies out loud
 through the car speakers, then listens for your reply, which is sent as soon as you stop talking. Say nothing to end
-the conversation. Claude can also start a coding task in one of your saved repos or answer a running task when you
+the conversation. Claude can also start a coding task in any repo your GitHub token can push to or answer a running task when you
 ask it to. You can also add a repo by voice: say something like "add my repo aiauto" and Claude finds it among the
 repos your GitHub token can push to and saves it. **New chat** starts the conversation over. Each answer counts toward the daily and monthly spending limits.
 If there's no signal when you ask, in a tunnel or a dead zone, Claude says it'll send your question when you're back
@@ -41,7 +41,10 @@ answer arrives in the same conversation and is read aloud. In this view Android 
 send your words as soon as you stop speaking, so turn on **Unknown sources** to talk without pressing anything.
 
 Voice input also works inside tasks: open **Tasks**, then tap **Talk to Claude** at the top of the list (or **New task**),
-pick a repo if you have more than one, and speak your request. To answer Claude, open a task and tap **Reply**, then
+pick a repo if you have more than one, and speak your request. The repo list holds every repo your GitHub token can
+push to, not just the ones saved in Settings, with the ones you used most recently at the top; the car shows the
+first six. The phone **New task** screen uses the same list. The app keeps the last list it got from GitHub, so it
+shows up right away even with no signal. To answer Claude, open a task and tap **Reply**, then
 speak. The app uses the car's microphone when Android Auto supports it, and the phone's otherwise. If voice
 doesn't work, you can fall back to replying to the Cruise Control message through Android Auto's messaging flow.
 
@@ -53,7 +56,8 @@ times. The tones use the same assistant audio as the microphone, so music ducks 
 **Projects** shows each repo straight from GitHub: whether its main branch is passing, the last change, and its
 open pull requests with their checks. Tap a pull request to hear its checks or merge it (the app asks first).
 
-When a task's pull request opens, the app follows its checks and tells you when they pass or fail. With
+When a task's pull request opens, the app follows its checks and tells you when they pass or fail. Until they
+finish, the task's status pill on the phone says **Checks running** in amber instead of **Done**. With
 **Merge when checks pass** on (the default), it turns on GitHub's auto-merge if the repo allows it, so GitHub merges
 even with your phone off. Otherwise the app merges once every check is green, as long as it's still running. Failing
 checks, or checks your token can't read, are never merged.
@@ -66,7 +70,8 @@ either switch off, the app asks first, and you can say yes or "fix it".
 
 These switches, and **Release when a PR is merged**, are set for each repo: see [Per-repo settings](#per-repo-settings).
 
-You can **Stop** a working task, **Clear** one, or clear every finished task at once. On the phone's task list,
+On the phone, the task list has **Active** and **Archived** tabs. The Active tab shows how many tasks are running
+right now, like **Active (2)**. You can **Stop** a working task, **Clear** one, or clear every finished task at once. On the phone's task list,
 swipe a card left to archive it (with undo) or right to clear it (the app asks first). On the Archived tab, swipe a
 card right to clear it for good, again after the app asks. Each task shows what it has cost so far, and a **daily
 limit** (default $20, set in Settings) stops Claude when the day's total reaches it.
