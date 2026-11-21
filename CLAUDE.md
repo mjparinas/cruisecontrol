@@ -31,7 +31,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     `Graph.watchNetwork` sends when the phone is back online. `ChatProviders.kt` has the car chat models and talks to Claude, OpenAI
     (Responses API) or Gemini (OpenAI-compatible endpoint); tests fake `ChatHttp`. Claude chat requests use
     automatic prompt caching, and `ModelChoice` holds each model's cache hit price. `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
-    replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `Briefing.kt` is the drive briefing.
+    replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `Briefing.kt` is the drive briefing;
+    `VoiceShortcut.kt` turns a Google Assistant shortcut request into a repo and task (`MainActivity` runs it).
     `SteeringWheel.kt` maps the experimental steering-wheel buttons to actions; the app's `car/WheelButtons.kt`
     media session feeds it while the car screen shows.
   - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases
@@ -45,6 +46,9 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   `data/` holds the stores (including `AvailableRepoStore`, the cached repos the token can push to that
   `Graph.repoChoices()` merges with saved repos for the pickers), encrypted secrets and sync, `widget/` is the home-screen widget. `data/Stores.kt`
   `Settings` keeps every setting in SharedPreferences; `SYNCED_KEYS` lists the ones that sync.
+- Settings screen: `ui/SettingsScreen.kt` and `ui/SettingsSections.kt`, built from rows in `ui/Design.kt`. Each section
+  is wrapped in `SearchableSection(name)`; when you add or rename a setting row, update `SettingsSearch.CATALOGUE`
+  in `core/SettingsSearch.kt` to match its title.
 - `docs/FEATURE_IDEAS.md` lists ideas; `docs/PLAY_STORE_RELEASE.md` is the plan for Google Play; `CHANGELOG.md` has
   release notes.
 
@@ -74,6 +78,9 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   a release cut. To fix one, merge `origin/main` into its branch, keep only that pull request's own notes under
   Unreleased, keep the decision log newest first, and keep both sides of list entries. Open pull requests are the
   ones with a `refs/pull/N/merge` ref in `git ls-remote origin`; the GitHub API is rate-limited without a token.
+  That ref can be stale, so check for real conflicts with `git merge-tree --write-tree --name-only origin/main <branch>`.
+  Push each merge straight to that pull request's own branch. When main added a setting, also add it to the
+  branch's code that lists settings (such as `SettingsSearch.CATALOGUE`), not just the conflicting lines.
 
 ## Conventions
 

@@ -38,6 +38,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -109,6 +110,10 @@ internal fun Note(text: String) {
     )
 }
 
+/** What's typed in the Settings search box, and the section a row sits in. Other screens leave these as they are and show every row. */
+internal val LocalSettingsSearch = compositionLocalOf { dev.aiauto.core.SettingsSearch("") }
+internal val LocalSettingsSection = compositionLocalOf<String?> { null }
+
 @Composable
 internal fun SettingRow(
     icon: ImageVector,
@@ -118,6 +123,7 @@ internal fun SettingRow(
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
 ) {
+    if (!LocalSettingsSearch.current.showsRow(LocalSettingsSection.current, title)) return
     Row(
         Modifier
             .fillMaxWidth()
@@ -141,6 +147,7 @@ internal fun SwitchRow(
     checked: Boolean,
     onChange: (Boolean) -> Unit,
 ) {
+    if (!LocalSettingsSearch.current.showsRow(LocalSettingsSection.current, title)) return
     Row(
         Modifier
             .fillMaxWidth()

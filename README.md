@@ -122,6 +122,22 @@ When you reply to a task, the app handles a few short phrases itself without wai
 
 Anything longer goes to Claude as usual, so "merge the two settings screens" is still a coding request.
 
+## Google Assistant shortcut
+
+Start a task without opening the app: say "Hey Google, start a task to add dark mode to aiauto on Cruise Control".
+"Ask Claude to", "tell Claude to" and "have Claude" work in place of "start a task to". The app opens on the new
+task and says "Starting on aiauto: add dark mode" (read aloud in the car, shown on the phone otherwise).
+
+- Name the repo at the end ("... to aiauto", "... in the cruise control site repo") or the start ("in aiauto, add a
+  toggle"). Only saved repos count. Without one, the task goes to the last-used repo.
+- Saying just a template's name, like "fix lint in aiauto", starts that template.
+- If something's missing, such as keys or saved repos, the app says what and opens the screen to fix it.
+- Google only picks up the shortcut for apps uploaded to the Play Console, so it doesn't work on installs from
+  GitHub releases until the app is on a Play testing track (see docs/PLAY_STORE_RELEASE.md). Google Assistant and
+  Gemini support only a few kinds of app actions in Android Auto, so it may only work on the phone. For testing,
+  `adb shell am start -n dev.aiauto/.MainActivity -a dev.aiauto.action.START_TASK --es request "add dark mode to aiauto"`
+  does what the Assistant would.
+
 ## Setup
 
 1. **Get the APK.** Download `cruise-control-vX.Y.Z.apk` from the latest
@@ -154,6 +170,9 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
    later under Settings > Apps > Cruise Control > Battery > Unrestricted.
 
 ## Claude and voice settings
+
+Type in the **Search settings** box at the top of Settings to show only the settings that match, by name, section or
+a related word like "colour" or "money". Clear it to see everything again.
 
 - **Model and effort.** Settings > Claude picks the model (Opus 5.5, Sonnet 5.5 or Haiku 5.5) and effort for coding
   tasks, and separately for the spoken car chat, which defaults to low effort so answers come back quickly.

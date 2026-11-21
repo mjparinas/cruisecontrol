@@ -1,3 +1,12 @@
 <resources>
     <string name="app_name">Cruise Control</string>
+
+    <!-- What Google Assistant listens for after "Hey Google". $request is everything after the pattern. -->
+    <string-array name="start_task_queries">
+        <item>start a task to $request</item>
+        <item>start a coding task to $request</item>
+        <item>ask Claude to $request</item>
+        <item>tell Claude to $request</item>
+        <item>have Claude $request</item>
+    </string-array>
 </resources>
