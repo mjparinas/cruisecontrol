@@ -256,6 +256,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- v0.8.0 was still untagged after PR 79, so everything merged since went into its changelog entry instead of a new
+  version, and `ChangelogTest` now also checks that every version entry has notes.
 - PR 83: Every repo the token can push to is offered for new tasks, most recently used first, in the phone and car
   pickers and the car chat. Saving a repo is no longer needed to start a task there.
 - PR 90: A task isn't shown as Done while its open pull request's checks are running or not yet read. Its status
