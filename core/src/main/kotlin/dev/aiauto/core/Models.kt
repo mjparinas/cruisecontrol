@@ -37,6 +37,18 @@ data class RepoRef(
             val nameOnly = norm(spoken.substringAfterLast('/').substringAfterLast(" slash "))
             return candidates.filter { norm(it.name) == nameOnly }
         }
+
+        /**
+         * Every repo a new task can start in, most recently used first: repos with tasks (newest task first), then
+         * saved repos in the order they were added, then the rest of [available] in GitHub's order, which is most
+         * recently pushed first. Each repo appears once, matched on its full name ignoring case, and the saved or
+         * available copy wins over a task's older one so its default branch stays current.
+         */
+        fun choices(saved: List<RepoRef>, available: List<RepoRef>, tasks: List<Task>): List<RepoRef> {
+            val known = (saved + available).associateBy { it.fullName.lowercase() }
+            val used = tasks.sortedByDescending { it.createdMillis }.map { known[it.repo.fullName.lowercase()] ?: it.repo }
+            return (used + saved + available).distinctBy { it.fullName.lowercase() }
+        }
     }
 }
 
@@ -74,7 +86,7 @@ enum class AlertKind {
 
 /** Something the app asked the driver, waiting for a spoken yes or no. */
 @Serializable
-enum class PendingAction { Merge, FixChecks, FixConflicts }
+enum class PendingAction { Merge, FixChecks, FixConflicts, StartOver }
 
 @Serializable
 enum class Speaker { You, Claude, Status }
@@ -135,6 +147,10 @@ data class Task(
     /** A pull request exists and hasn't been merged or closed yet. */
     val hasOpenPr: Boolean get() = prNumber != null && (prState ?: PrState.Open) == PrState.Open
 
+    /** Claude finished, but the pull request's checks are still running or haven't been read yet. */
+    val checksRunning: Boolean
+        get() = status == TaskStatus.Done && hasOpenPr && (checks == null || checks.state == Checks.Pending)
+
     /** Mid-turn, or cut off by a lost connection and still resumable. */
     val isActive: Boolean
         get() = status == TaskStatus.Working || status == TaskStatus.Starting || interrupted
@@ -150,6 +166,9 @@ data class Task(
 
 /** Tasks waiting on the user's reply come first, so they're never pushed off a short list. Otherwise keeps the order. */
 fun List<Task>.needsYouFirst(): List<Task> = sortedBy { it.status != TaskStatus.NeedsInput }
+
+/** How many tasks are running right now, not counting archived ones. Shown on the Active tab. */
+fun List<Task>.runningCount(): Int = count { !it.archived && it.isActive }
 
 /**
  * IDs of the agent and environments created for the current API key. [profile] is what the agent was made with;

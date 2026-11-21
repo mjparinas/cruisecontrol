@@ -13,6 +13,7 @@ import dev.aiauto.core.GitHub
 import dev.aiauto.core.RepoRef
 import dev.aiauto.core.Projects
 import dev.aiauto.core.TaskEngine
+import dev.aiauto.data.AvailableRepoStore
 import dev.aiauto.data.FileChatMemory
 import dev.aiauto.core.VoiceControls
 import dev.aiauto.data.FileTaskStore
@@ -22,9 +23,11 @@ import dev.aiauto.data.Settings
 import dev.aiauto.data.TemplateStore
 import dev.aiauto.notify.Notifier
 import dev.aiauto.notify.Speaker
+import dev.aiauto.notify.TonePlayer
 import android.util.Log
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -36,9 +39,11 @@ class Graph(context: Context) {
     val settings = Settings(context)
     val tasks = FileTaskStore(context)
     val repos = RepoStore(context)
+    val availableRepos = AvailableRepoStore(context)
     val chatMemory = FileChatMemory(context)
     val templates = TemplateStore(context)
     val speaker = Speaker(context, settings)
+    val tones = TonePlayer(context)
     val notifier = Notifier(context, settings, speaker)
     // Anything that slips past the engine's own error handling is logged instead of crashing the app.
     val scope = CoroutineScope(SupervisorJob() + CoroutineExceptionHandler { _, e -> Log.e("AiAuto", "Background work failed", e) })
@@ -53,13 +58,13 @@ class Graph(context: Context) {
             override fun agentProfile() = settings.agentProfile
             override fun deviceId() = settings.deviceId
             override fun quietMode() = settings.quietMode
+            override fun setQuietMode(on: Boolean) { settings.quietMode = on }
             override fun dailyLimitUsd() = settings.dailyLimitUsd
             override fun spentTodayUsd() = settings.spentTodayUsd
+            override fun monthlyLimitUsd() = settings.monthlyLimitUsd
+            override fun spentThisMonthUsd() = settings.spentThisMonthUsd
             override fun addSpend(usd: Double) = settings.addSpend(usd)
-            override fun autoMerge() = settings.autoMerge
-            override fun autoFixChecks() = settings.autoFixChecks
-            override fun autoFixConflicts() = settings.autoFixConflicts
-            override fun autoReleaseSince() = settings.autoReleaseSince
+            override fun repoSettings(repo: RepoRef) = settings.repoSettings(repo)
         },
         scope = scope,
         onMessage = { task, message ->
@@ -84,23 +89,23 @@ class Graph(context: Context) {
 
     /** The spoken conversation behind the car's mic button. */
     val assistant = Assistant(
-        apiKey = { secrets.anthropicKey },
+        apiKey = { secrets.chatKey(it) },
         actions = object : AssistantActions {
             override fun context(): String {
-                val repoList = repos.repos.value.joinToString(", ") { it.fullName }.ifEmpty { "none" }
+                val repoList = repoChoices().take(CHAT_REPOS).joinToString(", ") { it.fullName }.ifEmpty { "none" }
                 val recent = tasks.all().filter { !it.archived }.take(6).joinToString("\n") { t ->
                     "- task ${t.id} in ${t.repo.fullName}: ${t.title} (${dev.aiauto.car.TasksScreen.statusLabel(t)})" +
                         (t.lastMessage?.let { ". Last said: ${it.text.take(300)}" } ?: "")
                 }.ifEmpty { "none" }
                 val saved = templates.templates.value.joinToString("\n") { "- ${it.name}: ${it.prompt}" }.ifEmpty { "none" }
-                return "Saved repos: $repoList\nRecent tasks:\n$recent\nTask templates (saved requests the driver can start by name):\n$saved"
+                return "Repos, most recently used first: $repoList\nRecent tasks:\n$recent\nTask templates (saved requests the driver can start by name):\n$saved"
             }
 
             override fun startTask(repo: String, request: String): String {
-                val all = repos.repos.value
+                val all = repoChoices()
                 val match = all.firstOrNull { it.fullName.equals(repo, ignoreCase = true) }
                     ?: all.filter { it.name.equals(repo.substringAfter('/'), ignoreCase = true) }.singleOrNull()
-                    ?: throw IllegalArgumentException("No saved repo matches \"$repo\". Saved: ${all.joinToString { it.fullName }}")
+                    ?: throw IllegalArgumentException("No repo matches \"$repo\". Recent ones: ${all.take(CHAT_REPOS).joinToString { it.fullName }}")
                 require(request.isNotBlank()) { "The request is empty." }
                 val task = engine.start(match, request)
                 TaskService.ensureRunning(appContext)
@@ -145,7 +150,7 @@ class Graph(context: Context) {
 
             override fun merge(repo: RepoRef, number: Int) = voiceControls.merge(repo, number)
         },
-        canSpend = { settings.dailyLimitUsd?.let { settings.spentTodayUsd < it } ?: true },
+        canSpend = { engine.canSpend() },
         onSpend = { settings.addSpend(it) },
         profile = { settings.chatProfile },
         memory = { if (settings.rememberChats) chatMemory else dev.aiauto.core.NoChatMemory },
@@ -169,8 +174,24 @@ class Graph(context: Context) {
         }
     }
 
+    /** Every repo a new task can start in: saved ones plus the ones the token can push to, most recently used first. */
+    fun repoChoices(): List<RepoRef> = RepoRef.choices(repos.repos.value, availableRepos.repos.value, tasks.all())
+
+    /** Fetches the repos the token can push to in the background. On failure the last list stays. */
+    fun refreshAvailableRepos() {
+        val token = secrets.githubToken ?: return
+        scope.launch(Dispatchers.IO) {
+            runCatching { GitHub(token).myRepos() }
+                .onSuccess { availableRepos.set(it) }
+                .onFailure { Log.w("AiAuto", "Couldn't list the token's repos", it) }
+        }
+    }
+
     /** Keeps repos, tasks and settings the same on every device signed in to the same GitHub account. */
-    val sync = dev.aiauto.data.SyncManager(settings, secrets, tasks, repos, chatMemory, scope)
+    val sync = dev.aiauto.data.SyncManager(settings, secrets, tasks, repos, chatMemory, scope) { id ->
+        notifier.clear(id)
+        engine.clear(id)
+    }
 
     /** Each repo's status straight from GitHub, for the project screens on the phone and in the car. */
     val projects = Projects(githubToken = { secrets.githubToken }, scope = scope)
@@ -223,7 +244,10 @@ class Graph(context: Context) {
         }
     }
 
-    /** Resumes tasks that stopped because the connection dropped, as soon as the phone is back online. */
+    /**
+     * Resumes tasks that stopped because the connection dropped, and answers car chat questions asked with no
+     * signal, as soon as the phone is back online.
+     */
     fun watchNetwork(context: Context) {
         val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return
         runCatching {
@@ -236,14 +260,26 @@ class Graph(context: Context) {
                     } catch (e: Throwable) {
                         Log.w("AiAuto", "Couldn't resume tasks after the network came back", e)
                     }
+                    scope.launch(Dispatchers.IO) { sendQueuedChat() }
                 }
             })
         }.onFailure { Log.w("AiAuto", "Couldn't watch the network", it) }
     }
 
+    /** Answers the car chat questions kept while there was no signal, in the chat conversation and out loud in the car. */
+    private fun sendQueuedChat() {
+        if (!assistant.hasQueued()) return
+        assistant.sendQueued().forEach { answer ->
+            notifier.postChat(fromClaude = answer)
+            if (speaker.inCar) speaker.speak(answer)
+        }
+    }
+
     val isConfigured: Boolean get() = secrets.anthropicKey != null && secrets.githubToken != null
 
     private companion object {
+        /** How many repos the car chat hears about and can name in an error, to keep its prompt short. */
+        const val CHAT_REPOS = 15
         /** Gives the car screen time to open and read the briefing itself, before music starts. */
         const val BRIEFING_DELAY_MILLIS = 8_000L
         /** Never brief on more than the last day, even after a long time away. */

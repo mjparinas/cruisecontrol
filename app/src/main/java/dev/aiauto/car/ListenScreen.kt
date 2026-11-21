@@ -11,7 +11,8 @@ import dev.aiauto.graph
 
 /**
  * Listens for a spoken request right on the car screen. On success it closes itself and hands the
- * text to [onText]. If voice fails, the driver can try again or fall back to the messaging reply.
+ * text to [onText]. If voice fails, the driver can try again or fall back to the messaging reply. With
+ * "Keep listening until Stop" on, pauses don't end it and a Stop button sends what was said.
  */
 class ListenScreen(
     carContext: CarContext,
@@ -20,7 +21,8 @@ class ListenScreen(
     private val onText: (String) -> Unit,
 ) : Screen(carContext) {
     private val voice = VoiceInput(carContext)
-    private var message = LISTENING
+    private val untilStop = carContext.graph.settings.listenUntilStop
+    private var message = listening()
     private var failed = false
 
     init {
@@ -32,7 +34,7 @@ class ListenScreen(
 
     private fun listen() {
         failed = false
-        message = LISTENING
+        message = listening()
         invalidate()
         carContext.graph.speaker.stop()
         voice.listen(
@@ -45,8 +47,11 @@ class ListenScreen(
                 message = reason
                 invalidate()
             },
+            untilStopped = untilStop,
         )
     }
+
+    private fun listening() = if (untilStop) "$LISTENING Tap Stop when you're done." else LISTENING
 
     override fun onGetTemplate(): Template {
         val template = MessageTemplate.Builder(message)
@@ -60,6 +65,8 @@ class ListenScreen(
                     fallback()
                 }.build(),
             )
+        } else if (untilStop) {
+            template.addAction(Action.Builder().setTitle("Stop").setOnClickListener { voice.finish() }.build())
         }
         return template.build()
     }

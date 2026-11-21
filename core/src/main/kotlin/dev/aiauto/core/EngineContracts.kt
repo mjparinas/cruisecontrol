@@ -23,22 +23,20 @@ interface EngineConfig {
 
     /** Quiet mode: only announce each turn's result, failures and pull requests, not every step. */
     fun quietMode(): Boolean = false
+    /** Turns quiet mode on or off, for the spoken "quiet" command. */
+    fun setQuietMode(on: Boolean) {}
 
     /** The most Claude may spend per day across all tasks, in US dollars. Null means no limit. */
     fun dailyLimitUsd(): Double? = null
     /** What has been spent today so far. */
     fun spentTodayUsd(): Double = 0.0
+    /** The most Claude may spend per calendar month across all tasks, in US dollars. Null means no limit. */
+    fun monthlyLimitUsd(): Double? = null
+    /** What has been spent this month so far: every day's spend added up. */
+    fun spentThisMonthUsd(): Double = 0.0
+    /** Adds a cost to both today's and this month's totals. */
     fun addSpend(usd: Double) {}
 
-    /** Merge a task's pull request once its checks pass. */
-    fun autoMerge(): Boolean = false
-
-    /** Ask Claude to fix failing checks on its pull request without waiting for the driver. */
-    fun autoFixChecks(): Boolean = false
-
-    /** Ask Claude to resolve merge conflicts on its pull request without waiting for the driver. */
-    fun autoFixConflicts(): Boolean = false
-
-    /** When auto-release was switched on, or null when it's off. Only pull requests merged after this get a release. */
-    fun autoReleaseSince(): Long? = null
+    /** What happens to [repo]'s pull requests, and the rules Claude follows on every task in it. */
+    fun repoSettings(repo: RepoRef): RepoSettings = RepoSettings.MANUAL
 }

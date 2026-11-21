@@ -3,6 +3,7 @@ package dev.aiauto.core
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
@@ -40,31 +41,42 @@ class UpdateSource(
         )
     }
 
-    /** The latest published release with an APK attached, if it's newer than [currentVersion]. */
+    /**
+     * The highest published release with an APK attached, if it's newer than [currentVersion]. Reads the recent
+     * releases instead of GitHub's latest one, because each release is published before the Release workflow
+     * attaches its APK, and only checking the latest would miss every earlier release while that build runs.
+     */
     fun newerThan(currentVersion: String): AvailableUpdate? {
         val request = Request.Builder()
-            .url("https://api.github.com/repos/$repo/releases/latest")
+            .url("https://api.github.com/repos/$repo/releases?per_page=30")
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28")
             .build()
         val body = http.newCall(request).execute().use { response ->
             if (response.code == 404) return null // no releases yet
             if (!response.isSuccessful) throw GitHubException(response.code, "GitHub: HTTP ${response.code}")
-            response.body?.string().orEmpty()
+            response.body.string()
         }
         return parse(body, currentVersion)
     }
 
-    internal fun parse(body: String, currentVersion: String): AvailableUpdate? {
-        val release = json.decodeFromString<ReleaseJson>(body)
-        if (release.draft || release.prerelease) return null
-        val apk = release.assets.firstOrNull { it.name.endsWith(".apk") } ?: return null
-        if (!Versions.isNewer(release.tag, currentVersion)) return null
-        return AvailableUpdate(release.tag, apk.url, apk.size, release.pageUrl)
+    internal fun parse(body: String, currentVersion: String): AvailableUpdate? =
+        json.decodeFromString<List<ReleaseJson>>(body)
+            .filter { !it.draft && !it.prerelease && Versions.isNewer(it.tag, currentVersion) }
+            .mapNotNull { release ->
+                val apk = release.assets.firstOrNull { it.name.endsWith(".apk") && isGitHubDownload(it.url) }
+                apk?.let { AvailableUpdate(release.tag, it.url, it.size, release.pageUrl) }
+            }
+            .maxWithOrNull { a, b -> Versions.compare(a.tag, b.tag) }
+
+    /** Only downloads served by GitHub itself over HTTPS. */
+    private fun isGitHubDownload(url: String): Boolean {
+        val parsed = url.toHttpUrlOrNull() ?: return false
+        return parsed.isHttps && (parsed.host == "github.com" || parsed.host.endsWith(".githubusercontent.com"))
     }
 
     companion object {
-        const val APP_REPO = "mjparinas/aiauto"
+        const val APP_REPO = "mjparinas/cruisecontrol"
     }
 }
 
@@ -85,14 +97,16 @@ object Versions {
         return "$prefix$major.$minor.${patch + 1}"
     }
 
-    fun isNewer(candidate: String, current: String): Boolean {
-        val a = parse(candidate)
-        val b = parse(current)
-        for (i in 0 until maxOf(a.size, b.size)) {
-            val x = a.getOrElse(i) { 0 }
-            val y = b.getOrElse(i) { 0 }
-            if (x != y) return x > y
+    fun isNewer(candidate: String, current: String): Boolean = compare(candidate, current) > 0
+
+    /** Positive when [a] is the higher version, negative when [b] is, zero when they're the same. */
+    fun compare(a: String, b: String): Int {
+        val x = parse(a)
+        val y = parse(b)
+        for (i in 0 until maxOf(x.size, y.size)) {
+            val diff = x.getOrElse(i) { 0 }.compareTo(y.getOrElse(i) { 0 })
+            if (diff != 0) return diff
         }
-        return false
+        return 0
     }
 }

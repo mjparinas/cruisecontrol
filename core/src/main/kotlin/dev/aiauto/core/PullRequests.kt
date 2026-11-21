@@ -3,8 +3,8 @@ package dev.aiauto.core
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Opens each task's pull request, follows its checks, and merges it when auto-merge is on.
- * When the auto-fix settings are on, failing checks and merge conflicts go straight back to Claude through [autoFix].
+ * Opens each task's pull request, follows its checks, and merges it when the repo's auto-merge is on.
+ * When the repo's auto-fix settings are on, failing checks and merge conflicts go straight back to Claude through [autoFix].
  */
 internal class PullRequests(
     private val store: TaskStore,
@@ -21,11 +21,12 @@ internal class PullRequests(
     fun needsWatching(task: Task, now: Long): Boolean {
         if (!task.hasOpenPr) return false
         if (now - (task.prOpenedMillis ?: task.updatedMillis) > WATCH_MILLIS) return false
+        val settings = config.repoSettings(task.repo)
         // Someone may merge it by hand at any point, and that merge gets a release.
-        if (config.autoReleaseSince() != null) return true
+        if (settings.autoReleaseSince != null) return true
         return when (task.checks?.state) {
             null, Checks.Pending, Checks.None -> true
-            Checks.Passing -> config.autoMerge() || config.autoFixConflicts()
+            Checks.Passing -> settings.autoMerge || settings.autoFixConflicts
             Checks.Failing, Checks.Unknown -> false
         }
     }
@@ -41,9 +42,10 @@ internal class PullRequests(
         if (!github.branchExists(task.repo, task.branch)) return
         val pr = github.findPull(task.repo, task.branch) ?: github.openPull(task.repo, task.branch, task.title, body(task))
         val open = pr.prState == PrState.Open
+        val autoMerge = config.repoSettings(task.repo).autoMerge
         // GitHub's own auto-merge keeps working with the phone off. It needs the repo setting
         // and required checks; otherwise the app merges once it sees the checks pass.
-        val githubMerges = open && config.autoMerge() && !pr.draft && runCatching { github.enableAutoMerge(pr) }.getOrDefault(false)
+        val githubMerges = open && autoMerge && !pr.draft && runCatching { github.enableAutoMerge(pr) }.getOrDefault(false)
         journal.update(taskId) {
             it.copy(
                 prUrl = pr.htmlUrl, prNumber = pr.number, prState = pr.prState,
@@ -55,7 +57,7 @@ internal class PullRequests(
             when {
                 !open -> "Pull request ${pr.number} is already ${pr.prState.name.lowercase()}."
                 githubMerges -> "Pull request ${pr.number} is open. GitHub will merge it when checks pass."
-                config.autoMerge() -> "Pull request ${pr.number} is open. I'll merge it when checks pass."
+                autoMerge -> "Pull request ${pr.number} is open. I'll merge it when checks pass."
                 else -> "Pull request ${pr.number} is open for review."
             },
         )
@@ -78,6 +80,7 @@ internal class PullRequests(
         val number = task.prNumber ?: return
         val token = config.githubToken() ?: return
         val github = githubFactory(token)
+        val settings = config.repoSettings(task.repo)
         val pr = github.pull(task.repo, number)
         val state = pr.prState
         val checks = if (state == PrState.Open && pr.head.sha.isNotEmpty()) github.checks(task.repo, pr.head.sha) else task.checks
@@ -85,7 +88,7 @@ internal class PullRequests(
         val conflicts = state == PrState.Open && (pr.hasConflicts ?: task.conflicts)
         journal.update(taskId) { it.copy(prState = state, checks = checks, githubAutoMerge = pr.hasGitHubAutoMerge, prUrl = pr.htmlUrl, conflicts = conflicts) }
 
-        val willMerge = state == PrState.Open && config.autoMerge() && !pr.draft && !pr.hasGitHubAutoMerge && !conflicts &&
+        val willMerge = state == PrState.Open && settings.autoMerge && !pr.draft && !pr.hasGitHubAutoMerge && !conflicts &&
             checks != null && readyToMerge(checks, task, clock())
         val fixingConflicts = conflicts && !task.conflicts && conflictsFound(taskId, number)
         val beforeState = task.prState ?: PrState.Open
@@ -99,7 +102,7 @@ internal class PullRequests(
                 Checks.Failing -> {
                     val failed = "Checks failed on pull request $number: ${checks.failing.take(3).joinToString(", ")}."
                     // A conflict fix pushes new commits, which run the checks again, so don't ask for both at once.
-                    if (!fixingConflicts && tryAutoFix(taskId, config.autoFixChecks(), TaskEngine.fixChecksPrompt(store.get(taskId) ?: task))) {
+                    if (!fixingConflicts && tryAutoFix(taskId, settings.autoFixChecks, TaskEngine.fixChecksPrompt(store.get(taskId) ?: task))) {
                         journal.status(taskId, "$failed Asking Claude to fix them.")
                     } else {
                         journal.update(taskId) { it.copy(pending = PendingAction.FixChecks) }
@@ -139,8 +142,8 @@ internal class PullRequests(
      * after it was switched on. Each task gets at most one release.
      */
     private fun release(taskId: String, github: GitHub, mergedMillis: Long, mergeSha: String?) {
-        val since = config.autoReleaseSince() ?: return
         val task = store.get(taskId) ?: return
+        val since = config.repoSettings(task.repo).autoReleaseSince ?: return
         if (task.releaseTag != null || mergedMillis < since) return
         runCatching {
             github.createRelease(task.repo, Versions.nextPatch(github.tags(task.repo)), mergeSha ?: task.repo.defaultBranch)
@@ -167,7 +170,7 @@ internal class PullRequests(
     private fun conflictsFound(taskId: String, number: Int): Boolean {
         val task = store.get(taskId) ?: return false
         val base = task.repo.defaultBranch
-        if (tryAutoFix(taskId, config.autoFixConflicts(), TaskEngine.fixConflictsPrompt(task))) {
+        if (tryAutoFix(taskId, config.repoSettings(task.repo).autoFixConflicts, TaskEngine.fixConflictsPrompt(task))) {
             journal.status(taskId, "Pull request $number has merge conflicts with $base. Asking Claude to fix them.")
             return true
         }
@@ -201,7 +204,7 @@ internal class PullRequests(
         }
     }
 
-    private companion object {
+    internal companion object {
         /** How long after opening a pull request the app keeps watching its checks. */
         const val WATCH_MILLIS = 3 * 60 * 60 * 1000L
         const val NO_CHECKS_GRACE_MILLIS = 10 * 60 * 1000L
