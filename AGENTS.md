@@ -54,7 +54,7 @@ Driving safety comes first:
   into repeating the last update. It stays off by default because a media session can make Android Auto treat the
   app as a media app.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
-- Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet) are handled by the app without starting a Claude turn.
+- Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet, undo that, start over) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
 - A merge the driver asks for always asks for confirmation first, and the car assistant only merges on a yes in a
   later turn. The app only merges on its own when Merge when checks pass is on. Failing checks, conflicting pull

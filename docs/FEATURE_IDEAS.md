@@ -9,7 +9,8 @@ These started on this list and are now in the app. See the README for how they w
 
 - **Merge by voice**, with a yes or no confirmation, and GitHub auto-merge when checks are still running.
 - **CI results read aloud** after a pull request opens, with an offer to have Claude fix failures.
-- **Quick commands**: "status", "stop", "merge it", "fix it", "yes" and "no" are handled by the app.
+- **Quick commands**: "status", "stop", "merge it", "fix it", "repeat that", "quiet", "undo that",
+  "start over", "yes" and "no" are handled by the app.
 - **Repo by name** in the car chat, matched against saved repos so transcription slips still work.
 - **Saved prompts**, built as task templates on the phone and in the car.
 - **Welcome-back briefing** when the phone connects to the car.

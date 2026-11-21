@@ -16,6 +16,8 @@
   start listening again, and only Stop sends.
 - Task card swipes are swapped: swipe left to archive, with undo, and right to clear after the app asks. On the
   Archived tab, swipe right to clear a task for good.
+- Two more quick voice commands on a task: "undo that" has Claude revert its last change, and "start over" asks
+  for a yes, then has Claude reset the branch and redo the original request from scratch.
 
 ## v0.8.0
 

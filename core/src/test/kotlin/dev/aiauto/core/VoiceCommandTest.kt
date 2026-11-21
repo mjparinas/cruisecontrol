@@ -8,7 +8,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Spoken shortcuts handled by the app: status, stop, merge with confirmation, fixing failed checks, repeat and quiet. */
+/** Spoken shortcuts handled by the app: status, stop, merge with confirmation, fixing failed checks, repeat, quiet, undo and start over. */
 class VoiceCommandTest {
     @Test fun parsesCommands() {
         assertEquals(VoiceCommand.Merge, VoiceCommand.parse("Merge it."))
@@ -26,6 +26,12 @@ class VoiceCommandTest {
         assertNull(VoiceCommand.parse("add a quiet mode switch"))
         assertNull(VoiceCommand.parse("merge the two settings screens into one"))
         assertNull(VoiceCommand.parse("add a status bar to the home screen"))
+        assertEquals(VoiceCommand.Undo, VoiceCommand.parse("Undo that."))
+        assertEquals(VoiceCommand.Undo, VoiceCommand.parse("take that back"))
+        assertEquals(VoiceCommand.StartOver, VoiceCommand.parse("Start over, please"))
+        assertEquals(VoiceCommand.StartOver, VoiceCommand.parse("start from scratch"))
+        assertNull(VoiceCommand.parse("add an undo button to the editor"))
+        assertNull(VoiceCommand.parse("start over the onboarding flow when the user logs out"))
     }
 
     private val repo = RepoRef("me", "app")
@@ -162,6 +168,48 @@ class VoiceCommandTest {
         taskWithPr(ChecksSummary(Checks.Pending, total = 1))
         engine.prompt("t1", "status")
         assertEquals("Checks are still running on pull request 7.", said.last())
+        assertTrue(claude.sent.isEmpty())
+    }
+
+    @Test fun undoAsksClaudeToRevertItsLastChange() {
+        taskWithPr()
+        engine.prompt("t1", "undo that")
+        assertEquals(TaskEngine.UNDO_PROMPT, claude.sent.last())
+        assertEquals("undo that", store.get("t1")!!.messages.first { it.speaker == Speaker.You }.text)
+    }
+
+    @Test fun undoWithNothingDoneYetSaysSo() {
+        store.put(Task("t2", repo, "Add a toggle", "claude/x", status = TaskStatus.Stopped, createdMillis = 0, updatedMillis = 0))
+        engine.prompt("t2", "undo")
+        assertEquals("There's nothing to undo yet.", said.last())
+        assertTrue(claude.sent.isEmpty())
+    }
+
+    @Test fun startOverOnlyAfterTheDriverSaysYes() {
+        taskWithPr()
+        store.put(store.get("t1")!!.copy(messages = listOf(TaskMessage("m1", Speaker.You, "add a dark mode toggle", 0))))
+        engine.prompt("t1", "start over")
+        assertEquals("Say yes to throw away the work on claude/x and start the request over from main.", said.last())
+        assertTrue(claude.sent.isEmpty())
+
+        engine.prompt("t1", "yes")
+        val sent = claude.sent.single()
+        assertTrue(sent.startsWith("Start over.") && sent.endsWith("add a dark mode toggle"), sent)
+    }
+
+    @Test fun noKeepsTheWorkWhenAskedToStartOver() {
+        taskWithPr()
+        engine.prompt("t1", "start over")
+        engine.prompt("t1", "no")
+        assertEquals("Okay, leaving it as is.", said.last())
+        assertTrue(claude.sent.isEmpty())
+    }
+
+    @Test fun undoAndStartOverDoNothingOnceMerged() {
+        store.put(taskWithPr().copy(prState = PrState.Merged))
+        engine.prompt("t1", "undo that")
+        engine.prompt("t1", "start over")
+        assertEquals("Pull request 7 is already merged. Start a new task to change it.", said.last())
         assertTrue(claude.sent.isEmpty())
     }
 
