@@ -86,7 +86,9 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
 1. **Get the APK.** Download `cruise-control-vX.Y.Z.apk` from the latest
    [release](https://github.com/mjparinas/cruisecontrol/releases) and install it on your phone. You'll need to allow
    installs from that source. Every push also builds an APK, which you can find under the **Build** run's
-   Artifacts in the Actions tab.
+   Artifacts in the Actions tab. After that, the app looks for newer releases each time you open it and offers to
+   install the highest version that has an APK attached, so a release whose APK is still building doesn't hide the
+   earlier ones. **Check for updates** in Settings asks right away.
 2. **Claude API key.** Create one at [platform.claude.com](https://platform.claude.com). Usage is billed to that
    account. Tasks use Claude Opus 5.5 by default, and each task is a Managed Agents session.
 3. **GitHub token.** Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new) for

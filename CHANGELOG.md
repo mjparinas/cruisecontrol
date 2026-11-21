@@ -4,6 +4,9 @@
 
 - The car chat can use OpenAI or Gemini models. Add an OpenAI or Gemini API key under Accounts in Settings, then
   pick the model under Model for the car chat. Coding tasks still run on Claude.
+- The update check now finds new releases on its own. It used to read only GitHub's latest release, so right after a
+  merge, while that release's APK was still building, it said you were up to date. It now looks at the recent
+  releases and offers the highest version with an APK, comparing versions by number so v0.7.10 beats v0.7.9.
 
 ## v0.8.0
 
