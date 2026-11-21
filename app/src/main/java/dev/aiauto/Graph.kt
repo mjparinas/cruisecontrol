@@ -55,11 +55,10 @@ class Graph(context: Context) {
             override fun quietMode() = settings.quietMode
             override fun dailyLimitUsd() = settings.dailyLimitUsd
             override fun spentTodayUsd() = settings.spentTodayUsd
+            override fun monthlyLimitUsd() = settings.monthlyLimitUsd
+            override fun spentThisMonthUsd() = settings.spentThisMonthUsd
             override fun addSpend(usd: Double) = settings.addSpend(usd)
-            override fun autoMerge() = settings.autoMerge
-            override fun autoFixChecks() = settings.autoFixChecks
-            override fun autoFixConflicts() = settings.autoFixConflicts
-            override fun autoReleaseSince() = settings.autoReleaseSince
+            override fun repoSettings(repo: RepoRef) = settings.repoSettings(repo)
         },
         scope = scope,
         onMessage = { task, message ->
@@ -84,7 +83,7 @@ class Graph(context: Context) {
 
     /** The spoken conversation behind the car's mic button. */
     val assistant = Assistant(
-        apiKey = { secrets.anthropicKey },
+        apiKey = { secrets.chatKey(it) },
         actions = object : AssistantActions {
             override fun context(): String {
                 val repoList = repos.repos.value.joinToString(", ") { it.fullName }.ifEmpty { "none" }
@@ -145,7 +144,7 @@ class Graph(context: Context) {
 
             override fun merge(repo: RepoRef, number: Int) = voiceControls.merge(repo, number)
         },
-        canSpend = { settings.dailyLimitUsd?.let { settings.spentTodayUsd < it } ?: true },
+        canSpend = { engine.canSpend() },
         onSpend = { settings.addSpend(it) },
         profile = { settings.chatProfile },
         memory = { if (settings.rememberChats) chatMemory else dev.aiauto.core.NoChatMemory },
@@ -170,7 +169,10 @@ class Graph(context: Context) {
     }
 
     /** Keeps repos, tasks and settings the same on every device signed in to the same GitHub account. */
-    val sync = dev.aiauto.data.SyncManager(settings, secrets, tasks, repos, chatMemory, scope)
+    val sync = dev.aiauto.data.SyncManager(settings, secrets, tasks, repos, chatMemory, scope) { id ->
+        notifier.clear(id)
+        engine.clear(id)
+    }
 
     /** Each repo's status straight from GitHub, for the project screens on the phone and in the car. */
     val projects = Projects(githubToken = { secrets.githubToken }, scope = scope)
