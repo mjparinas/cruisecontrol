@@ -13,6 +13,7 @@ import dev.aiauto.core.GitHub
 import dev.aiauto.core.RepoRef
 import dev.aiauto.core.Projects
 import dev.aiauto.core.TaskEngine
+import dev.aiauto.data.AvailableRepoStore
 import dev.aiauto.data.FileChatMemory
 import dev.aiauto.core.VoiceControls
 import dev.aiauto.data.FileTaskStore
@@ -38,6 +39,7 @@ class Graph(context: Context) {
     val settings = Settings(context)
     val tasks = FileTaskStore(context)
     val repos = RepoStore(context)
+    val availableRepos = AvailableRepoStore(context)
     val chatMemory = FileChatMemory(context)
     val templates = TemplateStore(context)
     val speaker = Speaker(context, settings)
@@ -90,20 +92,20 @@ class Graph(context: Context) {
         apiKey = { secrets.chatKey(it) },
         actions = object : AssistantActions {
             override fun context(): String {
-                val repoList = repos.repos.value.joinToString(", ") { it.fullName }.ifEmpty { "none" }
+                val repoList = repoChoices().take(CHAT_REPOS).joinToString(", ") { it.fullName }.ifEmpty { "none" }
                 val recent = tasks.all().filter { !it.archived }.take(6).joinToString("\n") { t ->
                     "- task ${t.id} in ${t.repo.fullName}: ${t.title} (${dev.aiauto.car.TasksScreen.statusLabel(t)})" +
                         (t.lastMessage?.let { ". Last said: ${it.text.take(300)}" } ?: "")
                 }.ifEmpty { "none" }
                 val saved = templates.templates.value.joinToString("\n") { "- ${it.name}: ${it.prompt}" }.ifEmpty { "none" }
-                return "Saved repos: $repoList\nRecent tasks:\n$recent\nTask templates (saved requests the driver can start by name):\n$saved"
+                return "Repos, most recently used first: $repoList\nRecent tasks:\n$recent\nTask templates (saved requests the driver can start by name):\n$saved"
             }
 
             override fun startTask(repo: String, request: String): String {
-                val all = repos.repos.value
+                val all = repoChoices()
                 val match = all.firstOrNull { it.fullName.equals(repo, ignoreCase = true) }
                     ?: all.filter { it.name.equals(repo.substringAfter('/'), ignoreCase = true) }.singleOrNull()
-                    ?: throw IllegalArgumentException("No saved repo matches \"$repo\". Saved: ${all.joinToString { it.fullName }}")
+                    ?: throw IllegalArgumentException("No repo matches \"$repo\". Recent ones: ${all.take(CHAT_REPOS).joinToString { it.fullName }}")
                 require(request.isNotBlank()) { "The request is empty." }
                 val task = engine.start(match, request)
                 TaskService.ensureRunning(appContext)
@@ -169,6 +171,19 @@ class Graph(context: Context) {
         scope.launch {
             kotlinx.coroutines.delay(BRIEFING_DELAY_MILLIS)
             takeBriefing()?.let { if (settings.readAloudInCar && speaker.inCar) speaker.speak(it) }
+        }
+    }
+
+    /** Every repo a new task can start in: saved ones plus the ones the token can push to, most recently used first. */
+    fun repoChoices(): List<RepoRef> = RepoRef.choices(repos.repos.value, availableRepos.repos.value, tasks.all())
+
+    /** Fetches the repos the token can push to in the background. On failure the last list stays. */
+    fun refreshAvailableRepos() {
+        val token = secrets.githubToken ?: return
+        scope.launch(Dispatchers.IO) {
+            runCatching { GitHub(token).myRepos() }
+                .onSuccess { availableRepos.set(it) }
+                .onFailure { Log.w("AiAuto", "Couldn't list the token's repos", it) }
         }
     }
 
@@ -263,6 +278,8 @@ class Graph(context: Context) {
     val isConfigured: Boolean get() = secrets.anthropicKey != null && secrets.githubToken != null
 
     private companion object {
+        /** How many repos the car chat hears about and can name in an error, to keep its prompt short. */
+        const val CHAT_REPOS = 15
         /** Gives the car screen time to open and read the briefing itself, before music starts. */
         const val BRIEFING_DELAY_MILLIS = 8_000L
         /** Never brief on more than the last day, even after a long time away. */

@@ -110,6 +110,10 @@ Tasks, repos and sync:
 - Repos are added from the list of repos the token can push to, several at once, by typing owner/name, or by saying
   the name to the car assistant. Removing a repo needs a confirmation, leaves running tasks alone and changes nothing
   on GitHub.
+- A new task can start in any repo the token can push to, not only saved ones (PR 83). The phone and car pickers and
+  the car chat use `RepoRef.choices`: repos with tasks first, newest task first, then saved repos, then the rest in
+  GitHub's most recently pushed order. The token's list is cached on the device so the car picker opens without
+  waiting on GitHub; it isn't synced, and saved repos still decide what Projects shows and what syncs.
 - Sync across devices is opt-in and lives in a private repo named cruise-control-sync on the token owner's account.
   It never holds the API keys, GitHub token, voice, spending total or agent setup. Sync refuses to write to a public
   repo. It replaced a secret gist (PR 58) because anyone with a gist's link can read it.
@@ -252,6 +256,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- PR 83: Every repo the token can push to is offered for new tasks, most recently used first, in the phone and car
+  pickers and the car chat. Saving a repo is no longer needed to start a task there.
 - PR 90: A task isn't shown as Done while its open pull request's checks are running or not yet read. Its status
   pill says Checks running in amber, the colour already used for pending checks (`Task.checksRunning`).
 - PR 89: Listening and thinking tones, so the driver can tell the microphone opened or closed, or that Claude is
