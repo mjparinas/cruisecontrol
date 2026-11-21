@@ -43,13 +43,18 @@ send your words as soon as you stop speaking, so turn on **Unknown sources** to 
 Voice input also works inside tasks: open **Tasks**, then tap **Talk to Claude** at the top of the list (or **New task**),
 pick a repo if you have more than one, and speak your request. The repo list holds every repo your GitHub token can
 push to, not just the ones saved in Settings, with the ones you used most recently at the top; the car shows the
-first six. The phone **New task** screen uses the same list. The app keeps the last list it got from GitHub, so it
+first six. The phone **New task** screen uses the same list.
+
+The phone app is voice first too: the **New task** screen and each task's chat have no text box, just a floating
+microphone at the bottom right. Tap it and say your request. While it listens it turns into a **Stop** button. With
+**Keep listening until Stop** off, it sends as soon as you stop talking, and Stop sends what it heard so far; with it
+on, pauses don't send and Stop does. The app keeps the last list it got from GitHub, so it
 shows up right away even with no signal. To answer Claude, open a task and tap **Reply**, then
 speak. The app uses the car's microphone when Android Auto supports it, and the phone's otherwise. If voice
 doesn't work, you can fall back to replying to the Cruise Control message through Android Auto's messaging flow.
 
 You don't need to look at the screen to know what the microphone is doing: a short rising tone plays when the app
-starts listening and a falling one when it stops, on the car screen and from the phone app's mic button. While
+starts listening and a falling one when it stops, on the car screen and from the phone app's microphone. While
 Claude works on an answer to **Talk**, a soft tone plays after 3 seconds and every 5 seconds after that, up to 6
 times. The tones use the same assistant audio as the microphone, so music ducks for them like it does for speech.
 
@@ -81,7 +86,8 @@ whichever is reached first stops Claude and the car chat. The tighter of the two
 budget on Anthropic's side, so it holds even if the phone loses signal.
 
 While you're in the car, the app reads Claude's messages and short progress notes like "Building or testing"
-aloud, ducking your music while it talks. You can turn this off in Settings.
+aloud, ducking your music while it talks. You can turn this off in Settings. While the microphone is listening to
+you, new updates wait and are read once it stops, so the car doesn't talk over you.
 
 ## Voice commands
 
@@ -176,9 +182,8 @@ task and says "Starting on aiauto: add dark mode" (read aloud in the car, shown 
 - **Keep listening until Stop** (off by default): pauses don't end what you're saying. The car screen keeps listening
   through them and joins your words until you tap **Stop**, which sends them. It works on **Talk**, **New task** and
   **Reply**. With it on, saying nothing no longer ends the conversation, even at the start or if the speech recognizer
-  hiccups; tap **Stop** instead. The mic button in the
-  phone app's prompt box follows it too: instead of Google's speech dialog, which sends at the first pause, the app
-  listens itself and the mic turns into a Stop button that sends what you said, after anything you typed.
+  hiccups; tap **Stop** instead. The phone app's floating microphone follows it too: with it on, pauses don't send
+  and the microphone's Stop button sends what you said.
 - **Briefing when you get in** (on by default): when the phone connects to the car, Claude reads what happened
   since your last drive, up to a day back: merged pull requests, finished and failed tasks, questions waiting for
   you and what you've spent today. If the car screen is open it reads it there, then listens.

@@ -142,14 +142,15 @@ fun TaskScreen(
                     LinearProgressIndicator(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary)
                 }
                 if (task.status == TaskStatus.Failed) StoppedBanner(task, onRetry)
-                PromptBar(placeholder = "Ask for a change…", listenUntilStop = listenUntilStop, onSend = onSend)
             }
         },
+        floatingActionButton = { MicButton(listenUntilStop = listenUntilStop, onSend = onSend) },
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
             state = list,
-            contentPadding = PaddingValues(16.dp),
+            // Room at the bottom so the last message can scroll clear of the floating microphone.
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 136.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             task.prUrl?.let { url ->
