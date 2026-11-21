@@ -40,7 +40,9 @@ Driving safety comes first:
   review them while driving. The driver hears that a step was skipped and the task carries on.
 - Voice input sends as soon as the driver stops talking on the app's own car screen. The car screen opens on one big
   Talk button and starts listening when it opens. Android Auto's messaging view always asks for Send, which apps
-  can't turn off, so the app explains how to avoid it.
+  can't turn off, so the app explains how to avoid it. Keep listening until Stop (off by default) makes pauses not
+  send, both on the car screen and from the phone app's mic button, which then listens in the app instead of
+  opening Google's speech dialog.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
 - Short replies (status, stop, merge it, fix it, yes, no) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
@@ -214,7 +216,9 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
-- After PR 70: Archived task cards can be cleared by swiping left, after asking.
+- PR 74: The phone app's mic button follows Keep listening until Stop too, listening in the app with the same
+  `VoiceInput` as the car and a Stop button, instead of Google's speech dialog.
+- PR 71: Archived task cards can be cleared by swiping left, after asking.
 - PR 69: Every dependency moved to its latest stable release, including Gradle 9, Android Gradle Plugin 9,
   compileSdk 37.2, OkHttp 5 and Car App 1.7. targetSdk stays 35 and setup-gradle stays on v5.
 - PR 68: Added this file and `AgentsDocTest` to keep a checked record of decisions, imported from `CLAUDE.md`.
