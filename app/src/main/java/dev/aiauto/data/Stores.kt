@@ -284,6 +284,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("listen_until_stop", false)
         set(value) = prefs.edit().putBoolean("listen_until_stop", value).apply()
 
+    /** Experimental: let the steering wheel's play or pause button start Talk, and next or previous repeat the last update. */
+    var wheelButtons: Boolean
+        get() = prefs.getBoolean("wheel_buttons", false)
+        set(value) = prefs.edit().putBoolean("wheel_buttons", value).apply()
+
     /** Read a summary of what happened since the last drive when the phone connects to the car. */
     var briefingOnConnect: Boolean
         get() = prefs.getBoolean("briefing", true)
@@ -423,7 +428,7 @@ class Settings(context: Context) {
         val SYNCED_KEYS = setOf(
             "read_aloud", "theme_mode", "accent", "quiet_mode", "daily_limit", "monthly_limit", "repo_settings",
             "agent_profile", "chat_model", "chat_effort", "speech_rate", "listen_on_open", "listen_until_stop", "briefing",
-            "remember_chats",
+            "remember_chats", "wheel_buttons",
         )
 
         /** The global pull request switches from before per-repo settings, moved onto each repo by [moveGlobalRepoSettings]. */

@@ -32,6 +32,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     (Responses API) or Gemini (OpenAI-compatible endpoint); tests fake `ChatHttp`. Claude chat requests use
     automatic prompt caching, and `ModelChoice` holds each model's cache hit price. `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
     replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `Briefing.kt` is the drive briefing.
+    `SteeringWheel.kt` maps the experimental steering-wheel buttons to actions; the app's `car/WheelButtons.kt`
+    media session feeds it while the car screen shows.
   - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases
     (the highest recent release with an APK) and picks release-on-merge tags.
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the

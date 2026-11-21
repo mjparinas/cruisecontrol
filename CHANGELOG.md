@@ -8,6 +8,8 @@
   you or hear itself.
 - The car chat uses Claude's prompt caching, so each answer rereads the instructions and earlier turns from the
   cache instead of paying full price for them again. Its cost now counts cache writes and reads at their own prices.
+- An experimental Steering-wheel buttons switch in Settings, under In the car and off by default. While the car
+  screen is open, the wheel's play or pause button starts Talk, and next or previous repeats the last update.
 
 ## v0.8.0
 

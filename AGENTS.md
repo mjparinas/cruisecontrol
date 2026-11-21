@@ -51,6 +51,10 @@ Driving safety comes first:
   listening until Stop (off by default) makes pauses not send, both on the car screen and on the phone, and Stop
   sends instead. Until Stop, recognizer errors restart listening too (up to 5 in a row), since
   it often fails after silence or while restarting, and an error must never send.
+- Steering-wheel buttons are an experiment behind a setting, off by default: while the car screen shows, a media
+  session (`app/src/main/java/dev/aiauto/car/WheelButtons.kt`) turns play or pause into Talk and next or previous
+  into repeating the last update. It stays off by default because a media session can make Android Auto treat the
+  app as a media app.
 - `VoiceInput` plays a rising tone when a go at listening starts and a falling one when it ends, not on each
   restart until Stop. The car chat plays a soft cue 3 seconds into a slow answer and every 5 seconds after, at most
   6 times. Tones use the assistant audio attributes, like the microphone, so music ducks. Their shape and timing
@@ -279,7 +283,9 @@ Newest first. Earlier work (before PR 13) isn't in the history; add older decisi
   pill says Checks running in amber, the colour already used for pending checks (`Task.checksRunning`).
 - PR 89: Listening and thinking tones, so the driver can tell the microphone opened or closed, or that Claude is
   still answering, without looking at the screen.
-- Car chat questions asked with no signal are queued in `Assistant` and answered when the network comes back,
+- PR 88: Steering-wheel buttons, an experimental setting, off by default, where the wheel's play or pause
+  starts Talk and next or previous repeats the last update, through a media session that's only active then.
+- PR 87: Car chat questions asked with no signal are queued in `Assistant` and answered when the network comes back,
   instead of failing.
 - PR 82: Every task reads the repo's README.md, CLAUDE.md and AGENTS.md before anything else, asked for in the
   first prompt.
