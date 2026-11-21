@@ -383,13 +383,24 @@ class ClaudeAgents(apiKey: String) : AgentClient {
 
     companion object {
         const val REPO_PATH = "/workspace/repo"
+        /** Notes on the repository that Claude reads at the start of each task and keeps up to date. */
+        const val NOTES_FILE = "CLAUDE.md"
         private val ASK = Optional.of(BetaManagedAgentsAgentEvaluatedPermission.ASK)
 
-        /** The first message of a task: the user's spoken request plus the branch rules. */
+        /**
+         * The first message of a task: the user's spoken request plus the branch rules. It's sent with every task,
+         * not baked into the agent, so agents made before a change here pick it up too.
+         */
         fun firstPrompt(task: Task, request: String): String = """
             Repository: ${task.repo.fullName}, cloned at $REPO_PATH.
             Work on a new branch named `${task.branch}` created from `${task.repo.defaultBranch}`.
             Commit your changes and push the branch to origin. Don't open a pull request; the app does that.
+
+            Repository notes: if `$NOTES_FILE` exists at the repository root, read it first. It holds what earlier
+            tasks learned about this repository, so rely on it instead of exploring the whole repository again,
+            and only look further for what the request needs. If it's missing, create it. If it's wrong or your
+            change makes it out of date, fix it. Keep it short: what the project is, where things live, how to
+            build and test it, and its conventions. Commit it with your change.
 
             Request (spoken while driving, so it may contain transcription mistakes):
             $request

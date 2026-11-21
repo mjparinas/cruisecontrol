@@ -111,6 +111,10 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
   the web.
 - **Standing rules.** Tick common rules, like always adding tests or leaving CI files alone, and add your own, one
   per line. They're added to Claude's instructions for every task.
+- **Repository notes.** Each task asks Claude to read `CLAUDE.md` at the root of the repo first, so it doesn't have
+  to look through the whole repo again every time. If the file is missing, Claude writes it, and it fixes the file
+  when it's out of date, so the notes build up across tasks and arrive in the same pull request as the change. Edit
+  or delete it like any other file.
 - Changing any of these makes a new agent for the next task. Tasks already running keep the agent they started with.
 - **Listen when opened** (on by default): the car screen starts listening as soon as it opens, so saying
   "Hey Google, open Cruise Control", or pressing the steering-wheel voice button and saying that, is enough to start
