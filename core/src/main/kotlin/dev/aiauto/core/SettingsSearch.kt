@@ -54,6 +54,7 @@ class SettingsSearch(query: String) {
                 Setting("Voice", "speech speak"),
                 Setting("Listen when opened", "microphone mic hands-free start"),
                 Setting("Keep listening until Stop", "microphone mic dictation"),
+                Setting("Steering-wheel buttons (experimental)", "steering wheel play pause next previous media controls"),
                 Setting("Briefing when you get in", "summary welcome back"),
                 Setting("Remember past drives", "memory history chat"),
                 Setting("Forget past drives", "memory history clear delete chat"),

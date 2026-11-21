@@ -102,6 +102,7 @@ data class SettingsState(
     val voiceName: String? = null,
     val listenOnOpen: Boolean = true,
     val listenUntilStop: Boolean = false,
+    val wheelButtons: Boolean = false,
     val briefing: Boolean = true,
     val rememberChats: Boolean = true,
     val hasOpenAiKey: Boolean = false,
@@ -142,6 +143,7 @@ fun SettingsScreen(
     onPreviewVoice: () -> Unit = {},
     onListenOnOpen: (Boolean) -> Unit = {},
     onListenUntilStop: (Boolean) -> Unit = {},
+    onWheelButtons: (Boolean) -> Unit = {},
     onBriefing: (Boolean) -> Unit = {},
     onRememberChats: (Boolean) -> Unit = {},
     onForgetChats: () -> Unit = {},
@@ -255,8 +257,8 @@ fun SettingsScreen(
                         )
                         VoiceRows(state.speechRate, state.voiceName, voices, onSpeechRate, onVoice, onPreviewVoice)
                         CarStartRows(
-                            state.listenOnOpen, state.listenUntilStop, state.briefing, state.rememberChats,
-                            onListenOnOpen, onListenUntilStop, onBriefing, onRememberChats, onForgetChats,
+                            state.listenOnOpen, state.listenUntilStop, state.wheelButtons, state.briefing, state.rememberChats,
+                            onListenOnOpen, onListenUntilStop, onWheelButtons, onBriefing, onRememberChats, onForgetChats,
                         )
                     }
                 }

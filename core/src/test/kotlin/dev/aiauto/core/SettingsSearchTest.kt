@@ -32,6 +32,11 @@ class SettingsSearchTest {
         assertFalse(SettingsSearch("gemini").showsRow("Accounts", "GitHub token"))
     }
 
+    @Test fun findsTheSteeringWheelButtons() {
+        assertTrue(SettingsSearch("steering wheel").showsRow("In the car", "Steering-wheel buttons (experimental)"))
+        assertFalse(SettingsSearch("steering wheel").showsRow("In the car", "Quiet mode"))
+    }
+
     @Test fun sectionNameShowsAllItsRows() {
         val search = SettingsSearch("spending")
         SettingsSearch.CATALOGUE.getValue("Spending").forEach { assertTrue(search.showsRow("Spending", it.title)) }

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
@@ -325,15 +326,20 @@ internal fun VoiceRows(
     }
 }
 
-/** Hands-free start, listening until Stop, the welcome-back briefing, and memory across drives, in the "In the car" card. */
+/**
+ * Hands-free start, listening until Stop, the experimental steering-wheel buttons, the welcome-back briefing, and
+ * memory across drives, in the "In the car" card.
+ */
 @Composable
 internal fun CarStartRows(
     listenOnOpen: Boolean,
     listenUntilStop: Boolean,
+    wheelButtons: Boolean,
     briefing: Boolean,
     rememberOn: Boolean,
     onListenOnOpen: (Boolean) -> Unit,
     onListenUntilStop: (Boolean) -> Unit,
+    onWheelButtons: (Boolean) -> Unit,
     onBriefing: (Boolean) -> Unit,
     onRemember: (Boolean) -> Unit,
     onForget: () -> Unit,
@@ -348,6 +354,11 @@ internal fun CarStartRows(
         Icons.Rounded.StopCircle, BadgeHue.Violet, "Keep listening until Stop",
         "Pauses don't send what you said. The car and the phone's mic button keep listening until you tap Stop, so you can think mid-sentence.",
         listenUntilStop, onListenUntilStop,
+    )
+    SwitchRow(
+        Icons.Rounded.DirectionsCar, BadgeHue.Green, "Steering-wheel buttons (experimental)",
+        "While Cruise Control is open in the car, the wheel's play or pause button starts Talk and next or previous repeats the last update. Android Auto may then treat the app as a media app.",
+        wheelButtons, onWheelButtons,
     )
     SwitchRow(
         Icons.Rounded.WbSunny, BadgeHue.Amber, "Briefing when you get in",
