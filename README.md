@@ -138,7 +138,8 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
   talking. Android Auto doesn't let other apps take over the voice button itself.
 - **Keep listening until Stop** (off by default): pauses don't end what you're saying. The car screen keeps listening
   through them and joins your words until you tap **Stop**, which sends them. It works on **Talk**, **New task** and
-  **Reply**. With it on, saying nothing no longer ends the conversation; tap **Stop** instead. The mic button in the
+  **Reply**. With it on, saying nothing no longer ends the conversation, even at the start or if the speech recognizer
+  hiccups; tap **Stop** instead. The mic button in the
   phone app's prompt box follows it too: instead of Google's speech dialog, which sends at the first pause, the app
   listens itself and the mic turns into a Stop button that sends what you said, after anything you typed.
 - **Briefing when you get in** (on by default): when the phone connects to the car, Claude reads what happened
