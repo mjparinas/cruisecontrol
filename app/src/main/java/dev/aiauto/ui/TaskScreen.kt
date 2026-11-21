@@ -100,10 +100,9 @@ fun TaskScreen(
                     Column {
                         Text(task.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // A polite live region, so TalkBack says "Needs you" or "Done" when the status changes.
+                            // A polite live region, so TalkBack says "Needs you", "Checks running" or "Done" when the status changes.
                             StatusPill(
-                                task.status,
-                                interrupted = task.interrupted,
+                                task,
                                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                             )
                             Text(

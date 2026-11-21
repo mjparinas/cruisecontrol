@@ -147,6 +147,10 @@ data class Task(
     /** A pull request exists and hasn't been merged or closed yet. */
     val hasOpenPr: Boolean get() = prNumber != null && (prState ?: PrState.Open) == PrState.Open
 
+    /** Claude finished, but the pull request's checks are still running or haven't been read yet. */
+    val checksRunning: Boolean
+        get() = status == TaskStatus.Done && hasOpenPr && (checks == null || checks.state == Checks.Pending)
+
     /** Mid-turn, or cut off by a lost connection and still resumable. */
     val isActive: Boolean
         get() = status == TaskStatus.Working || status == TaskStatus.Starting || interrupted
