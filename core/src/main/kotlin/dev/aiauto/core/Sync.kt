@@ -20,7 +20,15 @@ data class SyncSnapshot(
     val removedTasks: List<String> = emptyList(),
     /** When the car chat's memory was last cleared on any device. Exchanges from before then stay forgotten. */
     val chatForgottenMillis: Long = 0,
+    /** When each repo was last added and removed on any device, so a removal syncs and a later add wins over it. */
+    val repoChanges: List<RepoChange> = emptyList(),
 )
+
+/** When a repo was last added and last removed. Times are 0 when that never happened, or happened before sync knew. */
+@Serializable
+data class RepoChange(val fullName: String, val addedMillis: Long = 0, val removedMillis: Long = 0) {
+    val removed: Boolean get() = removedMillis > addedMillis
+}
 
 object SyncMerge {
     /** Messages kept per task in the synced copy, so the gist stays small. Each device keeps its own full history. */
@@ -30,12 +38,12 @@ object SyncMerge {
     const val REMOVED_KEPT = 300
 
     /**
-     * Combines two snapshots. Repos are a union. Each task comes from whichever side changed it last, keeping every
+     * Combines two snapshots. Repos are a union, minus any removed later than it was added. Each task comes from whichever side changed it last, keeping every
      * message either side has. Settings come from whichever side changed them last. The car chat keeps the newest
      * exchanges from both. A task cleared on either side stays cleared, and so does car chat forgotten on either side.
      */
     fun merge(local: SyncSnapshot, remote: SyncSnapshot): SyncSnapshot {
-        val repos = (local.repos + remote.repos).distinctBy { it.fullName.lowercase() }
+        val (repos, repoChanges) = mergeRepos(local.repos, local.repoChanges, remote.repos, remote.repoChanges)
         val removed = (remote.removedTasks + local.removedTasks).distinct().takeLast(REMOVED_KEPT)
         val removedSet = removed.toSet()
         val remoteTasks = remote.tasks.associateBy { it.id }
@@ -72,7 +80,26 @@ object SyncMerge {
             chat = chat,
             removedTasks = removed,
             chatForgottenMillis = forgotten,
+            repoChanges = repoChanges,
         )
+    }
+
+    /**
+     * Repos from both sides, in order, without any whose latest change on either side is a removal. Keeps the newest
+     * add and removal time for each repo, so a repo removed on one device and added again later on another comes back.
+     */
+    fun mergeRepos(
+        local: List<RepoRef>,
+        localChanges: List<RepoChange>,
+        remote: List<RepoRef>,
+        remoteChanges: List<RepoChange>,
+    ): Pair<List<RepoRef>, List<RepoChange>> {
+        val changes = (localChanges + remoteChanges).groupBy { it.fullName.lowercase() }.map { (_, same) ->
+            RepoChange(same.first().fullName, same.maxOf { it.addedMillis }, same.maxOf { it.removedMillis })
+        }
+        val removed = changes.filter { it.removed }.map { it.fullName.lowercase() }.toSet()
+        val repos = (local + remote).distinctBy { it.fullName.lowercase() }.filter { it.fullName.lowercase() !in removed }
+        return repos to changes
     }
 
     /** The copy that goes in the gist: recent messages only, and nothing waiting to be sent. */

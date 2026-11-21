@@ -86,7 +86,8 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
    the repos you want to use. Set **Contents** and **Pull requests** to read and write, and **Checks** and
    **Commit statuses** to read. For sync across devices, the token also needs the private `cruise-control-sync` repo
    (see below). To let GitHub merge on its own, turn on **Allow auto-merge** in the repo's settings.
-4. **Settings in the app.** Paste both, then add repos as `owner/name`. The key and token are encrypted with the
+4. **Settings in the app.** Paste both, then add repos as `owner/name`. To remove a repo, tap it and confirm. Its
+   running tasks keep going and nothing changes on GitHub. The key and token are encrypted with the
    Android Keystore. The GitHub token is also sent to Anthropic for each session, so the sandbox can clone and
    push. Anthropic's proxy adds the token to git requests outside the sandbox, so code running in the sandbox
    never sees it.
@@ -136,6 +137,7 @@ The app syncs every three minutes while it runs, 20 seconds after a task changes
 now**. A task keeps running on the device that started it: other devices show it but don't follow its session or
 merge its pull request, until you reply to it or retry it from one of them, which moves it there. When both
 devices changed a task, the newer one wins and messages from both are kept. Settings work the same way as a whole.
+A repo removed on one device is removed on the others too, unless one of them added it again later.
 
 ## Building locally
 

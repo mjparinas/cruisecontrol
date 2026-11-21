@@ -6,7 +6,9 @@ import dev.aiauto.core.AgentSetup
 import dev.aiauto.core.ChatProfile
 import dev.aiauto.core.EffortChoice
 import dev.aiauto.core.ModelChoice
+import dev.aiauto.core.RepoChange
 import dev.aiauto.core.RepoRef
+import dev.aiauto.core.SyncMerge
 import dev.aiauto.core.Task
 import dev.aiauto.core.TaskStore
 import dev.aiauto.core.TaskTemplate
@@ -79,10 +81,36 @@ class FileTaskStore(context: Context) : TaskStore {
 
 class RepoStore(context: Context) {
     private val list = JsonListFile(File(context.filesDir, "repos.json"), RepoRef.serializer())
+    private val changes = JsonListFile(File(context.filesDir, "repo_changes.json"), RepoChange.serializer())
     val repos: StateFlow<List<RepoRef>> = list.flow
 
+    /** When each repo was last added and removed here or on another device, for sync. */
+    fun changes(): List<RepoChange> = changes.flow.value
+
     @Synchronized
-    fun add(repo: RepoRef) = list.set(list.flow.value.filter { it.fullName != repo.fullName } + repo)
+    fun add(repo: RepoRef) {
+        list.set(list.flow.value.filter { it.fullName != repo.fullName } + repo)
+        note(RepoChange(repo.fullName, addedMillis = System.currentTimeMillis()))
+    }
+
+    @Synchronized
+    fun remove(repo: RepoRef) {
+        list.set(list.flow.value.filter { !it.fullName.equals(repo.fullName, ignoreCase = true) })
+        note(RepoChange(repo.fullName, removedMillis = System.currentTimeMillis()))
+    }
+
+    /** Takes the repos a sync round merged, keeping anything added or removed here while the round ran. */
+    @Synchronized
+    fun applySynced(repos: List<RepoRef>, synced: List<RepoChange>) {
+        val (merged, mergedChanges) = SyncMerge.mergeRepos(list.flow.value, changes.flow.value, repos, synced)
+        if (merged != list.flow.value) list.set(merged)
+        if (mergedChanges != changes.flow.value) changes.set(mergedChanges)
+    }
+
+    private fun note(change: RepoChange) {
+        val (_, merged) = SyncMerge.mergeRepos(emptyList(), changes.flow.value, emptyList(), listOf(change))
+        changes.set(merged)
+    }
 
     @Synchronized
 

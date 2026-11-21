@@ -87,6 +87,7 @@ class SyncManager(
             chat = if (settings.rememberChats) chat.recent() else emptyList(),
             removedTasks = tasks.removedIds(),
             chatForgottenMillis = chat.forgottenMillis,
+            repoChanges = repos.changes(),
         )
         // The first round since the app started also moves an old sync gist into the repo and deletes it, in case a
         // device still on an older version made one again.
@@ -103,7 +104,7 @@ class SyncManager(
             // Skip a task that changed here while the round was running; the next round sends it.
             if (current == null || (current != incoming && current.updatedMillis <= incoming.updatedMillis)) tasks.put(incoming)
         }
-        merged.repos.filter { repos.find(it.fullName) == null }.forEach { repos.add(it) }
+        repos.applySynced(merged.repos, merged.repoChanges)
         if (merged.settingsChangedMillis > local.settingsChangedMillis) settings.importSynced(merged.settings, merged.settingsChangedMillis)
         if (settings.rememberChats) chat.replaceAll(merged.chat, merged.chatForgottenMillis)
     }
