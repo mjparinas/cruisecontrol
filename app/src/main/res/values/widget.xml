@@ -2,6 +2,7 @@
     <color name="widget_bg">#F7F6F2EA</color>
     <color name="widget_text">#2A2825</color>
     <color name="widget_subtle">#6B655D</color>
-    <color name="widget_accent">#C96F4A</color>
+    <!-- Darker than the brand clay so the bold spend line reads at 4.5:1 on the light card. -->
+    <color name="widget_accent">#9F502F</color>
     <string name="widget_description">Running tasks and today\'s spend</string>
 </resources>

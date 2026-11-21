@@ -89,13 +89,15 @@ class TaskEngine(
 
     /**
      * Adds a follow-up prompt to an existing task. Short spoken commands ("status", "stop", "merge it",
-     * "fix it") and yes or no answers to the app's own questions are handled here; the rest goes to Claude.
+     * "fix it", "repeat that", "quiet") and yes or no answers to the app's own questions are handled here; the rest
+     * goes to Claude.
      */
     fun prompt(taskId: String, text: String) {
         val task = store.get(taskId) ?: return
         val command = VoiceCommand.parse(text)
         val pending = task.pending
-        if (pending != null) journal.update(taskId) { it.copy(pending = null) }
+        // Hearing a question again shouldn't cancel it, so "repeat that" then "yes" still answers it.
+        if (pending != null && command != VoiceCommand.Repeat) journal.update(taskId) { it.copy(pending = null) }
         val checksFailing = task.hasOpenPr && task.checks?.state == Checks.Failing
         val conflicting = task.hasOpenPr && task.conflicts
         when {
@@ -123,6 +125,18 @@ class TaskEngine(
                 journal.append(taskId, Speaker.You, text)
                 scope.launch(dispatcher) {
                     runCatching { askToMerge(taskId) }.onFailure { journal.status(taskId, "Couldn't check the pull request. ${Failures.describe(it)}") }
+                }
+            }
+            command == VoiceCommand.Repeat -> {
+                if (!journal.repeatLast(taskId)) journal.status(taskId, "There's nothing to repeat yet.")
+            }
+            command == VoiceCommand.Quiet -> {
+                journal.append(taskId, Speaker.You, text)
+                if (config.quietMode()) {
+                    journal.status(taskId, "Quiet mode is already on.")
+                } else {
+                    config.setQuietMode(true)
+                    journal.status(taskId, "Quiet mode is on. I'll only read out results and alerts. Turn it off in Settings.")
                 }
             }
             else -> send(taskId, text, text)
@@ -365,6 +379,9 @@ class TaskEngine(
     /** Today's spend against the daily limit, for display. */
     fun spentTodayUsd(): Double = spending.spentTodayUsd()
 
+    /** False once the daily or monthly spending limit is reached, so the car chat stops answering too. */
+    fun canSpend(): Boolean = !spending.overLimit()
+
     // ---- Pull requests -------------------------------------------------------------------------
 
     /** True while some pull request's checks or merge are worth watching, so the app should stay awake. */
@@ -442,7 +459,7 @@ class TaskEngine(
                 claude.createSession(claude.createSetup(config.agentProfile()).also(config::saveAgentSetup), task, token)
             }
             val request = task.messages.filter { it.speaker == Speaker.You }.joinToString("\n") { it.text }
-            journal.update(taskId) { it.copy(sessionId = sessionId, pendingPrompt = ClaudeAgents.firstPrompt(it, request)) }
+            journal.update(taskId) { it.copy(sessionId = sessionId, pendingPrompt = ClaudeAgents.firstPrompt(it, request, config.repoSettings(it.repo).instructionLines)) }
             journal.step(taskId, Speaker.Status, "Claude is starting on ${task.repo.name}")
         }
         val current = store.get(taskId) ?: return

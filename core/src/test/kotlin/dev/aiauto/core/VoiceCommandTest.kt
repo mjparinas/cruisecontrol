@@ -8,7 +8,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Spoken shortcuts handled by the app: status, stop, merge with confirmation, and fixing failed checks. */
+/** Spoken shortcuts handled by the app: status, stop, merge with confirmation, fixing failed checks, repeat and quiet. */
 class VoiceCommandTest {
     @Test fun parsesCommands() {
         assertEquals(VoiceCommand.Merge, VoiceCommand.parse("Merge it."))
@@ -18,6 +18,12 @@ class VoiceCommandTest {
         assertEquals(VoiceCommand.FixBuild, VoiceCommand.parse("fix it"))
         assertEquals(VoiceCommand.Yes, VoiceCommand.parse("Yes, do it"))
         assertEquals(VoiceCommand.No, VoiceCommand.parse("no"))
+        assertEquals(VoiceCommand.Repeat, VoiceCommand.parse("Repeat that."))
+        assertEquals(VoiceCommand.Repeat, VoiceCommand.parse("say that again please"))
+        assertEquals(VoiceCommand.Quiet, VoiceCommand.parse("Quiet."))
+        assertEquals(VoiceCommand.Quiet, VoiceCommand.parse("quiet mode please"))
+        assertNull(VoiceCommand.parse("repeat the last step with the other file"))
+        assertNull(VoiceCommand.parse("add a quiet mode switch"))
         assertNull(VoiceCommand.parse("merge the two settings screens into one"))
         assertNull(VoiceCommand.parse("add a status bar to the home screen"))
     }
@@ -37,6 +43,9 @@ class VoiceCommandTest {
         override fun githubToken() = "token"
         override fun agentSetup() = AgentSetup("agent", 1, "env", AgentProfile())
         override fun saveAgentSetup(setup: AgentSetup) {}
+        var quiet = false
+        override fun quietMode() = quiet
+        override fun setQuietMode(on: Boolean) { quiet = on }
     }
 
     private class FakeClaude : AgentClient {
@@ -80,6 +89,7 @@ class VoiceCommandTest {
         }
     }
 
+    private val config = Config()
     private val store = MapStore()
     private val claude = FakeClaude()
     private val github = FakeGitHub()
@@ -87,7 +97,7 @@ class VoiceCommandTest {
 
     private val engine = TaskEngine(
         store = store,
-        config = Config(),
+        config = config,
         scope = CoroutineScope(SupervisorJob()),
         clock = { 1_000_000L },
         claudeFactory = { claude },
@@ -153,6 +163,34 @@ class VoiceCommandTest {
         taskWithPr(ChecksSummary(Checks.Pending, total = 1))
         engine.prompt("t1", "status")
         assertEquals("Checks are still running on pull request 7.", said.last())
+        assertTrue(claude.sent.isEmpty())
+    }
+
+    @Test fun repeatReadsTheLastMessageAgainAndKeepsTheQuestionOpen() {
+        taskWithPr()
+        engine.prompt("t1", "merge it")
+        val question = said.last()
+        engine.prompt("t1", "repeat that")
+        assertEquals(question, said.last())
+        assertTrue(claude.sent.isEmpty())
+
+        engine.prompt("t1", "yes")
+        assertEquals(listOf(7), github.merges)
+    }
+
+    @Test fun repeatWithNothingSaidYetSaysSo() {
+        taskWithPr()
+        engine.prompt("t1", "repeat")
+        assertEquals("There's nothing to repeat yet.", said.last())
+    }
+
+    @Test fun quietTurnsOnQuietMode() {
+        taskWithPr()
+        engine.prompt("t1", "quiet")
+        assertTrue(config.quiet)
+        assertTrue(said.last().startsWith("Quiet mode is on."))
+        engine.prompt("t1", "be quiet")
+        assertEquals("Quiet mode is already on.", said.last())
         assertTrue(claude.sent.isEmpty())
     }
 

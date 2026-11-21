@@ -3,6 +3,7 @@ package dev.aiauto.core
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -295,9 +296,9 @@ open class GitHub(private val token: String, private val http: OkHttpClient = Ok
         val gist = json.decodeFromString<Gist>(get("/gists/$id"))
         val file = gist.files[name] ?: return null
         if (!file.truncated) return file.content
-        return file.rawUrl?.let { url ->
-            http.newCall(Request.Builder().url(url).header("Authorization", "Bearer $token").build()).execute().use { it.body?.string() }
-        }
+        // The token goes only to GitHub's own gist host, never to wherever a raw URL happens to point.
+        val url = file.rawUrl?.toHttpUrlOrNull()?.takeIf { it.isHttps && it.host == GIST_RAW_HOST } ?: return null
+        return http.newCall(Request.Builder().url(url).header("Authorization", "Bearer $token").build()).execute().use { it.body.string() }
     }
 
     /** Makes a secret gist holding one file. Returns its id. */
@@ -315,22 +316,96 @@ open class GitHub(private val token: String, private val http: OkHttpClient = Ok
         send("PATCH", "/gists/$id", body)
     }
 
+    open fun deleteGist(id: String) {
+        send("DELETE", "/gists/$id", null)
+    }
+
+    // ---- The private sync repo -------------------------------------------------------------------------------
+
+    @Serializable
+    private data class UserJson(val login: String)
+
+    @Serializable
+    private data class VisibilityJson(
+        val name: String,
+        @SerialName("default_branch") val defaultBranch: String = "main",
+        val owner: RepoJson.Owner,
+        val private: Boolean,
+    )
+
+    @Serializable
+    private data class ContentJson(val sha: String, val content: String = "", val size: Long = 0, val encoding: String = "")
+
+    /** A file in a repo, with the sha GitHub needs to replace it. */
+    data class RepoFile(val content: String, val sha: String)
+
+    /** The token owner's login. */
+    open fun myLogin(): String = json.decodeFromString<UserJson>(get("/user")).login
+
+    /** The repo and whether it is private, or null when it doesn't exist or the token can't see it. */
+    open fun repoVisibility(owner: String, name: String): Pair<RepoRef, Boolean>? = try {
+        val r = json.decodeFromString<VisibilityJson>(get("/repos/$owner/$name"))
+        RepoRef(r.owner.login, r.name, r.defaultBranch) to r.private
+    } catch (e: GitHubException) {
+        if (e.code == 404) null else throw e
+    }
+
+    /** Makes a private repo on the token owner's account, with a first commit so files can be added. */
+    open fun createPrivateRepo(name: String, description: String): RepoRef {
+        val body = kotlinx.serialization.json.buildJsonObject {
+            put("name", kotlinx.serialization.json.JsonPrimitive(name))
+            put("description", kotlinx.serialization.json.JsonPrimitive(description))
+            put("private", kotlinx.serialization.json.JsonPrimitive(true))
+            put("auto_init", kotlinx.serialization.json.JsonPrimitive(true))
+        }.toString()
+        val r = json.decodeFromString<VisibilityJson>(send("POST", "/user/repos", body))
+        if (!r.private) throw SyncRepoNotPrivate("${r.owner.login}/${r.name}")
+        return RepoRef(r.owner.login, r.name, r.defaultBranch)
+    }
+
+    /** One file on the default branch, or null when it isn't there yet. */
+    open fun repoFile(repo: RepoRef, path: String): RepoFile? {
+        val meta = try {
+            json.decodeFromString<ContentJson>(get("/repos/${repo.fullName}/contents/$path"))
+        } catch (e: GitHubException) {
+            if (e.code == 404) return null
+            throw e
+        }
+        // Files over 1 MB come back without their content, so read those raw.
+        val text = if (meta.encoding == "base64" && (meta.content.isNotEmpty() || meta.size == 0L)) {
+            String(java.util.Base64.getMimeDecoder().decode(meta.content), Charsets.UTF_8)
+        } else {
+            send("GET", "/repos/${repo.fullName}/contents/$path", null, accept = "application/vnd.github.raw+json")
+        }
+        return RepoFile(text, meta.sha)
+    }
+
+    /** Writes [path] in one commit. [sha] is the file's current sha, or null to create it. */
+    open fun putRepoFile(repo: RepoRef, path: String, content: String, sha: String?, message: String) {
+        val body = kotlinx.serialization.json.buildJsonObject {
+            put("message", kotlinx.serialization.json.JsonPrimitive(message))
+            put("content", kotlinx.serialization.json.JsonPrimitive(java.util.Base64.getEncoder().encodeToString(content.toByteArray(Charsets.UTF_8))))
+            if (sha != null) put("sha", kotlinx.serialization.json.JsonPrimitive(sha))
+        }.toString()
+        send("PUT", "/repos/${repo.fullName}/contents/$path", body)
+    }
+
     private fun gistFiles(name: String, content: String) = kotlinx.serialization.json.buildJsonObject {
         put(name, kotlinx.serialization.json.buildJsonObject { put("content", kotlinx.serialization.json.JsonPrimitive(content)) })
     }
 
     private fun get(path: String) = send("GET", path, null)
 
-    private fun send(method: String, path: String, body: String?): String {
+    private fun send(method: String, path: String, body: String?, accept: String = "application/vnd.github+json"): String {
         val request = Request.Builder()
             .url("https://api.github.com$path")
             .header("Authorization", "Bearer $token")
-            .header("Accept", "application/vnd.github+json")
+            .header("Accept", accept)
             .header("X-GitHub-Api-Version", "2022-11-28")
             .method(method, body?.toRequestBody("application/json".toMediaType()))
             .build()
         http.newCall(request).execute().use { response ->
-            val text = response.body?.string().orEmpty()
+            val text = response.body.string()
             if (!response.isSuccessful) {
                 val message = runCatching { json.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(text)["message"]?.toString()?.trim('"') }
                     .getOrNull() ?: "HTTP ${response.code}"
@@ -342,5 +417,6 @@ open class GitHub(private val token: String, private val http: OkHttpClient = Ok
 
     private companion object {
         val OK_CONCLUSIONS = setOf("success", "neutral", "skipped")
+        const val GIST_RAW_HOST = "gist.githubusercontent.com"
     }
 }
