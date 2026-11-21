@@ -15,8 +15,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 ## Layout
 
 - `core/` is plain Kotlin (JVM 17) with all the logic and almost every unit test. Package `dev.aiauto.core`.
-  - `TaskEngine.kt` runs tasks: one session per task, prompts, the event stream, reconnects, and the daily and
-    monthly spending limits through `SpendingLimit.kt`.
+  - `TaskEngine.kt` runs tasks: one session per task, prompts, the event stream, reconnects, parked-mode approvals
+    (`setParked`, `answerApproval`), and the daily and monthly spending limits through `SpendingLimit.kt`.
   - `ClaudeAgents.kt` is the Managed Agents client. Its companion holds `SYSTEM_PROMPT` (baked into the agent)
     and `firstPrompt` (sent with each task, which starts by asking Claude to read README.md, CLAUDE.md and
     AGENTS.md). The agent is only remade when `AgentProfile` changes, so new per-task instructions belong in
@@ -38,7 +38,7 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases
     (the highest recent release with an APK) and picks release-on-merge tags.
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the
-  Compose phone UI, `car/` is the Car App Library UI (its `VoiceInput` also serves the phone's floating
+  Compose phone UI, `car/` is the Car App Library UI (`ParkedWatcher` reads the car's speed for parked mode; its `VoiceInput` also serves the phone's floating
   microphone, `MicButton` in `ui/Components.kt`, the only input on the New task and task chat screens;
   `core/Dictation.kt` decides when it listens again, sends or gives up),
   `notify/` holds notifications, text-to-speech (`Speaker` holds new speech while `VoiceInput` listens, using
@@ -78,13 +78,15 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   a release cut. To fix one, merge `origin/main` into its branch, keep only that pull request's own notes under
   Unreleased, keep the decision log newest first, and keep both sides of list entries. Open pull requests are the
   ones with a `refs/pull/N/merge` ref in `git ls-remote origin`; the GitHub API is rate-limited without a token.
+  That ref can be stale, so check for real conflicts with `git merge-tree --write-tree --name-only origin/main <branch>`.
   Push each merge straight to that pull request's own branch. When main added a setting, also add it to the
   branch's code that lists settings (such as `SettingsSearch.CATALOGUE`), not just the conflicting lines.
 
 ## Conventions
 
 - Tests live in `core/src/test/kotlin/dev/aiauto/core`, one file per area, using kotlin.test with fakes for
-  `AgentClient`, `EngineConfig` and `TaskStore`. Logic that needs testing goes in `core`, not `app`.
+  `AgentClient`, `EngineConfig` and `TaskStore`. Logic that needs testing goes in `core`, not `app`. Changing
+  `AgentClient.follow` means updating the `FakeClaude` in each test file that has one.
 - Short KDoc on public things, written as plain sentences. Comments explain why.
 - App text, messages and commits use Canadian spelling and plain, speakable sentences.
 - Update the README when a user-visible behaviour changes.

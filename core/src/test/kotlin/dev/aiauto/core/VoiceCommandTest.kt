@@ -65,6 +65,7 @@ class VoiceCommandTest {
             seenEventIds: MutableSet<String>,
             onConnected: () -> Unit,
             shouldStop: () -> Boolean,
+            canReview: () -> Boolean,
             onUpdate: (AgentUpdate) -> Unit,
         ): Boolean {
             onUpdate(AgentUpdate.Said("Fixed."))

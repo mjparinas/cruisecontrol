@@ -37,6 +37,7 @@ class AiAutoCarAppService : CarAppService() {
         private lateinit var mic: MicScreen
 
         override fun onCreateScreen(intent: Intent): Screen {
+            lifecycle.addObserver(ParkedWatcher(carContext))
             val wheel = WheelButtons(carContext, ::onWheel)
             lifecycle.addObserver(object : DefaultLifecycleObserver {
                 override fun onStart(owner: LifecycleOwner) = wheel.setActive(carContext.graph.settings.wheelButtons)

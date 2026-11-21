@@ -22,6 +22,8 @@ These started on this list and are now in the app. See the README for how they w
 - **Other AI providers for the car chat**: OpenAI and Gemini models, each with its own key in Settings.
 - **Every repo available, most recently used first**: the phone and car repo pickers and the car chat offer every
   repo the GitHub token can push to, not only saved ones, with repos you've used most recently at the top.
+- **Parked mode**: once the car stands still, steps the agent's safety check flags wait for Approve or Deny on the
+  car screen instead of being declined.
 - **Google Assistant shortcut**: "Hey Google, start a task to ... on Cruise Control" starts a task with no taps,
   once the app is uploaded to the Play Console.
 - **Listening and thinking tones**: a tone when the microphone opens and closes, and a soft cue while an answer is slow.
@@ -94,9 +96,6 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 
 ### Safety and cost
 
-- **Parked mode.** While driving, every step the agent's safety check flags is declined. Detecting that the car is
-  parked (the Car App Library's car hardware or driving-state APIs) would let those steps wait for an approve or deny
-  button on the car screen instead, so a task doesn't have to work around them.
 - **Monthly spend in the briefing.** The monthly limit is built, but the welcome-back briefing, home screen and
   widget only mention today's spend. They could say how much of the month is used.
 

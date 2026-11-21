@@ -116,7 +116,7 @@ class TasksScreen(carContext: CarContext) : Screen(carContext) {
             val pr = SpokenStatus.pullRequest(task)
             return when (task.status) {
                 TaskStatus.Starting -> "Starting"
-                TaskStatus.Working -> "Working"
+                TaskStatus.Working -> if (task.approval != null) "Needs your approval" else "Working"
                 TaskStatus.NeedsInput -> "Needs your reply" + (pr?.let { " · $it" } ?: "")
                 TaskStatus.Done -> pr ?: "Done"
                 TaskStatus.Failed -> if (task.interrupted) "Connection lost" else "Stopped"

@@ -55,6 +55,11 @@ class TaskEngine(
 
     fun isRunning(taskId: String) = running[taskId]?.isActive == true
 
+    /** The car reports it's stopped, so flagged steps wait for the driver instead of being declined. */
+    @Volatile
+    var isParked = false
+        private set
+
     /** Tasks this device runs. With sync, tasks another device started are only shown here, not followed. */
     private fun mine(): List<Task> {
         val me = config.deviceId()
@@ -242,12 +247,52 @@ class TaskEngine(
         runCatching { onAlert(task, kind, text) }
     }
 
+    // ---- Parked mode ---------------------------------------------------------------------------
+
+    /**
+     * Call when the car stops or starts moving, or disconnects. Steps waiting for review are denied as soon as the
+     * car moves, so Claude isn't left waiting while nobody can look at the screen.
+     */
+    fun setParked(parked: Boolean) {
+        isParked = parked
+        if (parked) return
+        store.all().filter { it.approval != null }.forEach { answer(it.id, allow = false, "Denied the step Claude wanted to run, because the car is moving.") }
+    }
+
+    /** The driver approved or denied the step [Task.approval] describes, from the car screen. */
+    fun answerApproval(taskId: String, allow: Boolean) {
+        if (allow && !isParked) return answer(taskId, allow = false, "Denied the step Claude wanted to run, because the car is moving.")
+        answer(taskId, allow, if (allow) "Approved. Claude is carrying on." else "Denied. Claude will find another way.")
+    }
+
+    private fun answer(taskId: String, allow: Boolean, line: String) {
+        val approval = store.get(taskId)?.approval ?: return
+        journal.update(taskId) { it.copy(approval = null) }
+        journal.status(taskId, line, notify = false)
+        val sessionId = store.get(taskId)?.sessionId ?: return
+        scope.launch(dispatcher) { withClaude { claude -> runCatching { claude.confirm(sessionId, approval.toolUseId, allow) } } }
+    }
+
+    /** Holds a flagged step for the driver while parked, or declines it if the car started moving in the meantime. */
+    private fun holdForApproval(claude: AgentClient, taskId: String, update: AgentUpdate.NeedsApproval) {
+        val sessionId = store.get(taskId)?.sessionId ?: return
+        if (!isParked) {
+            runCatching { claude.confirm(sessionId, update.toolUseId, allow = false) }
+            journal.step(taskId, Speaker.Status, "Skipped a risky ${update.toolName} step that needs review")
+            return
+        }
+        if (store.get(taskId)?.approval?.toolUseId == update.toolUseId) return
+        val approval = ToolApproval(update.toolUseId, update.toolName, update.detail)
+        journal.update(taskId) { it.copy(approval = approval) }
+        journal.status(taskId, "Claude wants to ${approval.summary}. Approve or deny it on the car screen.")
+    }
+
     /** Stops a task that's working: Claude is interrupted and the task waits for a new prompt. */
     fun stop(taskId: String) {
         val wasRunning = running.remove(taskId)?.also { it.cancel() } != null
         val task = store.get(taskId) ?: return
         if (!wasRunning && !task.isActive) return
-        journal.update(taskId) { it.copy(status = TaskStatus.Stopped, interrupted = false, interruptedSinceMillis = null, pendingPrompt = null) }
+        journal.update(taskId) { it.copy(status = TaskStatus.Stopped, interrupted = false, interruptedSinceMillis = null, pendingPrompt = null, approval = null) }
         journal.status(taskId, "Stopped. Reply to give Claude a new direction.", notify = false)
         val sessionId = task.sessionId ?: return
         scope.launch(dispatcher) {
@@ -472,7 +517,7 @@ class TaskEngine(
             val over = try {
                 runInterruptible {
                     var halted = false
-                    claude.follow(sessionId, seen, onConnected = { failures = 0 }, shouldStop = { halted }) { update ->
+                    claude.follow(sessionId, seen, onConnected = { failures = 0 }, shouldStop = { halted }, canReview = { isParked }) { update ->
                         heard = true
                         // Once the turn is over for the app (a failure, or the spending limit), ignore the rest.
                         if (!halted && handle(claude, taskId, update)) halted = true
@@ -503,6 +548,7 @@ class TaskEngine(
         is AgentUpdate.Progress -> { journal.progress(taskId, update.text); false }
         is AgentUpdate.Said -> { journal.step(taskId, Speaker.Claude, update.text); false }
         is AgentUpdate.Declined -> { journal.step(taskId, Speaker.Status, "Skipped a risky ${update.toolName} step that needs review"); false }
+        is AgentUpdate.NeedsApproval -> { holdForApproval(claude, taskId, update); false }
         is AgentUpdate.TurnDone -> true
         is AgentUpdate.Failed -> { journal.fail(taskId, update.reason); true }
         is AgentUpdate.BudgetReached -> { journal.fail(taskId, spending.limitMessage()); true }
@@ -537,7 +583,7 @@ class TaskEngine(
             }
         }
         val question = store.get(taskId)?.messages?.lastOrNull { it.speaker == Speaker.Claude }?.text?.trimEnd()?.takeIf { it.endsWith("?") }
-        journal.update(taskId) { it.copy(status = if (question != null) TaskStatus.NeedsInput else TaskStatus.Done, interruptedSinceMillis = null) }
+        journal.update(taskId) { it.copy(status = if (question != null) TaskStatus.NeedsInput else TaskStatus.Done, interruptedSinceMillis = null, approval = null) }
         if (question != null) alert(taskId, AlertKind.Question, question)
     }
 
@@ -552,6 +598,12 @@ class TaskEngine(
         private const val AUTO_RESUME_MILLIS = 2 * 60 * 60 * 1000L
         /** How long a working task may go without any update before the driver is told it looks stuck. */
         const val STUCK_MILLIS = 15 * 60 * 1000L
+
+        /** How long the car must stand still before it counts as parked, so rolling to a stop doesn't count. */
+        const val PARKED_AFTER_MILLIS = 10_000L
+
+        /** True when the car's reported speed means it's standing still. An unknown speed counts as moving. */
+        fun isStandingStill(metersPerSecond: Float?): Boolean = metersPerSecond != null && kotlin.math.abs(metersPerSecond) < 0.1f
 
         /** Sent when the driver asks Claude to fix the checks that failed on its pull request. */
         fun fixChecksPrompt(task: Task): String {

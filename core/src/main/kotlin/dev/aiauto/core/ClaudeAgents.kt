@@ -45,6 +45,9 @@ sealed interface AgentUpdate {
     /** A tool call needed approval; it was declined because nobody can review it while driving. */
     data class Declined(val toolName: String) : AgentUpdate
 
+    /** A tool call needs approval and the car is parked, so it waits for [AgentClient.confirm]. */
+    data class NeedsApproval(val toolUseId: String, val toolName: String, val detail: String?) : AgentUpdate
+
     data class Failed(val reason: String) : AgentUpdate
 
     /** The session's running total cost so far, in US dollars at list price. */
@@ -68,8 +71,13 @@ interface AgentClient : AutoCloseable {
         seenEventIds: MutableSet<String>,
         onConnected: () -> Unit = {},
         shouldStop: () -> Boolean = { false },
+        /** True while the driver can review flagged steps (the car is parked). Otherwise they're declined. */
+        canReview: () -> Boolean = { false },
         onUpdate: (AgentUpdate) -> Unit,
     ): Boolean
+
+    /** Answers a step reported as [AgentUpdate.NeedsApproval]. */
+    fun confirm(sessionId: String, toolUseId: String, allow: Boolean) {}
 
     /** Asks Claude to stop what it's doing. The session stays and can take a new prompt. */
     fun interrupt(sessionId: String) {}
@@ -217,12 +225,14 @@ class ClaudeAgents(apiKey: String) : AgentClient {
         seenEventIds: MutableSet<String>,
         onConnected: () -> Unit,
         shouldStop: () -> Boolean,
+        canReview: () -> Boolean,
         onUpdate: (AgentUpdate) -> Unit,
     ): Boolean {
         client.beta().sessions().events().streamStreaming(sessionId).use { stream ->
             var lastUserMessage = -1
             var lastStop: Pair<Int, BetaManagedAgentsSessionEvent>? = null
             val confirmed = HashSet<String>()
+            val calls = HashMap<String, Pair<String, String?>>()
             var lastCost: Double? = null
             for ((index, past) in client.beta().sessions().events().list(sessionId).autoPager().withIndex()) {
                 eventId(past._json())?.let { seenEventIds.add(it) }
@@ -230,6 +240,8 @@ class ClaudeAgents(apiKey: String) : AgentClient {
                     past.isSessionUsage() -> costOf(past.asSessionUsage().usage().listCost())?.let { lastCost = it }
                     past.isUserMessage() -> lastUserMessage = index
                     past.isUserToolConfirmation() -> confirmed.add(past.asUserToolConfirmation().toolUseId())
+                    past.isAgentToolUse() -> past.asAgentToolUse().let { calls[it.id()] = it.name() to detailOf(it.input()._additionalProperties()) }
+                    past.isAgentMcpToolUse() -> past.asAgentMcpToolUse().let { calls[it.id()] = it.name() to null }
                     past.isSessionStatusIdle() || past.isSessionStatusTerminated() -> lastStop = index to past
                     past.isSessionStatusRunning() || past.isSessionStatusRescheduled() -> lastStop = null
                 }
@@ -237,12 +249,12 @@ class ClaudeAgents(apiKey: String) : AgentClient {
             onConnected()
             lastCost?.let { onUpdate(AgentUpdate.Cost(it)) }
             val stop = lastStop
-            if (stop != null && stop.first > lastUserMessage && catchUp(sessionId, stop.second, confirmed, onUpdate)) return true
+            if (stop != null && stop.first > lastUserMessage && catchUp(sessionId, stop.second, confirmed, calls, canReview, onUpdate)) return true
             for (event in stream.stream()) {
                 if (shouldStop()) return true
                 val id = eventId(event._json())
                 if (id != null && !seenEventIds.add(id)) continue
-                if (handle(sessionId, event, onUpdate)) return true
+                if (handle(sessionId, event, canReview, onUpdate)) return true
             }
         }
         return false
@@ -253,6 +265,8 @@ class ClaudeAgents(apiKey: String) : AgentClient {
         sessionId: String,
         event: BetaManagedAgentsSessionEvent,
         confirmed: Set<String>,
+        calls: Map<String, Pair<String, String?>>,
+        canReview: () -> Boolean,
         onUpdate: (AgentUpdate) -> Unit,
     ): Boolean {
         if (event.isSessionStatusTerminated()) {
@@ -261,10 +275,10 @@ class ClaudeAgents(apiKey: String) : AgentClient {
         }
         val reason = event.asSessionStatusIdle().stopReason()
         if (reason.isRequiresAction()) {
-            // Claude was waiting on a tool approval when we lost the connection. Decline it as usual.
+            // Claude was waiting on a tool approval when we lost the connection. Ask again, or decline while driving.
             reason.asRequiresAction().eventIds().filter { it !in confirmed }.forEach { id ->
-                decline(sessionId, id)
-                onUpdate(AgentUpdate.Declined("tool"))
+                val (name, detail) = calls[id] ?: ("tool" to null)
+                askOrDecline(sessionId, id, name, detail, canReview, onUpdate)
             }
             return false
         }
@@ -272,7 +286,12 @@ class ClaudeAgents(apiKey: String) : AgentClient {
     }
 
     /** Returns true when the turn is over. */
-    private fun handle(sessionId: String, event: BetaManagedAgentsStreamSessionEvents, onUpdate: (AgentUpdate) -> Unit): Boolean {
+    private fun handle(
+        sessionId: String,
+        event: BetaManagedAgentsStreamSessionEvents,
+        canReview: () -> Boolean,
+        onUpdate: (AgentUpdate) -> Unit,
+    ): Boolean {
         when {
             event.isAgentMessage() -> {
                 val text = event.asAgentMessage().content()
@@ -283,20 +302,17 @@ class ClaudeAgents(apiKey: String) : AgentClient {
             }
             event.isAgentToolUse() -> {
                 val call = event.asAgentToolUse()
+                val input = call.input()._additionalProperties()
                 if (call.evaluatedPermission() == ASK) {
-                    decline(sessionId, call.id())
-                    onUpdate(AgentUpdate.Declined(call.name()))
+                    askOrDecline(sessionId, call.id(), call.name(), detailOf(input), canReview, onUpdate)
                 } else {
-                    val command = call.input()._additionalProperties()["command"]?.asString()?.orElse(null)
+                    val command = input["command"]?.asString()?.orElse(null)
                     SpokenStatus.forToolUse(call.name(), command)?.let { onUpdate(AgentUpdate.Progress(it)) }
                 }
             }
             event.isAgentMcpToolUse() -> {
                 val call = event.asAgentMcpToolUse()
-                if (call.evaluatedPermission() == ASK) {
-                    decline(sessionId, call.id())
-                    onUpdate(AgentUpdate.Declined(call.name()))
-                }
+                if (call.evaluatedPermission() == ASK) askOrDecline(sessionId, call.id(), call.name(), null, canReview, onUpdate)
             }
             event.isSessionStatusIdle() -> {
                 val reason = event.asSessionStatusIdle().stopReason()
@@ -328,20 +344,41 @@ class ClaudeAgents(apiKey: String) : AgentClient {
         return true
     }
 
-    private fun decline(sessionId: String, toolUseId: String) {
-        client.beta().sessions().events().send(
-            sessionId,
-            EventSendParams.builder()
-                .addEvent(
-                    BetaManagedAgentsUserToolConfirmationEventParams.builder()
-                        .toolUseId(toolUseId)
-                        .result(BetaManagedAgentsUserToolConfirmationEventParams.Result.DENY)
-                        .denyMessage("The user is driving and can't review this. Find a safer way, or explain what you need in one sentence.")
-                        .build(),
-                )
-                .build(),
-        )
+    /** Holds a flagged step for the driver while parked; declines it while driving. */
+    private fun askOrDecline(
+        sessionId: String,
+        toolUseId: String,
+        name: String,
+        detail: String?,
+        canReview: () -> Boolean,
+        onUpdate: (AgentUpdate) -> Unit,
+    ) {
+        if (canReview()) {
+            onUpdate(AgentUpdate.NeedsApproval(toolUseId, name, detail))
+        } else {
+            send(sessionId, toolUseId, allow = false, DRIVING_DENIAL)
+            onUpdate(AgentUpdate.Declined(name))
+        }
     }
+
+    override fun confirm(sessionId: String, toolUseId: String, allow: Boolean) =
+        send(sessionId, toolUseId, allow, DRIVER_DENIAL)
+
+    private fun send(sessionId: String, toolUseId: String, allow: Boolean, denyMessage: String) {
+        val event = BetaManagedAgentsUserToolConfirmationEventParams.builder().toolUseId(toolUseId)
+        if (allow) {
+            event.result(BetaManagedAgentsUserToolConfirmationEventParams.Result.ALLOW)
+        } else {
+            event.result(BetaManagedAgentsUserToolConfirmationEventParams.Result.DENY).denyMessage(denyMessage)
+        }
+        client.beta().sessions().events().send(sessionId, EventSendParams.builder().addEvent(event.build()).build())
+    }
+
+    /** The command, file or address a tool call touches, short enough for the car screen. */
+    private fun detailOf(input: Map<String, com.anthropic.core.JsonValue>): String? =
+        listOf("command", "file_path", "url", "query").firstNotNullOfOrNull { key -> input[key]?.asString()?.orElse(null) }
+            ?.let { it.replace(Regex("\\s+"), " ").trim().take(DETAIL_LENGTH) }
+            ?.takeIf { it.isNotBlank() }
 
     override fun interrupt(sessionId: String) {
         client.beta().sessions().events().send(
@@ -386,6 +423,9 @@ class ClaudeAgents(apiKey: String) : AgentClient {
         /** Notes on the repository that Claude reads at the start of each task and keeps up to date. */
         const val NOTES_FILE = "CLAUDE.md"
         private val ASK = Optional.of(BetaManagedAgentsAgentEvaluatedPermission.ASK)
+        private const val DETAIL_LENGTH = 160
+        private const val DRIVING_DENIAL = "The user is driving and can't review this. Find a safer way, or explain what you need in one sentence."
+        private const val DRIVER_DENIAL = "The user reviewed this step and denied it. Find another way, or explain what you need in one sentence."
 
         /**
          * The first message of a task: the user's spoken request plus the branch rules and [repoRules], the rules

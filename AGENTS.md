@@ -42,7 +42,10 @@ Driving safety comes first:
 - Everything Claude says is written to be heard: plain sentences, no markdown, lists, code or URLs, and nothing that
   asks the driver to look at a screen. `SpokenStatus` cleans agent text before it is shown or spoken.
 - Tool calls that the agent's permission check flags for review are declined automatically, because nobody can
-  review them while driving. The driver hears that a step was skipped and the task carries on.
+  review them while driving. The driver hears that a step was skipped and the task carries on. Once the car has
+  reported zero speed for 10 seconds (parked mode, `app/src/main/java/dev/aiauto/car/ParkedWatcher.kt`), such a step
+  waits for Approve or Deny on the car's task screen instead, and is denied as soon as the car moves or disconnects.
+  An unknown speed, or no speed permission, counts as moving.
 - Voice input sends as soon as the driver stops talking on the app's own car screen. The car screen opens on one big
   Talk button and starts listening when it opens. Android Auto's messaging view always asks for Send, which apps
   can't turn off, so the app explains how to avoid it. The phone app is voice first: the New task screen and the
@@ -62,7 +65,8 @@ Driving safety comes first:
 - Nothing is read aloud while the microphone is listening, so the car never talks over the driver or hears itself.
   `Speaker` holds new speech (up to 5 lines, oldest dropped) from when `VoiceInput` starts until it ends, across
   restarts, and then reads it. `core/src/main/kotlin/dev/aiauto/core/SpeechHold.kt` holds the logic.
-- The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
+- The car's task screen shows only the latest two lines, each cut to a glance of whole sentences, or one line while a
+  step waits for approval.
 - Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet, undo that, start over) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
 - A merge the driver asks for always asks for confirmation first, and the car assistant only merges on a yes in a
@@ -281,6 +285,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- PR 93: Parked mode. While the car is parked, steps the agent's safety check flags wait for Approve or Deny on the
+  car screen instead of being declined; driving off denies any still waiting.
 - PR 92: A search box at the top of Settings filters the page as you type. Pull request and repo-rule words find
   the Repositories section, since those settings live behind each repo.
 - A release without an APK is no use, so the Release workflow drafts a release the app published on merge until its

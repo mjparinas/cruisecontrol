@@ -52,6 +52,7 @@ class SpendingLimitTest {
             seenEventIds: MutableSet<String>,
             onConnected: () -> Unit,
             shouldStop: () -> Boolean,
+            canReview: () -> Boolean,
             onUpdate: (AgentUpdate) -> Unit,
         ) = true
         override fun setBudget(sessionId: String, maxUsd: Double) {

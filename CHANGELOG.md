@@ -15,6 +15,9 @@
   you or hear itself.
 - The car chat uses Claude's prompt caching, so each answer rereads the instructions and earlier turns from the
   cache instead of paying full price for them again. Its cost now counts cache writes and reads at their own prices.
+- Parked mode: once the car has stood still for ten seconds, a step Claude's safety check flags waits for you to
+  approve or deny it on the car's task screen, instead of being skipped. Driving off denies any step still waiting.
+  The car screen asks once for the car speed permission it needs.
 - A search box at the top of Settings shows only the settings that match what you type, by name, section or a
   related word like "colour" or "money". Searching for a pull request switch finds your repos, where those live now.
 - An experimental Steering-wheel buttons switch in Settings, under In the car and off by default. While the car
