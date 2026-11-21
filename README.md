@@ -181,6 +181,11 @@ task and says "Starting on aiauto: add dark mode" (read aloud in the car, shown 
 - **Listen when opened** (on by default): the car screen starts listening as soon as it opens, so saying
   "Hey Google, open Cruise Control", or pressing the steering-wheel voice button and saying that, is enough to start
   talking. Android Auto doesn't let other apps take over the voice button itself.
+- **Steering-wheel buttons (experimental)** (off by default): while Cruise Control is open on the car screen, the
+  wheel's play or pause button starts Talk, and next or previous repeats the last thing the app read aloud. It works
+  through a media session, so Android Auto may start treating the app as a media app with its own audio screen, and
+  some cars may keep sending the buttons to your music app instead. It takes effect the next time the car screen
+  opens.
 - **Keep listening until Stop** (off by default): pauses don't end what you're saying. The car screen keeps listening
   through them and joins your words until you tap **Stop**, which sends them. It works on **Talk**, **New task** and
   **Reply**. With it on, saying nothing no longer ends the conversation, even at the start or if the speech recognizer
@@ -241,8 +246,10 @@ checks its versions, numbers and paths against the code, so the build fails if i
 
 ## Making a release
 
-In the Actions tab, open **Release**, click **Run workflow** and enter the next version, like `v0.8.0`. You can
-also push a tag like that. Either way, the workflow tests the code, builds a release APK and publishes a GitHub
+In the Actions tab, open **Release** and click **Run workflow**. To choose the version yourself,
+enter the next version, like `v0.8.0`. Leave it empty to release the next patch version after the latest tag
+instead (for example `v0.7.20` becomes `v0.7.21`), the same way the app's auto-release picks it. You can also
+push a tag like `v0.8.0`. Either way, the workflow tests the code, builds a release APK and publishes a GitHub
 release with the APK attached. The version name comes from the tag and the version code from the run number, so
 there's nothing to bump in the code first.
 
@@ -256,7 +263,9 @@ earlier releases.
 Tap a repo in the app's Settings and turn on **Release when a PR is merged**. The app keeps watching the pull requests
 it opened in that repo for a few hours. When one is merged, it publishes a GitHub release on that repo with the next patch
 version (for example `v1.2.3` becomes `v1.2.4`, or `v0.1.0` if the repo has no version tags) and generated notes,
-then tells you in the car. Only PRs merged after you turn the toggle on get a release. The GitHub token already
+then tells you in the car. Only PRs merged after you turn the toggle on get a release. In this repo, the Release
+workflow turns that release back into a draft while it builds the APK and publishes it once the APK is attached, so
+a release is never left public without one. The GitHub token already
 has the Contents permission this needs.
 
 ## Limits worth knowing

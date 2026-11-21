@@ -51,6 +51,10 @@ Driving safety comes first:
   listening until Stop (off by default) makes pauses not send, both on the car screen and on the phone, and Stop
   sends instead. Until Stop, recognizer errors restart listening too (up to 5 in a row), since
   it often fails after silence or while restarting, and an error must never send.
+- Steering-wheel buttons are an experiment behind a setting, off by default: while the car screen shows, a media
+  session (`app/src/main/java/dev/aiauto/car/WheelButtons.kt`) turns play or pause into Talk and next or previous
+  into repeating the last update. It stays off by default because a media session can make Android Auto treat the
+  app as a media app.
 - `VoiceInput` plays a rising tone when a go at listening starts and a falling one when it ends, not on each
   restart until Stop. The car chat plays a soft cue 3 seconds into a slow answer and every 5 seconds after, at most
   6 times. Tones use the assistant audio attributes, like the microphone, so music ducks. Their shape and timing
@@ -198,8 +202,9 @@ Security:
 - Updates are only accepted from APKs that GitHub serves over HTTPS, and a downloaded APK must be signed with the
   installed app's key before the install prompt opens. Updates come from the mjparinas/cruisecontrol releases.
 - The update check lists the recent releases instead of reading GitHub's latest one, and offers the highest version
-  with an APK. Each release is published before the Release workflow attaches its APK, so the latest one alone
-  often has none.
+  with an APK. The app's release on merge publishes each release before the Release workflow attaches its APK, so
+  the workflow turns it back into a draft while it builds and publishes it once the APK is attached
+  (`ReleaseWorkflowTest` checks this). A failed build leaves the release a draft.
 - The shortcut's action reaches the exported `MainActivity`, so any app could send it. Android stops background
   apps from opening activities, the request can only target saved repos, the spending limits still apply, and the
   new task opens on screen and is announced, with Stop on it.
@@ -219,7 +224,9 @@ Security:
 - Android Lint only reports for now (`abortOnError = false` in `app/build.gradle.kts`) until the issues it found in
   existing code are fixed.
 - Releases come from the Release workflow (`.github/workflows/release.yml`), started from the Actions tab or by
-  pushing a tag like v0.8.0. The version name comes from the tag and the version code from the run number, so
+  pushing a tag like v0.8.0. Run from the Actions tab with the version left empty, it releases the next patch after
+  the latest tag, picked by `.github/scripts/next-version.sh` with the same rule as `Versions.nextPatch`, so
+  routine releases need no typing; hand-cut minor releases still enter their version. The version name comes from the tag and the version code from the run number, so
   nothing is bumped in code. Releases are signed with the key in the repo secrets. `CHANGELOG.md` gets an entry per
   release, newest first, and the README's release example names the newest one (`ChangelogTest` checks both).
   Release when a PR is merged is on for this repo, so merges publish patch tags between hand-cut minor releases.
@@ -272,6 +279,10 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- A release without an APK is no use, so the Release workflow drafts a release the app published on merge until its
+  APK is attached, instead of leaving it public while the APK builds.
+- PR 100: The Release workflow's version is optional. Left empty, it releases the next patch after the latest tag,
+  using a shell script that mirrors `Versions.nextPatch` and is tested in the Build workflow.
 - PR 98: The Claude car chat uses automatic prompt caching with the 5-minute lifetime, and its cost counts cache
   writes and reads at their own prices instead of the base input price.
 - The phone app is voice first: the prompt box with its text field and Send button is gone from the New task screen
@@ -286,7 +297,9 @@ Newest first. Earlier work (before PR 13) isn't in the history; add older decisi
   pill says Checks running in amber, the colour already used for pending checks (`Task.checksRunning`).
 - PR 89: Listening and thinking tones, so the driver can tell the microphone opened or closed, or that Claude is
   still answering, without looking at the screen.
-- Car chat questions asked with no signal are queued in `Assistant` and answered when the network comes back,
+- PR 88: Steering-wheel buttons, an experimental setting, off by default, where the wheel's play or pause
+  starts Talk and next or previous repeats the last update, through a media session that's only active then.
+- PR 87: Car chat questions asked with no signal are queued in `Assistant` and answered when the network comes back,
   instead of failing.
 - PR 86: Google Assistant shortcut that starts a task straight away, picking the repo from the request. It needs
   the app on the Play Console to work.

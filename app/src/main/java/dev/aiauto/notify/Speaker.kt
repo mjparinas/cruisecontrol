@@ -25,6 +25,10 @@ data class VoiceOption(val name: String, val label: String)
 class Speaker(context: Context, private val settings: dev.aiauto.data.Settings) {
     @Volatile var inCar = false
         private set
+
+    /** The last thing queued to be read aloud, for the steering wheel's repeat button. */
+    @Volatile var lastSaid: String? = null
+        private set
     private val audio = context.getSystemService(AudioManager::class.java)
     private val attributes = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
@@ -67,6 +71,7 @@ class Speaker(context: Context, private val settings: dev.aiauto.data.Settings) 
     @Synchronized
     fun speak(text: String, onDone: (() -> Unit)? = null) {
         if (text.isBlank()) return
+        lastSaid = text
         if (hold.offer(text to onDone)) return
         if (ready) say(text, onDone)
         else if (pending.size < MAX_PENDING) pending.add(text to onDone)
