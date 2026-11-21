@@ -14,9 +14,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import dev.aiauto.R
+import dev.aiauto.core.Tone
 import dev.aiauto.graph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -25,7 +27,7 @@ import kotlinx.coroutines.withContext
  * and shown here. Once the answer has been read out it listens again, so the driver can reply without
  * tapping; saying nothing ends the conversation. With "Keep listening until Stop" on, pauses don't send:
  * Stop does. Claude can start or answer coding tasks from the conversation too. The task list is one tap
- * away in the corner.
+ * away in the corner. A soft tone plays every few seconds while an answer is slow to come back.
  */
 class MicScreen(carContext: CarContext) : Screen(carContext) {
     private val g = carContext.graph
@@ -101,9 +103,18 @@ class MicScreen(carContext: CarContext) : Screen(carContext) {
         heard = spoken
         show(State.Thinking, "Thinking…")
         thinking = lifecycleScope.launch {
+            val cues = launch {
+                var waited = 0L
+                for (at in Tone.thinkingCues()) {
+                    delay(at - waited)
+                    waited = at
+                    g.tones.play(Tone.Thinking)
+                }
+            }
             val reply = withContext(Dispatchers.IO) {
                 runCatching { g.assistant.ask(spoken) }.getOrElse { "Sorry, that didn't go through. Try again." }
             }
+            cues.cancel()
             show(State.Idle, reply)
             runCatching { g.speaker.speak(reply) { lifecycleScope.launch { listenForReply(reply) } } }
         }

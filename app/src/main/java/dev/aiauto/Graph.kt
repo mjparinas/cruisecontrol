@@ -22,6 +22,7 @@ import dev.aiauto.data.Settings
 import dev.aiauto.data.TemplateStore
 import dev.aiauto.notify.Notifier
 import dev.aiauto.notify.Speaker
+import dev.aiauto.notify.TonePlayer
 import android.util.Log
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -39,6 +40,7 @@ class Graph(context: Context) {
     val chatMemory = FileChatMemory(context)
     val templates = TemplateStore(context)
     val speaker = Speaker(context, settings)
+    val tones = TonePlayer(context)
     val notifier = Notifier(context, settings, speaker)
     // Anything that slips past the engine's own error handling is logged instead of crashing the app.
     val scope = CoroutineScope(SupervisorJob() + CoroutineExceptionHandler { _, e -> Log.e("AiAuto", "Background work failed", e) })
