@@ -80,6 +80,9 @@ When you reply to a task, the app handles a few short phrases itself without wai
   leave it. If checks failed, it won't merge. It offers to have Claude fix them instead.
 - **"Fix it"** sends the names of the failing checks to Claude. When the app announces failed checks, you can also
   just say **"yes"**.
+- **"Repeat that"** (or "say that again") reads the task's last message aloud again, for when a turn or a passenger
+  drowned it out. A question the app asked stays open, so you can still answer it.
+- **"Quiet"** turns on quiet mode, so only results and alerts are read out. Turn it off again in Settings.
 
 Anything longer goes to Claude as usual, so "merge the two settings screens" is still a coding request.
 
