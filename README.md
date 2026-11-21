@@ -156,6 +156,10 @@ Requires JDK 17 and the Android SDK (API 35).
 ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug
 ```
 
+Before changing anything, read [AGENTS.md](AGENTS.md). It records the product, development and engineering
+decisions behind the app, and every change that affects one of them updates it in the same pull request. A core test
+checks its versions, numbers and paths against the code, so the build fails if it drifts.
+
 ## Making a release
 
 In the Actions tab, open **Release**, click **Run workflow** and enter the next version, like `v0.5.0`. You can

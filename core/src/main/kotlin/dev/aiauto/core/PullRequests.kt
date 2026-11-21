@@ -201,7 +201,7 @@ internal class PullRequests(
         }
     }
 
-    private companion object {
+    internal companion object {
         /** How long after opening a pull request the app keeps watching its checks. */
         const val WATCH_MILLIS = 3 * 60 * 60 * 1000L
         const val NO_CHECKS_GRACE_MILLIS = 10 * 60 * 1000L
