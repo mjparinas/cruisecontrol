@@ -298,7 +298,7 @@ open class GitHub(private val token: String, private val http: OkHttpClient = Ok
         if (!file.truncated) return file.content
         // The token goes only to GitHub's own gist host, never to wherever a raw URL happens to point.
         val url = file.rawUrl?.toHttpUrlOrNull()?.takeIf { it.isHttps && it.host == GIST_RAW_HOST } ?: return null
-        return http.newCall(Request.Builder().url(url).header("Authorization", "Bearer $token").build()).execute().use { it.body?.string() }
+        return http.newCall(Request.Builder().url(url).header("Authorization", "Bearer $token").build()).execute().use { it.body.string() }
     }
 
     /** Makes a secret gist holding one file. Returns its id. */
@@ -405,7 +405,7 @@ open class GitHub(private val token: String, private val http: OkHttpClient = Ok
             .method(method, body?.toRequestBody("application/json".toMediaType()))
             .build()
         http.newCall(request).execute().use { response ->
-            val text = response.body?.string().orEmpty()
+            val text = response.body.string()
             if (!response.isSuccessful) {
                 val message = runCatching { json.decodeFromString<Map<String, kotlinx.serialization.json.JsonElement>>(text)["message"]?.toString()?.trim('"') }
                     .getOrNull() ?: "HTTP ${response.code}"

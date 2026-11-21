@@ -269,6 +269,15 @@ class GitHubClientTest {
         assertEquals(500, assertFailsWith<GitHubException> { github.branchExists(repo, "claude/fix") }.code)
     }
 
+    @Test fun aReplyWithNoBodyIsReportedByItsStatus() {
+        val bare = OkHttpClient.Builder().addInterceptor { chain ->
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(502).message("Bad gateway").build()
+        }.build()
+        val e = assertFailsWith<GitHubException> { GitHub("token", bare).branchExists(repo, "claude/fix") }
+        assertEquals(502, e.code)
+        assertEquals("GitHub: HTTP 502", e.message)
+    }
+
     // ---- Repos and commits ----------------------------------------------------------------------------------
 
     private fun repoJson(name: String, push: Boolean, branch: String = "main") =

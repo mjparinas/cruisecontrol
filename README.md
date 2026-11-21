@@ -139,7 +139,7 @@ devices changed a task, the newer one wins and messages from both are kept. Sett
 
 ## Building locally
 
-Requires JDK 17 and the Android SDK (API 35).
+Requires JDK 17 and the Android SDK (API 37.2).
 
 ```
 ./gradlew :core:test :app:assembleDebug
