@@ -1,5 +1,49 @@
 # Changelog
 
+## Unreleased
+
+- Every coding task now starts by reading the repo's README.md, CLAUDE.md and AGENTS.md, whichever exist, so
+  Claude follows the project's own docs.
+- Keep listening until Stop now really waits for Stop. Staying quiet for the first few seconds used to end
+  listening, and on the phone a pause could send what you'd said. Hiccups from the speech recognizer now just
+  start listening again, and only Stop sends.
+- Task card swipes are swapped: swipe left to archive, with undo, and right to clear after the app asks. On the
+  Archived tab, swipe right to clear a task for good.
+
+## v0.8.0
+
+- Per-repo settings: tap a repo in Settings for its own Merge when checks pass, Fix merge conflicts automatically,
+  Fix failing checks automatically and Release when a PR is merged switches, plus rules for Claude that apply only
+  to that repo. These switches used to be global; on update, every saved repo keeps the values you had.
+- An optional monthly spending limit, off until you set it in Settings, on top of the daily one. Whichever is
+  reached first stops Claude and the car chat.
+- The car chat can use OpenAI or Gemini models. Add an OpenAI or Gemini API key under Accounts in Settings, then
+  pick the model under Model for the car chat. Coding tasks still run on Claude.
+- The update check finds new releases on its own. It used to read only GitHub's latest release, so right after a
+  merge, while that release's APK was still building, it said you were up to date. It now looks at the recent
+  releases and offers the highest version with an APK, comparing versions by number so v0.7.10 beats v0.7.9.
+- Sync across devices now lives in a private repo named cruise-control-sync instead of a secret gist, which anyone
+  with its link could read. The app moves an old sync gist into the repo and then deletes it. Give the GitHub token
+  Contents: read and write on that repo, and Administration: read and write if you want the app to make it.
+- Remove a saved repo from Settings, after confirming. Running tasks keep going, nothing changes on GitHub, and the
+  removal syncs to your other devices.
+- Swipe a task card right to archive it, with undo, or left to clear it after the app asks. On the Archived tab,
+  swipe left to clear a task for good.
+- A new Keep listening until Stop setting lets the car's Talk, New task and Reply screens listen through pauses
+  and send what you said when you tap Stop. The mic button in the phone app's prompt box follows it too.
+- Each task asks Claude to read CLAUDE.md repository notes first, and to create or fix them when they're missing or
+  out of date, so it doesn't explore the whole repo every time.
+- Updates are only accepted from APKs that GitHub serves over HTTPS, and a downloaded update must be signed with the
+  installed app's key before the install prompt opens.
+- Accessibility: accents and status colours meet AA contrast, TalkBack labels chat bubbles and offers Archive and
+  Clear as actions on task cards, the prompt box has an outline, accent swatches are easier to tap and the task
+  screen's top bar grows with large text.
+- The car's task screen shows less text, and the phone's task screen shows only the repo name, without the owner.
+- App text and what Claude writes use Canadian spelling.
+- Fixed tasks cleared on one device and forgotten car chat memory coming back from sync, a freeze when starting a
+  New chat in the car, a crash from Android 15's service timeout, and the task chat not scrolling to the last message.
+- Every dependency is on its latest stable release, including Android Gradle Plugin 9 and OkHttp 5.
+
 ## v0.7.1
 
 - New app icon again: a cruise control speedometer with the set-speed marker outside the dial, replacing the
