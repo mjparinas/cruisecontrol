@@ -45,9 +45,11 @@ Driving safety comes first:
   review them while driving. The driver hears that a step was skipped and the task carries on.
 - Voice input sends as soon as the driver stops talking on the app's own car screen. The car screen opens on one big
   Talk button and starts listening when it opens. Android Auto's messaging view always asks for Send, which apps
-  can't turn off, so the app explains how to avoid it. Keep listening until Stop (off by default) makes pauses not
-  send, both on the car screen and from the phone app's mic button, which then listens in the app instead of
-  opening Google's speech dialog. Until Stop, recognizer errors restart listening too (up to 5 in a row), since
+  can't turn off, so the app explains how to avoid it. The phone app is voice first: the New task screen and the
+  task chat have no text box, only a floating microphone at the bottom right (`MicButton`) that listens in the app
+  with `VoiceInput`, turns into a Stop button while listening, and sends when the person stops talking. Keep
+  listening until Stop (off by default) makes pauses not send, both on the car screen and on the phone, and Stop
+  sends instead. Until Stop, recognizer errors restart listening too (up to 5 in a row), since
   it often fails after silence or while restarting, and an error must never send.
 - `VoiceInput` plays a rising tone when a go at listening starts and a falling one when it ends, not on each
   restart until Stop. The car chat plays a soft cue 3 seconds into a slow answer and every 5 seconds after, at most
@@ -256,6 +258,9 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- The phone app is voice first: the prompt box with its text field and Send button is gone from the New task screen
+  and the task chat, replaced by a floating microphone at the bottom right that follows Keep listening until Stop.
+  Google's speech dialog is no longer used, so the microphone can always turn into a Stop button.
 - v0.8.0 was still untagged after PR 79, so everything merged since went into its changelog entry instead of a new
   version, and `ChangelogTest` now also checks that every version entry has notes.
 - PR 83: Every repo the token can push to is offered for new tasks, most recently used first, in the phone and car
