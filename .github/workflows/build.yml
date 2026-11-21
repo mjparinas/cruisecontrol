@@ -29,7 +29,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       # One Gradle invocation configures the project once and lets tests and the APK build run in parallel.
       - name: Unit tests and build APK
-        run: ./gradlew :core:test :app:assembleDebug --stacktrace
+        run: ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
           name: cruise-control-debug-apk
