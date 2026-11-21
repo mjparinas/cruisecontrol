@@ -155,6 +155,9 @@ data class Task(
 /** Tasks waiting on the user's reply come first, so they're never pushed off a short list. Otherwise keeps the order. */
 fun List<Task>.needsYouFirst(): List<Task> = sortedBy { it.status != TaskStatus.NeedsInput }
 
+/** How many tasks are running right now, not counting archived ones. Shown on the Active tab. */
+fun List<Task>.runningCount(): Int = count { !it.archived && it.isActive }
+
 /**
  * IDs of the agent and environments created for the current API key. [profile] is what the agent was made with;
  * null for setups saved before the app had agent settings. [webEnvironmentId] is the environment with open internet

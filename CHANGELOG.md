@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The Active tab on the phone's task list shows how many tasks are running right now, like Active (2).
 - A task whose pull request's checks are still running now says Checks running in amber instead of Done, so it
   doesn't look finished before the checks are.
 - Listening and thinking tones: a short rising tone when the app starts listening, a falling one when it stops,
