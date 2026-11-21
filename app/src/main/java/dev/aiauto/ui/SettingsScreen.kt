@@ -70,6 +70,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import dev.aiauto.core.ChatProvider
 import dev.aiauto.core.RepoRef
 import dev.aiauto.core.RepoSettings
 import dev.aiauto.core.SpokenStatus
@@ -96,6 +97,8 @@ data class SettingsState(
     val listenUntilStop: Boolean = false,
     val briefing: Boolean = true,
     val rememberChats: Boolean = true,
+    val hasOpenAiKey: Boolean = false,
+    val hasGeminiKey: Boolean = false,
     val syncEnabled: Boolean = false,
     val syncStatus: String = "",
     val busy: Boolean = false,
@@ -137,8 +140,14 @@ fun SettingsScreen(
     onForgetChats: () -> Unit = {},
     onSyncEnabled: (Boolean) -> Unit = {},
     onSyncNow: () -> Unit = {},
+    onSaveChatKey: (ChatProvider, String) -> Unit = { _, _ -> },
     onRepoSettings: (RepoRef, RepoSettings) -> Unit = { _, _ -> },
 ) {
+    fun hasKey(provider: ChatProvider) = when (provider) {
+        ChatProvider.Anthropic -> state.hasAnthropicKey
+        ChatProvider.OpenAI -> state.hasOpenAiKey
+        ChatProvider.Gemini -> state.hasGeminiKey
+    }
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
     var editing by remember { mutableStateOf<RepoRef?>(null) }
     var removing by remember { mutableStateOf<RepoRef?>(null) }
@@ -184,7 +193,18 @@ fun SettingsScreen(
                     if (state.hasGithubToken) "Saved" else "Not set",
                     enabled = !state.busy,
                 ) { dialog = SettingsDialog.GithubToken }
+                SettingRow(
+                    Icons.Rounded.Key, BadgeHue.Teal, "OpenAI API key",
+                    if (state.hasOpenAiKey) "Saved" else "Optional, for the car chat",
+                    enabled = !state.busy,
+                ) { dialog = SettingsDialog.OpenAiKey }
+                SettingRow(
+                    Icons.Rounded.Key, BadgeHue.Blue, "Gemini API key",
+                    if (state.hasGeminiKey) "Saved" else "Optional, for the car chat",
+                    enabled = !state.busy,
+                ) { dialog = SettingsDialog.GeminiKey }
             }
+            Note("Coding tasks always run on Claude. An OpenAI or Gemini key lets you pick one of their models for the car chat instead.")
 
             SectionHeader("Repositories")
             SettingsCard {
@@ -222,7 +242,7 @@ fun SettingsScreen(
                 )
             }
 
-            ClaudeSettingsSection(state.agentProfile, state.chatProfile, onAgentProfile, onChatProfile)
+            ClaudeSettingsSection(state.agentProfile, state.chatProfile, onAgentProfile, onChatProfile, ::hasKey)
 
             SectionHeader("Appearance")
             SettingsCard {
@@ -275,6 +295,16 @@ fun SettingsScreen(
             secret = true,
             onDismiss = { dialog = null },
         ) { onSaveKeys("", it) }
+        SettingsDialog.OpenAiKey, SettingsDialog.GeminiKey -> {
+            val provider = if (dialog == SettingsDialog.OpenAiKey) ChatProvider.OpenAI else ChatProvider.Gemini
+            TextDialog(
+                title = "${provider.label} API key",
+                help = "Create one at ${provider.keySite}. Only the car chat uses it, when you pick a ${provider.label} model under Claude. Usage is billed to that account and counts toward your spending limits.",
+                label = "API key",
+                secret = true,
+                onDismiss = { dialog = null },
+            ) { onSaveChatKey(provider, it) }
+        }
         SettingsDialog.PickRepos -> PickReposDialog(
             saved = state.repos,
             load = onLoadGithubRepos,
@@ -341,7 +371,7 @@ fun SettingsScreen(
     }
 }
 
-private enum class SettingsDialog { AnthropicKey, GithubToken, PickRepos, AddRepo, DailyLimit, MonthlyLimit, Theme }
+private enum class SettingsDialog { AnthropicKey, GithubToken, OpenAiKey, GeminiKey, PickRepos, AddRepo, DailyLimit, MonthlyLimit, Theme }
 
 /** Accent colour: a row of round swatches, the chosen one ticked. Each shrinks a little on a narrow phone rather than being cut off. */
 @Composable

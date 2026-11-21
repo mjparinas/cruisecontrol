@@ -253,6 +253,12 @@ class MainActivity : ComponentActivity() {
                                 settings = settings.copy(message = result, syncStatus = syncStatus())
                             }
                         },
+                        onSaveChatKey = { provider, key ->
+                            val saved = runCatching { g.secrets.setChatKey(provider, key) }
+                            settings = settings.copy(
+                                message = if (saved.isSuccess) "Saved." else "Couldn't save securely on this phone. Try again, or restart the app.",
+                            )
+                        },
                         onSyncNow = {
                             settings = settings.copy(busy = true, message = "Syncing…")
                             scope.launch {
@@ -310,6 +316,8 @@ class MainActivity : ComponentActivity() {
         listenUntilStop = graph.settings.listenUntilStop,
         briefing = graph.settings.briefingOnConnect,
         rememberChats = graph.settings.rememberChats,
+        hasOpenAiKey = graph.secrets.openAiKey != null,
+        hasGeminiKey = graph.secrets.geminiKey != null,
         syncEnabled = graph.settings.syncEnabled,
         syncStatus = syncStatus(),
     )

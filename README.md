@@ -94,10 +94,11 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
    **Commit statuses** to read. For sync across devices, the token also needs the private `cruise-control-sync` repo
    (see below). To let GitHub merge on its own, turn on **Allow auto-merge** in the repo's settings.
 4. **Settings in the app.** Paste both, then add repos as `owner/name`. Tap a repo for its own settings, or to
-   remove it with **Remove** and a confirmation. Its running tasks keep going and nothing changes on GitHub. The key and token are encrypted with the
-   Android Keystore. The GitHub token is also sent to Anthropic for each session, so the sandbox can clone and
-   push. Anthropic's proxy adds the token to git requests outside the sandbox, so code running in the sandbox
-   never sees it.
+   remove it with **Remove** and a confirmation. Its running tasks keep going and nothing changes on GitHub. You can
+   also add an OpenAI or Gemini API key to use their models for the car chat (see below). The keys and token are
+   encrypted with the Android Keystore. The GitHub token is also sent to Anthropic for each session, so the sandbox
+   can clone and push. Anthropic's proxy adds the token to git requests outside the sandbox, so code running in the
+   sandbox never sees it.
 5. **Android Auto.** Apps installed outside the Play Store only show up in the car after you allow them:
    - On the phone, open Android Auto settings.
    - Tap **Version** ten times to unlock developer settings.
@@ -113,6 +114,12 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
 
 - **Model and effort.** Settings > Claude picks the model (Opus 5.5, Sonnet 5.5 or Haiku 5.5) and effort for coding
   tasks, and separately for the spoken car chat, which defaults to low effort so answers come back quickly.
+- **OpenAI and Gemini for the car chat.** Add an **OpenAI API key** (from platform.openai.com) or a **Gemini API
+  key** (from aistudio.google.com) under Accounts, and the car chat's model list also offers GPT-6.2 Astra, GPT-6.2
+  Sol and GPT-6 Luna, or Gemini 4 Carbon and Gemini 4 Hydrogen. The chosen model answers in the car and can start,
+  check, stop and merge tasks the same way Claude does. Coding tasks always run on Claude, because each one is a
+  Claude Managed Agents session. Chat costs from every provider count toward the daily and monthly limits, at list
+  price. OpenAI requests aren't stored on OpenAI's side; the app sends the conversation with each request.
 - **Allow web search.** Lets Claude search the web and read pages while it works. Its workspace then runs with open
   internet access instead of only package registries. It applies to coding tasks only; the car chat doesn't search
   the web.
@@ -161,7 +168,7 @@ values you had. Per-repo settings sync with the other settings.
 
 Turn on **Sync across devices** in Settings on each phone or tablet. They share the file `cruise-control-sync.json` in a
 private repo named `cruise-control-sync` on the GitHub account of the token, which holds your repos, tasks (with their last 60
-messages), settings and the car chat's memory. The API key, GitHub token, voice, spending total and agent setup stay
+messages), settings and the car chat's memory. The API keys, GitHub token, voice, spending total and agent setup stay
 on each device. The app makes the repo the first time if the token has **Administration: read and write**.
 Otherwise make an empty private repo with that name yourself. Either way, give the token **Contents: read and write**
 on it. Sync stops if the repo is ever made public. Earlier versions kept sync in a secret gist, which anyone with its

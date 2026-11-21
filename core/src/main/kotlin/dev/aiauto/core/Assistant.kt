@@ -2,16 +2,6 @@ package dev.aiauto.core
 
 import com.anthropic.client.AnthropicClient
 import com.anthropic.client.okhttp.AnthropicOkHttpClient
-import com.anthropic.core.JsonValue
-import com.anthropic.models.messages.ContentBlockParam
-import com.anthropic.models.messages.Message
-import com.anthropic.models.messages.MessageCreateParams
-import com.anthropic.models.messages.MessageParam
-import com.anthropic.models.messages.OutputConfig
-import com.anthropic.models.messages.StopReason
-import com.anthropic.models.messages.Tool
-import com.anthropic.models.messages.ToolResultBlockParam
-import com.anthropic.models.messages.ToolUseBlock
 import java.time.Duration
 
 /** What the voice assistant can do in the app, beyond talking. The app wires these to [TaskEngine]. */
@@ -42,12 +32,12 @@ interface AssistantActions {
 }
 
 /**
- * A spoken conversation with Claude for the car's mic button. Each [ask] takes what the driver said and
- * returns what Claude says back, ready to be read aloud. Claude can also start a coding task or reply
- * to one through [AssistantActions]. Blocking: call it off the main thread.
+ * A spoken conversation for the car's mic button. Each [ask] takes what the driver said and returns the answer,
+ * ready to be read aloud. Claude answers by default; Settings can pick an OpenAI or Gemini model instead. Whichever
+ * answers can also start a coding task or reply to one through [AssistantActions]. Blocking: call it off the main thread.
  */
 class Assistant(
-    private val apiKey: () -> String?,
+    private val apiKey: (ChatProvider) -> String?,
     private val actions: AssistantActions,
     private val canSpend: () -> Boolean = { true },
     private val onSpend: (Double) -> Unit = {},
@@ -55,31 +45,36 @@ class Assistant(
     private val memory: () -> ChatMemory = { NoChatMemory },
     private val clock: () -> Long = System::currentTimeMillis,
     private val clientFactory: (String) -> AnthropicClient = ::defaultClient,
+    private val http: ChatHttp = OkHttpChatHttp(),
 ) {
-    private val history = mutableListOf<MessageParam>()
     /** Exchanges remembered before this start are from earlier drives, so they go in the system prompt. */
     private var startedMillis = clock()
     /** Counts the driver's questions, so a merge can only be confirmed by a later one. */
     private var turn = 0
     private val merges = MergeConfirmation(actions)
-    private var client: AnthropicClient? = null
-    private var clientKey: String? = null
+    private var conversation: ChatConversation? = null
+    /** The provider and key [conversation] was made for. A new model provider or key starts a new one. */
+    private var conversationFor: Pair<ChatProvider, String>? = null
 
     @Synchronized
     fun ask(spoken: String): String {
-        val key = apiKey() ?: return "Add your Anthropic API key in the app on your phone first."
+        val chat = profile()
+        val provider = chat.model.provider
+        val key = apiKey(provider) ?: return "Add your ${provider.label} API key in the app on your phone first."
         if (!canSpend()) return "You've reached your daily or monthly spending limit, so I can't answer right now. You can raise it in Settings on your phone."
-        val start = history.size
+        var talk: ChatConversation? = null
+        var start = 0
         return try {
-            val claude = clientFor(key)
+            talk = conversationFor(provider, key)
+            start = talk.size
             turn++
-            history += MessageParam.ofUser(spoken)
-            converse(claude).also { reply ->
+            talk.addUser(spoken)
+            converse(talk, chat).also { reply ->
                 runCatching { memory().remember(ChatExchange(spoken, reply, clock())) }
             }
         } catch (e: Throwable) {
             // Drop the half-finished turn so the next question starts from a clean history.
-            while (history.size > start) history.removeAt(history.size - 1)
+            talk?.rollback(start)
             Failures.describe(e)
         }
     }
@@ -87,90 +82,67 @@ class Assistant(
     /** Forgets the conversation, e.g. when the driver starts over. */
     @Synchronized
     fun reset() {
-        history.clear()
+        conversation?.rollback(0)
         startedMillis = clock()
         merges.clear()
     }
 
-    private fun converse(claude: AnthropicClient): String {
+    private fun converse(talk: ChatConversation, chat: ChatProfile): String {
         val spoken = StringBuilder()
         repeat(MAX_TOOL_ROUNDS) {
-            val chat = profile()
-            val message = claude.messages().create(params(chat))
-            onSpend(costUsd(message, chat.model))
-            history += message.toParam()
-            message.content().forEach { block -> block.text().ifPresent { spoken.appendSentence(it.text()) } }
-            val stop = message.stopReason().orElse(null)
-            if (stop == StopReason.REFUSAL) return spoken.ifBlank { "I can't help with that one." }.toString()
-            val calls = message.content().mapNotNull { it.toolUse().orElse(null) }
-            if (stop != StopReason.TOOL_USE || calls.isEmpty()) {
-                trimHistory()
+            val reply = talk.send(system(chat.model.provider), TOOLS, chat)
+            onSpend(reply.costUsd)
+            reply.text.forEach { spoken.appendSentence(it) }
+            if (reply.refused) return spoken.ifBlank { "I can't help with that one." }.toString()
+            if (reply.calls.isEmpty()) {
+                talk.trim(MAX_HISTORY)
                 return spoken.ifBlank { "Sorry, I didn't catch an answer. Try again." }.toString()
             }
-            history += MessageParam.ofUserOfContentBlockParams(calls.map { ContentBlockParam.ofToolResult(run(it)) })
+            talk.addResults(reply.calls.map(::run))
         }
-        trimHistory()
+        talk.trim(MAX_HISTORY)
         return spoken.ifBlank { "That took too many steps. Try asking again more simply." }.toString()
     }
 
-    private fun run(call: ToolUseBlock): ToolResultBlockParam {
-        val input = call._input().asObject().orElse(emptyMap())
-        fun arg(name: String) = input[name]?.asString()?.orElse(null)?.trim().orEmpty()
-        fun number(name: String): Int? = input[name]?.asNumber()?.orElse(null)?.toInt() ?: arg(name).filter { it.isDigit() }.toIntOrNull()
-        fun flag(name: String): Boolean = input[name]?.asBoolean()?.orElse(null) ?: arg(name).equals("true", ignoreCase = true)
+    private fun run(call: ToolCall): ToolResult {
+        fun arg(name: String) = call.args[name]?.trim().orEmpty()
+        fun number(name: String): Int? = arg(name).let { it.toIntOrNull() ?: it.filter { c -> c.isDigit() }.toIntOrNull() }
+        fun flag(name: String): Boolean = arg(name).equals("true", ignoreCase = true)
         val (text, error) = runCatching {
-            when (call.name()) {
+            when (call.name) {
                 START_TASK -> actions.startTask(arg("repo"), arg("request"))
                 REPLY_TO_TASK -> actions.replyToTask(arg("task_id"), arg("text"))
                 ADD_REPO -> actions.addRepo(arg("name"))
                 GET_STATUS -> actions.status(arg("repo"), number("pr_number"), arg("task_id"))
                 STOP_TASK -> actions.stopTask(arg("task_id"))
                 MERGE -> merges.handle(arg("repo"), number("pr_number"), flag("confirmed"), turn)
-                else -> throw IllegalArgumentException("Unknown tool ${call.name()}")
+                else -> throw IllegalArgumentException("Unknown tool ${call.name}")
             }
         }.fold({ it to false }, { (it.message ?: "That didn't work.") to true })
-        return ToolResultBlockParam.builder().toolUseId(call.id()).content(text).isError(error).build()
+        return ToolResult(call.id, text, error)
     }
 
-    private fun params(chat: ChatProfile): MessageCreateParams = MessageCreateParams.builder()
-        .model(chat.model.id)
-        .maxTokens(MAX_TOKENS)
-        // Low effort by default keeps replies quick, which matters more than depth while driving.
-        .outputConfig(OutputConfig.builder().effort(effort(chat.effort)).build())
-        .system(system())
-        .addTool(startTaskTool)
-        .addTool(replyTool)
-        .addTool(addRepoTool)
-        .addTool(statusTool)
-        .addTool(stopTool)
-        .addTool(mergeTool)
-        .messages(history.toList())
-        .build()
-
-    private fun system(): String {
+    private fun system(provider: ChatProvider): String {
         val earlier = runCatching { ChatMemory.describe(memory().recent(), startedMillis, clock()) }.getOrNull()
-        return SYSTEM + "\n\nCurrent state of the app:\n" + actions.context() +
+        return system(provider.assistantName) + "\n\nCurrent state of the app:\n" + actions.context() +
             (earlier?.let { "\n\n$MEMORY_INTRO\n$it" } ?: "")
     }
 
-    /** Keeps the conversation short. Only cuts right before a plain spoken question, so tool calls stay paired. */
-    private fun trimHistory() {
-        if (history.size <= MAX_HISTORY) return
-        val cut = (history.size - MAX_HISTORY until history.size).firstOrNull { i ->
-            history[i].role() == MessageParam.Role.USER && history[i].content().isString()
-        } ?: return
-        repeat(cut) { history.removeAt(0) }
-    }
-
-    private fun clientFor(key: String): AnthropicClient {
-        val current = client
-        if (current != null && clientKey == key) return current
+    private fun conversationFor(provider: ChatProvider, key: String): ChatConversation {
+        val current = conversation
+        if (current != null && conversationFor == provider to key) return current
         current?.close()
-        return clientFactory(key).also { client = it; clientKey = key }
+        val made = when (provider) {
+            ChatProvider.Anthropic -> AnthropicConversation(clientFactory(key))
+            ChatProvider.OpenAI -> OpenAiConversation(key, http)
+            ChatProvider.Gemini -> GeminiConversation(key, http)
+        }
+        conversation = made
+        conversationFor = provider to key
+        return made
     }
 
     companion object {
-        private const val MAX_TOKENS = 4000L
         private const val MAX_TOOL_ROUNDS = 4
         private const val MAX_HISTORY = 30
         private const val START_TASK = "start_coding_task"
@@ -184,8 +156,8 @@ class Assistant(
             "Your earlier conversations with the driver, from past drives, oldest first. Use them when the driver " +
                 "refers back to something, but don't bring them up unprompted:"
 
-        private val SYSTEM = """
-            You are Claude, talking with the driver through their car's speakers. Everything you write is read
+        private fun system(name: String) = """
+            You are $name, talking with the driver through their car's speakers. Everything you write is read
             aloud by text to speech, so answer in a few short spoken sentences: no markdown, lists, code, URLs,
             or emoji. Keep it brief and easy to follow while driving, and never encourage them to look at a screen.
             Use Canadian spelling, such as colour, centre, cancelled and organize.
@@ -203,127 +175,62 @@ class Assistant(
             merge on your own initiative.
         """.trimIndent()
 
-        private val startTaskTool = Tool.builder()
-            .name(START_TASK)
-            .description("Start a coding task: an agent works on the repo, pushes a branch and opens a pull request.")
-            .inputSchema(
-                Tool.InputSchema.builder()
-                    .properties(
-                        Tool.InputSchema.Properties.builder()
-                            .putAdditionalProperty("repo", stringProp("The repo as owner/name, from the saved repos list."))
-                            .putAdditionalProperty("request", stringProp("What to do, in the driver's words, made clear and complete."))
-                            .build(),
-                    )
-                    .required(listOf("repo", "request"))
-                    .build(),
-            )
-            .build()
-
-        private val replyTool = Tool.builder()
-            .name(REPLY_TO_TASK)
-            .description("Send a message to a task that already exists, such as an answer to its question.")
-            .inputSchema(
-                Tool.InputSchema.builder()
-                    .properties(
-                        Tool.InputSchema.Properties.builder()
-                            .putAdditionalProperty("task_id", stringProp("The task id from the recent tasks list."))
-                            .putAdditionalProperty("text", stringProp("The message for the task."))
-                            .build(),
-                    )
-                    .required(listOf("task_id", "text"))
-                    .build(),
-            )
-            .build()
-
-        private val addRepoTool = Tool.builder()
-            .name(ADD_REPO)
-            .description("Save one of the driver's GitHub repos so tasks can use it. Finds it among the repos their token can push to.")
-            .inputSchema(
-                Tool.InputSchema.builder()
-                    .properties(
-                        Tool.InputSchema.Properties.builder()
-                            .putAdditionalProperty("name", stringProp("The repo as the driver said it: owner/name, or just the name."))
-                            .build(),
-                    )
-                    .required(listOf("name"))
-                    .build(),
-            )
-            .build()
-
-        private val statusTool = Tool.builder()
-            .name(GET_STATUS)
-            .description(
+        private val TOOLS = listOf(
+            ChatTool(
+                START_TASK,
+                "Start a coding task: an agent works on the repo, pushes a branch and opens a pull request.",
+                listOf(
+                    Triple("repo", "string", "The repo as owner/name, from the saved repos list."),
+                    Triple("request", "string", "What to do, in the driver's words, made clear and complete."),
+                ),
+                required = listOf("repo", "request"),
+            ),
+            ChatTool(
+                REPLY_TO_TASK,
+                "Send a message to a task that already exists, such as an answer to its question.",
+                listOf(
+                    Triple("task_id", "string", "The task id from the recent tasks list."),
+                    Triple("text", "string", "The message for the task."),
+                ),
+                required = listOf("task_id", "text"),
+            ),
+            ChatTool(
+                ADD_REPO,
+                "Save one of the driver's GitHub repos so tasks can use it. Finds it among the repos their token can push to.",
+                listOf(Triple("name", "string", "The repo as the driver said it: owner/name, or just the name.")),
+                required = listOf("name"),
+            ),
+            ChatTool(
+                GET_STATUS,
                 "Check where things stand: a task, a pull request and its checks, or a repo's main branch and open pull requests. " +
                     "With no arguments, lists the tasks that are still going.",
-            )
-            .inputSchema(
-                Tool.InputSchema.builder()
-                    .properties(
-                        Tool.InputSchema.Properties.builder()
-                            .putAdditionalProperty("task_id", stringProp("A task id from the recent tasks list, if the driver means a task."))
-                            .putAdditionalProperty("repo", stringProp("The repo as owner/name or as the driver said it, if they named one."))
-                            .putAdditionalProperty("pr_number", intProp("The pull request number, if the driver said one."))
-                            .build(),
-                    )
-                    .build(),
-            )
-            .build()
-
-        private val stopTool = Tool.builder()
-            .name(STOP_TASK)
-            .description("Stop a task Claude is working on. With no task id, stops the only running task.")
-            .inputSchema(
-                Tool.InputSchema.builder()
-                    .properties(
-                        Tool.InputSchema.Properties.builder()
-                            .putAdditionalProperty("task_id", stringProp("The task id from the recent tasks list."))
-                            .build(),
-                    )
-                    .build(),
-            )
-            .build()
-
-        private val mergeTool = Tool.builder()
-            .name(MERGE)
-            .description(
+                listOf(
+                    Triple("task_id", "string", "A task id from the recent tasks list, if the driver means a task."),
+                    Triple("repo", "string", "The repo as owner/name or as the driver said it, if they named one."),
+                    Triple("pr_number", "integer", "The pull request number, if the driver said one."),
+                ),
+            ),
+            ChatTool(
+                STOP_TASK,
+                "Stop a task Claude is working on. With no task id, stops the only running task.",
+                listOf(Triple("task_id", "string", "The task id from the recent tasks list.")),
+            ),
+            ChatTool(
+                MERGE,
                 "Merge a pull request. Call it first without confirmed to check it and get a question for the driver. " +
                     "Call it again with confirmed true only after the driver said yes to that question.",
-            )
-            .inputSchema(
-                Tool.InputSchema.builder()
-                    .properties(
-                        Tool.InputSchema.Properties.builder()
-                            .putAdditionalProperty("repo", stringProp("The repo as owner/name or as the driver said it. Leave out if unclear."))
-                            .putAdditionalProperty("pr_number", intProp("The pull request number."))
-                            .putAdditionalProperty("confirmed", JsonValue.from(mapOf("type" to "boolean", "description" to "True only once the driver said yes.")))
-                            .build(),
-                    )
-                    .build(),
-            )
-            .build()
-
-        private fun intProp(description: String) = JsonValue.from(mapOf("type" to "integer", "description" to description))
-
-        private fun stringProp(description: String) = JsonValue.from(mapOf("type" to "string", "description" to description))
+                listOf(
+                    Triple("repo", "string", "The repo as owner/name or as the driver said it. Leave out if unclear."),
+                    Triple("pr_number", "integer", "The pull request number."),
+                    Triple("confirmed", "boolean", "True only once the driver said yes."),
+                ),
+            ),
+        )
 
         private fun defaultClient(key: String): AnthropicClient = AnthropicOkHttpClient.builder()
             .apiKey(key)
             .timeout(Duration.ofSeconds(60))
             .build()
-
-        fun costUsd(message: Message, model: ModelChoice = ModelChoice.Opus): Double {
-            val usage = message.usage()
-            val input = usage.inputTokens() + usage.cacheCreationInputTokens().orElse(0L) + usage.cacheReadInputTokens().orElse(0L)
-            return model.costUsd(input, usage.outputTokens())
-        }
-
-        private fun effort(effort: EffortChoice): OutputConfig.Effort = when (effort) {
-            EffortChoice.Low -> OutputConfig.Effort.LOW
-            EffortChoice.Medium -> OutputConfig.Effort.MEDIUM
-            EffortChoice.High -> OutputConfig.Effort.HIGH
-            EffortChoice.XHigh -> OutputConfig.Effort.XHIGH
-            EffortChoice.Max -> OutputConfig.Effort.MAX
-        }
 
         private fun StringBuilder.appendSentence(text: String) {
             val clean = text.trim()

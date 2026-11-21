@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The car chat can use OpenAI or Gemini models. Add an OpenAI or Gemini API key under Accounts in Settings, then
+  pick the model under Model for the car chat. Coding tasks still run on Claude.
+
 ## v0.8.0
 
 - Sync across devices now lives in a private repo named cruise-control-sync instead of a secret gist, which anyone

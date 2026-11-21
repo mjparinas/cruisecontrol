@@ -46,7 +46,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import dev.aiauto.core.AgentProfile
+import dev.aiauto.core.ChatModel
 import dev.aiauto.core.ChatProfile
+import dev.aiauto.core.ChatProvider
 import dev.aiauto.core.EffortChoice
 import dev.aiauto.core.ModelChoice
 import dev.aiauto.core.RepoRef
@@ -64,13 +66,17 @@ internal fun rateLabel(rate: Float): String = when (rate) {
 
 private enum class ClaudeDialog { Model, Effort, ChatModel, ChatEffort, Rules }
 
-/** The "Claude" section: which model and effort coding tasks and the car chat use, web search, and standing rules. */
+/**
+ * The "Claude" section: which model and effort coding tasks and the car chat use, web search, and standing rules.
+ * The car chat can also use an OpenAI or Gemini model; [hasKey] says which providers have a key saved.
+ */
 @Composable
 internal fun ClaudeSettingsSection(
     agent: AgentProfile,
     chat: ChatProfile,
     onAgent: (AgentProfile) -> Unit,
     onChat: (ChatProfile) -> Unit,
+    hasKey: (ChatProvider) -> Boolean = { true },
 ) {
     var dialog by remember { mutableStateOf<ClaudeDialog?>(null) }
     val ruleCount = agent.rules.count { name -> StandingRule.entries.any { it.name == name } } +
@@ -84,7 +90,10 @@ internal fun ClaudeSettingsSection(
         SettingRow(Icons.Rounded.Psychology, BadgeHue.Violet, "Effort for tasks", "${agent.effortChoice.label}. ${agent.effortChoice.blurb}") {
             dialog = ClaudeDialog.Effort
         }
-        SettingRow(Icons.Rounded.Forum, BadgeHue.Teal, "Model for the car chat", chat.model.label) { dialog = ClaudeDialog.ChatModel }
+        SettingRow(
+            Icons.Rounded.Forum, BadgeHue.Teal, "Model for the car chat",
+            chat.model.label + if (hasKey(chat.model.provider)) "" else ". Add a ${chat.model.provider.label} API key under Accounts first.",
+        ) { dialog = ClaudeDialog.ChatModel }
         SettingRow(Icons.Rounded.Speed, BadgeHue.Blue, "Effort for the car chat", "${chat.effort.label}. ${chat.effort.blurb}") {
             dialog = ClaudeDialog.ChatEffort
         }
@@ -117,9 +126,9 @@ internal fun ClaudeSettingsSection(
         ) { onAgent(agent.copy(effort = it.name)) }
         ClaudeDialog.ChatModel -> ChoiceDialog(
             title = "Model for the car chat",
-            options = ModelChoice.entries,
+            options = ChatModel.entries,
             selected = chat.model,
-            label = { "${it.label}: ${it.blurb}" },
+            label = { "${it.label}: ${it.blurb}" + if (hasKey(it.provider)) "" else " (needs a ${it.provider.label} key)" },
             onDismiss = { dialog = null },
         ) { onChat(chat.copy(model = it)) }
         ClaudeDialog.ChatEffort -> ChoiceDialog(
