@@ -75,6 +75,6 @@ data class AgentProfile(
 
 /** The model and effort for the spoken chat in the car. Low effort by default, so answers come back quickly. */
 data class ChatProfile(
-    val model: ModelChoice = ModelChoice.Opus,
+    val model: ChatModel = ChatModel.Opus,
     val effort: EffortChoice = EffortChoice.Low,
 )
