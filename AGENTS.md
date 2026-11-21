@@ -98,8 +98,9 @@ Tasks, repos and sync:
 
 - One task is one Managed Agents session on one repo. Tasks that need a reply are listed first, and new tasks start
   on the last-used repo.
-- On the phone, swiping a task card right archives it with undo, and swiping left clears it after asking (PR 65).
-  On the Archived tab, swiping left clears an archived task after asking; there's no right swipe there.
+- On the phone, swiping a task card left archives it with undo, and swiping right clears it after asking (PR 65,
+  directions swapped later). On the Archived tab, swiping right clears an archived task after asking; there's no
+  left swipe there.
   Archived tasks are hidden from the car and the voice assistant.
 - Repos are added from the list of repos the token can push to, several at once, by typing owner/name, or by saying
   the name to the car assistant. Removing a repo needs a confirmation, leaves running tasks alone and changes nothing
@@ -243,8 +244,9 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
-- Next PR: Keep listening until Stop restarts on recognizer errors instead of stopping or sending, so silence at
+- PR 81: Keep listening until Stop restarts on recognizer errors instead of stopping or sending, so silence at
   the start or a hiccup between pauses no longer ends it.
+- PR 80: Swipe directions on task cards swapped: swipe left archives, swipe right clears after asking, on both tabs.
 - PR 78: The update check offers the highest recent release with an APK, not just GitHub's latest release, which
   often has no APK yet right after a merge.
 - PR 77: The car chat can use OpenAI or Gemini models with their own optional keys. Coding tasks stay on Claude.
