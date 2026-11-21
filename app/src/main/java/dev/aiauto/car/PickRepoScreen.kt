@@ -15,7 +15,7 @@ import dev.aiauto.core.TaskTemplate
 import dev.aiauto.graph
 
 /**
- * Picks the repo for a new task, then listens for the spoken request on the car screen.
+ * Picks the repo for a new task from every repo the token can push to, last used first, then listens for the spoken request on the car screen.
  * With a [template], the task starts right away with the template's request instead.
  */
 class PickRepoScreen(carContext: CarContext, private val template: TaskTemplate? = null) : Screen(carContext) {
@@ -23,7 +23,7 @@ class PickRepoScreen(carContext: CarContext, private val template: TaskTemplate?
 
     override fun onGetTemplate(): Template {
         val items = ItemList.Builder().setNoItemsMessage("Add a repo on your phone first.")
-        g.repos.repos.value.take(6).forEach { repo ->
+        g.repoChoices().take(6).forEach { repo ->
             items.addItem(
                 Row.Builder()
                     .setTitle(repo.name)
@@ -46,14 +46,14 @@ class PickRepoScreen(carContext: CarContext, private val template: TaskTemplate?
     companion object {
         /** Starts a new task by voice: straight to listening with one repo, otherwise asks which repo first. */
         fun startNewTask(carContext: CarContext, screenManager: ScreenManager) {
-            val repos = carContext.graph.repos.repos.value
+            val repos = carContext.graph.repoChoices()
             if (repos.size == 1) listenForTask(carContext, screenManager, repos.first())
             else screenManager.push(PickRepoScreen(carContext))
         }
 
         /** Starts [template] as a task: straight away with one repo, otherwise asks which repo first. */
         fun startTemplate(carContext: CarContext, screenManager: ScreenManager, template: TaskTemplate) {
-            val repos = carContext.graph.repos.repos.value
+            val repos = carContext.graph.repoChoices()
             if (repos.size == 1) runTemplate(carContext, screenManager, repos.first(), template)
             else screenManager.push(PickRepoScreen(carContext, template))
         }

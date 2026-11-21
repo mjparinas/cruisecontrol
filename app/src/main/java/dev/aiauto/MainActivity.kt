@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}.launch(permissions.toTypedArray())
         askToRunInBackground()
         val g = graph
+        g.refreshAvailableRepos()
         // A recreated activity or one reopened from Recents still carries the shortcut, which already started its task.
         val fresh = savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
         screen = intent.taskTarget() ?: intent.takeIf { fresh }?.startFromShortcut() ?: if (g.isConfigured) Screen.Home else Screen.Settings
@@ -78,6 +79,8 @@ class MainActivity : ComponentActivity() {
                 dev.aiauto.update.UpdateDialog((application as AiAutoApp).updater)
                 val tasks by g.tasks.tasks.collectAsStateWithLifecycle()
                 val repos by g.repos.repos.collectAsStateWithLifecycle()
+                val availableRepos by g.availableRepos.repos.collectAsStateWithLifecycle()
+                val repoChoices = remember(repos, availableRepos, tasks) { RepoRef.choices(repos, availableRepos, tasks) }
                 val templates by g.templates.templates.collectAsStateWithLifecycle()
                 val views by g.projects.repos.collectAsStateWithLifecycle()
                 var projectMessage by remember { mutableStateOf<String?>(null) }
@@ -89,12 +92,15 @@ class MainActivity : ComponentActivity() {
                 when (val s = screen) {
                     Screen.Home -> HomeScreen(
                         tasks = tasks,
-                        hasRepos = repos.isNotEmpty() && g.isConfigured,
+                        hasRepos = repoChoices.isNotEmpty() && g.isConfigured,
                         onOpen = { screen = Screen.Detail(it.id) },
                         onArchive = { g.engine.archive(it.id); g.notifier.clear(it.id) },
                         onUnarchive = { g.engine.unarchive(it.id) },
                         onClear = { g.engine.clear(it.id); g.notifier.clear(it.id) },
-                        onNew = { screen = Screen.NewTask },
+                        onNew = {
+                            g.refreshAvailableRepos()
+                            screen = Screen.NewTask
+                        },
                         onSettings = { screen = Screen.Settings },
                         onProjects = {
                             projectMessage = null
@@ -122,7 +128,7 @@ class MainActivity : ComponentActivity() {
                         },
                     )
                     Screen.NewTask -> NewTaskScreen(
-                        repos = repos,
+                        repos = repoChoices,
                         lastUsed = tasks.maxByOrNull { it.createdMillis }?.repo,
                         templates = templates,
                         onAddTemplate = { name, prompt -> g.templates.add(name, prompt) },

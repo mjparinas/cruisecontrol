@@ -25,7 +25,7 @@ as messages that the car reads aloud. Every task starts by having Claude read th
 
 Tap **Talk** on the car screen and say anything. Claude (Opus 5.5, low effort for quick answers) replies out loud
 through the car speakers, then listens for your reply, which is sent as soon as you stop talking. Say nothing to end
-the conversation. Claude can also start a coding task in one of your saved repos or answer a running task when you
+the conversation. Claude can also start a coding task in any repo your GitHub token can push to or answer a running task when you
 ask it to. You can also add a repo by voice: say something like "add my repo aiauto" and Claude finds it among the
 repos your GitHub token can push to and saves it. **New chat** starts the conversation over. Each answer counts toward the daily and monthly spending limits.
 If there's no signal when you ask, in a tunnel or a dead zone, Claude says it'll send your question when you're back
@@ -41,7 +41,10 @@ answer arrives in the same conversation and is read aloud. In this view Android 
 send your words as soon as you stop speaking, so turn on **Unknown sources** to talk without pressing anything.
 
 Voice input also works inside tasks: open **Tasks**, then tap **Talk to Claude** at the top of the list (or **New task**),
-pick a repo if you have more than one, and speak your request. To answer Claude, open a task and tap **Reply**, then
+pick a repo if you have more than one, and speak your request. The repo list holds every repo your GitHub token can
+push to, not just the ones saved in Settings, with the ones you used most recently at the top; the car shows the
+first six. The phone **New task** screen uses the same list. The app keeps the last list it got from GitHub, so it
+shows up right away even with no signal. To answer Claude, open a task and tap **Reply**, then
 speak. The app uses the car's microphone when Android Auto supports it, and the phone's otherwise. If voice
 doesn't work, you can fall back to replying to the Cruise Control message through Android Auto's messaging flow.
 
