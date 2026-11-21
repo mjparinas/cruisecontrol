@@ -90,7 +90,7 @@ fun TaskScreen(
                     Column {
                         Text(task.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StatusPill(task.status, interrupted = task.interrupted)
+                            StatusPill(task)
                             Text(
                                 task.repo.fullName,
                                 style = MaterialTheme.typography.labelMedium,

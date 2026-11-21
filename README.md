@@ -43,7 +43,8 @@ doesn't work, you can fall back to replying to the Cruise Control message throug
 **Projects** shows each repo straight from GitHub: whether its main branch is passing, the last change, and its
 open pull requests with their checks. Tap a pull request to hear its checks or merge it (the app asks first).
 
-When a task's pull request opens, the app follows its checks and tells you when they pass or fail. With
+When a task's pull request opens, the app follows its checks and tells you when they pass or fail. Until they
+finish, the task's status pill on the phone says **Checks running** in orange instead of **Done**. With
 **Merge when checks pass** on (the default), it turns on GitHub's auto-merge if the repo allows it, so GitHub merges
 even with your phone off. Otherwise the app merges once every check is green, as long as it's still running. Failing
 checks, or checks your token can't read, are never merged.

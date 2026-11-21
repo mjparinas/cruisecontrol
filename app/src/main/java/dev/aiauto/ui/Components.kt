@@ -43,17 +43,23 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.aiauto.core.Task
 import dev.aiauto.core.TaskStatus
 
 @Composable
-fun StatusPill(status: TaskStatus, modifier: Modifier = Modifier, interrupted: Boolean = false) {
-    val (label, color) = if (status == TaskStatus.Failed && interrupted) "Offline" to Color(0xFFB7791F) else when (status) {
-        TaskStatus.Starting -> "Starting" to MaterialTheme.colorScheme.onSurfaceVariant
-        TaskStatus.Working -> "Working" to MaterialTheme.colorScheme.primary
-        TaskStatus.NeedsInput -> "Needs you" to Color(0xFFB7791F)
-        TaskStatus.Done -> "Done" to Color(0xFF4F7A55)
-        TaskStatus.Failed -> "Stopped" to MaterialTheme.colorScheme.error
-        TaskStatus.Stopped -> "Stopped" to MaterialTheme.colorScheme.onSurfaceVariant
+fun StatusPill(task: Task, modifier: Modifier = Modifier) {
+    val (label, color) = when {
+        task.status == TaskStatus.Failed && task.interrupted -> "Offline" to Color(0xFFB7791F)
+        // Claude is done but the pull request's checks aren't, so it isn't done yet.
+        task.checksRunning -> "Checks running" to Color(0xFFD9822B)
+        else -> when (task.status) {
+            TaskStatus.Starting -> "Starting" to MaterialTheme.colorScheme.onSurfaceVariant
+            TaskStatus.Working -> "Working" to MaterialTheme.colorScheme.primary
+            TaskStatus.NeedsInput -> "Needs you" to Color(0xFFB7791F)
+            TaskStatus.Done -> "Done" to Color(0xFF4F7A55)
+            TaskStatus.Failed -> "Stopped" to MaterialTheme.colorScheme.error
+            TaskStatus.Stopped -> "Stopped" to MaterialTheme.colorScheme.onSurfaceVariant
+        }
     }
     Pill(label, color, modifier, showDot = true)
 }
