@@ -24,7 +24,12 @@ commands. See "Voice commands" in the README.
 - **Issues to tasks.** "Fix issue 34 in aiauto" fetches the issue title and body and starts a task with them, then
   links the PR with "Closes #34".
 - **Google Assistant shortcut.** An App Actions capability so "Hey Google, ask Cruise Control to add dark mode to aiauto"
-  starts a task with no taps at all.
+  starts a task with no taps at all. Declare it in a `shortcuts.xml` linked from the manifest, using a built-in intent
+  such as `actions.intent.CREATE_THING` (or a custom intent with a free-text query parameter) that opens an activity
+  with the spoken request. The app then picks the repo from the request, falling back to the last-used one, and
+  confirms aloud: "Starting add dark mode on aiauto". Static shortcuts for saved templates ("Hey Google, fix the
+  failing build with Cruise Control") would come along with it. Check that the shortcut works while Android Auto is
+  connected and with Gemini, which is replacing the Assistant on many phones.
 - **Repo by name in the request.** Let the first sentence choose the repo ("in aiauto, add a settings toggle"), with
   fuzzy matching against saved repos so transcription slips still work.
 - **Saved prompts.** One-tap templates in the car such as "Bump dependencies", "Fix the failing build", "Write tests
