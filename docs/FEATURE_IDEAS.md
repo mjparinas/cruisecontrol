@@ -20,6 +20,7 @@ These started on this list and are now in the app. See the README for how they w
   network returns.
 - **Home screen widget** with running tasks and today's spend.
 - **Other AI providers for the car chat**: OpenAI and Gemini models, each with its own key in Settings.
+- **Listening and thinking tones**: a tone when the microphone opens and closes, and a soft cue while an answer is slow.
 
 ### Coding tasks on other providers
 
@@ -32,10 +33,6 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 
 ### Easier in the car
 
-- **Listening and thinking tones.** Today the only sign that the microphone opened, closed or that Claude is still
-  thinking is text on the car screen. A short tone when `VoiceInput` starts and stops listening, and a soft cue when
-  an answer takes more than a few seconds, would let the driver keep their eyes on the road. Use the same assistant
-  audio attributes as the microphone so the tones duck music like speech does.
 - **Read back a new task before it starts.** A task spoken from Tasks > New task starts as soon as the recognizer
   returns, so a misheard request still costs a session. Saying "Starting: add a dark mode toggle, in aiauto" with a
   few seconds to say "cancel" or tap Cancel would catch transcription slips. The read-back text and the cancel window

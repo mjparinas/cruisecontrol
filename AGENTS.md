@@ -49,6 +49,10 @@ Driving safety comes first:
   send, both on the car screen and from the phone app's mic button, which then listens in the app instead of
   opening Google's speech dialog. Until Stop, recognizer errors restart listening too (up to 5 in a row), since
   it often fails after silence or while restarting, and an error must never send.
+- `VoiceInput` plays a rising tone when a go at listening starts and a falling one when it ends, not on each
+  restart until Stop. The car chat plays a soft cue 3 seconds into a slow answer and every 5 seconds after, at most
+  6 times. Tones use the assistant audio attributes, like the microphone, so music ducks. Their shape and timing
+  live in `core/src/main/kotlin/dev/aiauto/core/Tones.kt` so they are tested; there is no switch to turn them off.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
 - Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet, undo that, start over) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
@@ -250,6 +254,8 @@ Newest first. Earlier work (before PR 13) isn't in the history; add older decisi
 
 - PR 90: A task isn't shown as Done while its open pull request's checks are running or not yet read. Its status
   pill says Checks running in amber, the colour already used for pending checks (`Task.checksRunning`).
+- PR 89: Listening and thinking tones, so the driver can tell the microphone opened or closed, or that Claude is
+  still answering, without looking at the screen.
 - Car chat questions asked with no signal are queued in `Assistant` and answered when the network comes back,
   instead of failing.
 - PR 82: Every task reads the repo's README.md, CLAUDE.md and AGENTS.md before anything else, asked for in the
