@@ -35,8 +35,9 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases
     (the highest recent release with an APK) and picks release-on-merge tags.
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the
-  Compose phone UI, `car/` is the Car App Library UI (its `VoiceInput` also serves the phone's prompt box when
-  Keep listening until Stop is on; `core/Dictation.kt` decides when it listens again, sends or gives up),
+  Compose phone UI, `car/` is the Car App Library UI (its `VoiceInput` also serves the phone's floating
+  microphone, `MicButton` in `ui/Components.kt`, the only input on the New task and task chat screens;
+  `core/Dictation.kt` decides when it listens again, sends or gives up),
   `notify/` holds notifications, text-to-speech (`Speaker` holds new speech while `VoiceInput` listens, using
   `core/SpeechHold.kt`) and `TonePlayer` (listening and thinking tones, made by `core/Tones.kt`),
   `data/` holds the stores (including `AvailableRepoStore`, the cached repos the token can push to that

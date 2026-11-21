@@ -157,7 +157,7 @@ fun HomeScreen(
                 )
                 hasRepos -> EmptyState(
                     Icons.Rounded.DirectionsCar, BadgeHue.Accent, "Nothing running yet",
-                    "Start a task by typing or speaking a request. In the car, pick a repo and reply by voice.",
+                    "Start a task by speaking a request. In the car, pick a repo and reply by voice.",
                 )
                 else -> EmptyState(
                     Icons.Rounded.Key, BadgeHue.Amber, "Let's get set up",

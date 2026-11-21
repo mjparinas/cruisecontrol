@@ -27,7 +27,7 @@ import dev.aiauto.core.Tone
 import dev.aiauto.graph
 
 /**
- * Speech to text started from the car screen, or from the phone's prompt box with "Keep listening until Stop" on.
+ * Speech to text started from the car screen, or from the phone's floating microphone.
  * In the car it uses the car's microphone when the host supports it (car API 5 and Android 13+), and the phone's
  * microphone otherwise. With untilStopped, pauses don't end it: listening restarts after each one and the words
  * are joined until [finish] is called. Errors before then, which the recognizer often gives while restarting or after
