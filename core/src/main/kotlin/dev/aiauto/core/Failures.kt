@@ -38,6 +38,12 @@ object Failures {
         is NotFoundException -> "Claude couldn't find this task's session. Start a new task."
         is BadRequestException -> "Claude rejected the request: ${e.message?.take(120) ?: "bad request"}"
         is AnthropicServiceException -> if (e.statusCode() >= 500) "Claude's servers had a problem. Try again in a minute." else "Claude returned an error (${e.statusCode()})."
+        is ChatApiException -> when {
+            e.code == 401 || e.code == 403 -> "${e.provider.label} rejected your API key. Check it in Settings."
+            e.code == 429 -> "${e.provider.label} is limiting requests right now. Try again in a minute."
+            e.code >= 500 -> "${e.provider.label}'s servers had a problem. Try again in a minute."
+            else -> "${e.provider.label} rejected the request: ${e.message?.take(120) ?: "bad request"}"
+        }
         is GitHubException -> when (e.code) {
             401 -> "GitHub rejected your token. Update it in Settings."
             403 -> e.message?.takeIf { "push" in it } ?: "Your GitHub token isn't allowed to do that. Check its permissions."

@@ -37,14 +37,23 @@ class SettingsSearch(query: String) {
             "Accounts" to listOf(
                 Setting("Claude API key", "anthropic key secret password login"),
                 Setting("GitHub token", "key secret password login"),
+                Setting("OpenAI API key", "chatgpt gpt secret password car chat"),
+                Setting("Gemini API key", "google secret password car chat"),
             ),
-            "Repositories" to listOf(Setting("Add repositories", "repo repos project github")),
+            // Each repo's row opens its pull request switches and repo rules, so searches for those find the repos.
+            "Repositories" to listOf(
+                Setting(
+                    "Add repositories",
+                    "repo repos project github pull requests pr merge auto-merge conflicts failing checks tests ci release rules",
+                ),
+            ),
             "In the car" to listOf(
                 Setting("Read updates aloud", "speak voice android auto talk sound"),
                 Setting("Quiet mode", "silent less fewer updates"),
                 Setting("Speaking speed", "voice rate fast slow speech"),
                 Setting("Voice", "speech speak"),
                 Setting("Listen when opened", "microphone mic hands-free start"),
+                Setting("Keep listening until Stop", "microphone mic dictation"),
                 Setting("Briefing when you get in", "summary welcome back"),
                 Setting("Remember past drives", "memory history chat"),
                 Setting("Forget past drives", "memory history clear delete chat"),
@@ -52,22 +61,19 @@ class SettingsSearch(query: String) {
             "Claude" to listOf(
                 Setting("Model for tasks", "opus sonnet haiku ai"),
                 Setting("Effort for tasks", "thinking ai"),
-                Setting("Model for the car chat", "opus sonnet haiku ai"),
+                Setting("Model for the car chat", "opus sonnet haiku ai openai gpt gemini"),
                 Setting("Effort for the car chat", "thinking ai"),
                 Setting("Allow web search", "internet browse"),
                 Setting("Standing rules", "instructions"),
-            ),
-            "Pull requests" to listOf(
-                Setting("Merge when checks pass", "auto-merge automatic pr"),
-                Setting("Fix merge conflicts automatically", "pr rebase"),
-                Setting("Fix failing checks automatically", "pr tests build ci"),
-                Setting("Release when a PR is merged", "version publish tag"),
             ),
             "Appearance" to listOf(
                 Setting("Theme", "dark light mode night"),
                 Setting("Accent color", "colour palette"),
             ),
-            "Spending" to listOf(Setting("Daily limit", "money cost budget dollars price")),
+            "Spending" to listOf(
+                Setting("Daily limit", "money cost budget dollars price"),
+                Setting("Monthly limit", "money cost budget dollars price"),
+            ),
             "Sync" to listOf(
                 Setting("Sync across devices", "gist tablet backup cloud"),
                 Setting("Sync now", "gist cloud"),

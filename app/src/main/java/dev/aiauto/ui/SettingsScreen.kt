@@ -29,19 +29,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Key
-import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.NotificationsPaused
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Savings
-import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -73,7 +70,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import dev.aiauto.core.ChatProvider
 import dev.aiauto.core.RepoRef
+import dev.aiauto.core.RepoSettings
 import dev.aiauto.core.SpokenStatus
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -89,22 +88,24 @@ data class SettingsState(
     val repos: List<RepoRef>,
     val readAloud: Boolean,
     val quietMode: Boolean,
-    val autoMerge: Boolean,
-    val autoFixChecks: Boolean,
-    val autoFixConflicts: Boolean,
-    val autoRelease: Boolean,
     val dailyLimitUsd: Double?,
     val spentTodayUsd: Double,
+    val monthlyLimitUsd: Double?,
+    val spentThisMonthUsd: Double,
     val version: String,
     val themeMode: ThemeMode,
     val accent: Accent,
+    val repoSettings: Map<String, RepoSettings> = emptyMap(),
     val agentProfile: dev.aiauto.core.AgentProfile = dev.aiauto.core.AgentProfile(),
     val chatProfile: dev.aiauto.core.ChatProfile = dev.aiauto.core.ChatProfile(),
     val speechRate: Float = 1f,
     val voiceName: String? = null,
     val listenOnOpen: Boolean = true,
+    val listenUntilStop: Boolean = false,
     val briefing: Boolean = true,
     val rememberChats: Boolean = true,
+    val hasOpenAiKey: Boolean = false,
+    val hasGeminiKey: Boolean = false,
     val syncEnabled: Boolean = false,
     val syncStatus: String = "",
     val busy: Boolean = false,
@@ -125,15 +126,13 @@ fun SettingsScreen(
     onAddRepo: (String) -> Unit,
     onLoadGithubRepos: suspend () -> Result<List<RepoRef>>,
     onAddRepos: (List<RepoRef>) -> Unit,
+    onRemoveRepo: (RepoRef) -> Unit,
     onReadAloud: (Boolean) -> Unit,
     onQuietMode: (Boolean) -> Unit,
-    onAutoMerge: (Boolean) -> Unit,
-    onAutoFixChecks: (Boolean) -> Unit,
-    onAutoFixConflicts: (Boolean) -> Unit,
-    onAutoRelease: (Boolean) -> Unit,
     onThemeMode: (ThemeMode) -> Unit,
     onAccent: (Accent) -> Unit,
     onDailyLimit: (Double?) -> Unit,
+    onMonthlyLimit: (Double?) -> Unit,
     onCheckUpdate: () -> Unit,
     onAgentProfile: (dev.aiauto.core.AgentProfile) -> Unit = {},
     onChatProfile: (dev.aiauto.core.ChatProfile) -> Unit = {},
@@ -142,15 +141,25 @@ fun SettingsScreen(
     onVoice: (String?) -> Unit = {},
     onPreviewVoice: () -> Unit = {},
     onListenOnOpen: (Boolean) -> Unit = {},
+    onListenUntilStop: (Boolean) -> Unit = {},
     onBriefing: (Boolean) -> Unit = {},
     onRememberChats: (Boolean) -> Unit = {},
     onForgetChats: () -> Unit = {},
     onSyncEnabled: (Boolean) -> Unit = {},
     onSyncNow: () -> Unit = {},
+    onSaveChatKey: (ChatProvider, String) -> Unit = { _, _ -> },
+    onRepoSettings: (RepoRef, RepoSettings) -> Unit = { _, _ -> },
 ) {
+    fun hasKey(provider: ChatProvider) = when (provider) {
+        ChatProvider.Anthropic -> state.hasAnthropicKey
+        ChatProvider.OpenAI -> state.hasOpenAiKey
+        ChatProvider.Gemini -> state.hasGeminiKey
+    }
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
     val search = SettingsSearch(query)
+    var editing by remember { mutableStateOf<RepoRef?>(null) }
+    var removing by remember { mutableStateOf<RepoRef?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -198,19 +207,37 @@ fun SettingsScreen(
                             if (state.hasGithubToken) "Saved" else "Not set",
                             enabled = !state.busy,
                         ) { dialog = SettingsDialog.GithubToken }
+                        SettingRow(
+                            Icons.Rounded.Key, BadgeHue.Teal, "OpenAI API key",
+                            if (state.hasOpenAiKey) "Saved" else "Optional, for the car chat",
+                            enabled = !state.busy,
+                        ) { dialog = SettingsDialog.OpenAiKey }
+                        SettingRow(
+                            Icons.Rounded.Key, BadgeHue.Blue, "Gemini API key",
+                            if (state.hasGeminiKey) "Saved" else "Optional, for the car chat",
+                            enabled = !state.busy,
+                        ) { dialog = SettingsDialog.GeminiKey }
                     }
+                    Note("Coding tasks always run on Claude. An OpenAI or Gemini key lets you pick one of their models for the car chat instead.")
                 }
 
                 SearchableSection("Repositories") {
                     SectionHeader("Repositories")
                     SettingsCard {
-                        state.repos.forEach { repo -> SettingRow(Icons.Rounded.FolderOpen, BadgeHue.Blue, repo.fullName) }
+                        state.repos.forEach { repo ->
+                            SettingRow(
+                                Icons.Rounded.FolderOpen, BadgeHue.Blue, repo.fullName,
+                                RepoSettings.of(state.repoSettings, repo).summary(),
+                                enabled = !state.busy,
+                            ) { editing = repo }
+                        }
                         SettingRow(
                             Icons.Rounded.Add, BadgeHue.Green, "Add repositories",
                             if (state.hasGithubToken) "Pick from your GitHub account" else "Save a GitHub token first",
                             enabled = !state.busy && state.hasGithubToken,
                         ) { dialog = SettingsDialog.PickRepos }
                     }
+                    Note("Tap a repository for what happens to its pull requests and for rules Claude follows only there.")
                 }
 
                 SearchableSection("In the car") {
@@ -228,40 +255,14 @@ fun SettingsScreen(
                         )
                         VoiceRows(state.speechRate, state.voiceName, voices, onSpeechRate, onVoice, onPreviewVoice)
                         CarStartRows(
-                            state.listenOnOpen, state.briefing, state.rememberChats,
-                            onListenOnOpen, onBriefing, onRememberChats, onForgetChats,
+                            state.listenOnOpen, state.listenUntilStop, state.briefing, state.rememberChats,
+                            onListenOnOpen, onListenUntilStop, onBriefing, onRememberChats, onForgetChats,
                         )
                     }
                 }
 
                 SearchableSection("Claude") {
-                    ClaudeSettingsSection(state.agentProfile, state.chatProfile, onAgentProfile, onChatProfile)
-                }
-
-                SearchableSection("Pull requests") {
-                    SectionHeader("Pull requests")
-                    SettingsCard {
-                        SwitchRow(
-                            Icons.Rounded.DoneAll, BadgeHue.Green, "Merge when checks pass",
-                            "Turns on GitHub auto-merge when the repo allows it. Otherwise the app merges once every check is green. Failing checks are never merged.",
-                            state.autoMerge, onAutoMerge,
-                        )
-                        SwitchRow(
-                            Icons.Rounded.Sync, BadgeHue.Violet, "Fix merge conflicts automatically",
-                            "When a pull request conflicts with the main branch, Claude merges it in, resolves the conflicts and pushes, without asking first.",
-                            state.autoFixConflicts, onAutoFixConflicts,
-                        )
-                        SwitchRow(
-                            Icons.Rounded.Build, BadgeHue.Red, "Fix failing checks automatically",
-                            "When tests, the build or any other CI check fails, Claude fixes it and pushes, without asking first. Up to three tries per task before it asks you.",
-                            state.autoFixChecks, onAutoFixChecks,
-                        )
-                        SwitchRow(
-                            Icons.Rounded.NewReleases, BadgeHue.Amber, "Release when a PR is merged",
-                            "When a pull request from this app is merged, publishes a GitHub release with the next patch version, like v1.2.3 to v1.2.4.",
-                            state.autoRelease, onAutoRelease,
-                        )
-                    }
+                    ClaudeSettingsSection(state.agentProfile, state.chatProfile, onAgentProfile, onChatProfile, ::hasKey)
                 }
 
                 SearchableSection("Appearance") {
@@ -280,8 +281,13 @@ fun SettingsScreen(
                             "Spent today: ${SpokenStatus.money(state.spentTodayUsd)}" +
                                 (state.dailyLimitUsd?.let { " of ${SpokenStatus.money(it)}" } ?: ", no limit"),
                         ) { dialog = SettingsDialog.DailyLimit }
+                        SettingRow(
+                            Icons.Rounded.CalendarMonth, BadgeHue.Green, "Monthly limit",
+                            "Spent this month: ${SpokenStatus.money(state.spentThisMonthUsd)}" +
+                                (state.monthlyLimitUsd?.let { " of ${SpokenStatus.money(it)}" } ?: ", no limit"),
+                        ) { dialog = SettingsDialog.MonthlyLimit }
                     }
-                    Note("Claude stops when today's total reaches the limit, counted at list price from what each session reports.")
+                    Note("Claude stops when today's total or this month's total reaches its limit, counted at list price from what each session reports.")
                 }
 
                 SearchableSection("Sync") {
@@ -314,11 +320,21 @@ fun SettingsScreen(
         ) { onSaveKeys(it, "") }
         SettingsDialog.GithubToken -> TextDialog(
             title = "GitHub token",
-            help = "A fine-grained token with Contents and Pull requests set to read and write, and Checks and Commit statuses set to read, on your repos. For sync across devices, also set Gists to read and write.",
+            help = "A fine-grained token with Contents and Pull requests set to read and write, and Checks and Commit statuses set to read, on your repos. For sync across devices, include the private cruise-control-sync repo, or give Administration read and write so the app can make it.",
             label = "Token",
             secret = true,
             onDismiss = { dialog = null },
         ) { onSaveKeys("", it) }
+        SettingsDialog.OpenAiKey, SettingsDialog.GeminiKey -> {
+            val provider = if (dialog == SettingsDialog.OpenAiKey) ChatProvider.OpenAI else ChatProvider.Gemini
+            TextDialog(
+                title = "${provider.label} API key",
+                help = "Create one at ${provider.keySite}. Only the car chat uses it, when you pick a ${provider.label} model under Claude. Usage is billed to that account and counts toward your spending limits.",
+                label = "API key",
+                secret = true,
+                onDismiss = { dialog = null },
+            ) { onSaveChatKey(provider, it) }
+        }
         SettingsDialog.PickRepos -> PickReposDialog(
             saved = state.repos,
             load = onLoadGithubRepos,
@@ -343,6 +359,16 @@ fun SettingsScreen(
             filter = { it.filter { c -> c.isDigit() || c == '.' } },
             onDismiss = { dialog = null },
         ) { onDailyLimit(it.toDoubleOrNull()?.takeIf { v -> v > 0 }) }
+        SettingsDialog.MonthlyLimit -> TextDialog(
+            title = "Monthly limit",
+            help = "In US dollars, for every day this month added up. Leave blank for no limit.",
+            label = "Monthly limit",
+            initial = state.monthlyLimitUsd?.let { "%.2f".format(java.util.Locale.US, it).removeSuffix(".00") }.orEmpty(),
+            keyboard = KeyboardType.Decimal,
+            allowBlank = true,
+            filter = { it.filter { c -> c.isDigit() || c == '.' } },
+            onDismiss = { dialog = null },
+        ) { onMonthlyLimit(it.toDoubleOrNull()?.takeIf { v -> v > 0 }) }
         SettingsDialog.Theme -> ChoiceDialog(
             title = "Theme",
             options = ThemeMode.entries,
@@ -352,6 +378,26 @@ fun SettingsScreen(
             onSelect = onThemeMode,
         )
         null -> Unit
+    }
+
+    editing?.let { repo ->
+        RepoSettingsDialog(
+            repo = repo,
+            settings = RepoSettings.of(state.repoSettings, repo),
+            onDismiss = { editing = null },
+            onRemove = { editing = null; removing = repo },
+        ) { onRepoSettings(repo, it) }
+    }
+
+    removing?.let { repo ->
+        AlertDialog(
+            onDismissRequest = { removing = null },
+            shape = RoundedCornerShape(28.dp),
+            title = { Text("Remove ${repo.fullName}?") },
+            text = { Text("Claude can't start new tasks in it until you add it again. Tasks already running keep going, and nothing changes on GitHub.") },
+            confirmButton = { TextButton(onClick = { removing = null; onRemoveRepo(repo) }) { Text("Remove") } },
+            dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancel") } },
+        )
     }
 }
 
@@ -384,7 +430,7 @@ private fun SettingsSearchField(query: String, onQuery: (String) -> Unit) {
     )
 }
 
-private enum class SettingsDialog { AnthropicKey, GithubToken, PickRepos, AddRepo, DailyLimit, Theme }
+private enum class SettingsDialog { AnthropicKey, GithubToken, OpenAiKey, GeminiKey, PickRepos, AddRepo, DailyLimit, MonthlyLimit, Theme }
 
 /** Accent colour: a row of round swatches, the chosen one ticked. Each shrinks a little on a narrow phone rather than being cut off. */
 @Composable
@@ -399,23 +445,31 @@ private fun AccentRow(selected: Accent, onPick: (Accent) -> Unit) {
         }
         Spacer(Modifier.height(12.dp))
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth().padding(start = 60.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 56.dp),
         ) {
             Accent.entries.forEach { accent ->
                 val on = accent == selected
+                // A 48 dp touch target around a 40 dp swatch, so each is easy to hit (Android's minimum).
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .weight(1f, fill = false)
-                        .widthIn(max = 40.dp)
+                        .widthIn(max = 48.dp)
                         .aspectRatio(1f)
                         .clip(CircleShape)
-                        .background(if (dark) accent.dark else accent.light)
                         .selectable(selected = on, role = Role.RadioButton, onClick = { onPick(accent) })
                         .semantics { contentDescription = accent.label },
                 ) {
-                    if (on) Icon(Icons.Rounded.Check, null, tint = if (dark) Color(0xFF1A1714) else Color.White, modifier = Modifier.size(20.dp))
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .fillMaxSize(40f / 48f)
+                            .clip(CircleShape)
+                            .background(if (dark) accent.dark else accent.light),
+                    ) {
+                        if (on) Icon(Icons.Rounded.Check, null, tint = if (dark) Color(0xFF1A1714) else Color.White, modifier = Modifier.size(20.dp))
+                    }
                 }
             }
         }

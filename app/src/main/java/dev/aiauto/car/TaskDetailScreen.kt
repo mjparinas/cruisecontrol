@@ -43,8 +43,9 @@ class TaskDetailScreen(carContext: CarContext, private val taskId: String) : Scr
         val pane = Pane.Builder()
         val summary = listOfNotNull(SpokenStatus.pullRequest(task), task.costUsd.takeIf { it > 0 }?.let { "Cost ${SpokenStatus.money(it)}" })
         if (summary.isNotEmpty()) pane.addRow(Row.Builder().setTitle(TasksScreen.statusLabel(task)).addText(summary.joinToString(" · ")).build())
-        task.messages.filter { it.speaker != Speaker.You }.takeLast(if (summary.isEmpty()) 4 else 3).forEach { m ->
-            pane.addRow(Row.Builder().setTitle(if (m.speaker == Speaker.Claude) "Claude" else "Status").addText(m.text).build())
+        // Only the latest two lines, each cut to a glance, so there's little to read while driving. Read aloud says more.
+        task.messages.filter { it.speaker != Speaker.You }.takeLast(2).forEach { m ->
+            pane.addRow(Row.Builder().setTitle(if (m.speaker == Speaker.Claude) "Claude" else "Status").addText(SpokenStatus.glance(m.text)).build())
         }
         if (task.messages.none { it.speaker != Speaker.You }) {
             pane.addRow(Row.Builder().setTitle("Waiting for Claude").addText(TasksScreen.statusLabel(task)).build())

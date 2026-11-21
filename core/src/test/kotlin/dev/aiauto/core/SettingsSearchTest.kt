@@ -27,13 +27,21 @@ class SettingsSearchTest {
         val search = SettingsSearch("colour")
         assertTrue(search.showsRow("Appearance", "Accent color"))
         assertFalse(search.showsRow("Appearance", "Theme"))
-        assertTrue(SettingsSearch("money").showsRow("Spending", "Daily limit"))
+        assertTrue(SettingsSearch("money").showsRow("Spending", "Monthly limit"))
+        assertTrue(SettingsSearch("gemini").showsRow("Accounts", "Gemini API key"))
+        assertFalse(SettingsSearch("gemini").showsRow("Accounts", "GitHub token"))
     }
 
     @Test fun sectionNameShowsAllItsRows() {
-        val search = SettingsSearch("pull requests")
-        SettingsSearch.CATALOGUE.getValue("Pull requests").forEach { assertTrue(search.showsRow("Pull requests", it.title)) }
+        val search = SettingsSearch("spending")
+        SettingsSearch.CATALOGUE.getValue("Spending").forEach { assertTrue(search.showsRow("Spending", it.title)) }
         assertFalse(search.showsSection("Accounts"))
+    }
+
+    @Test fun pullRequestSearchesFindTheRepos() {
+        val search = SettingsSearch("auto-merge")
+        assertTrue(search.showsSection("Repositories"))
+        assertTrue(search.showsRow("Repositories", "mjparinas/aiauto"))
     }
 
     @Test fun everyWordMustMatch() {
