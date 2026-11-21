@@ -5,6 +5,8 @@
 - Google Assistant shortcut: "Hey Google, start a task to add dark mode to aiauto on Cruise Control" starts a task
   with no taps. Name the repo at the start or end of the request, or it goes to the last-used one. Google only
   offers the shortcut once the app is on the Play Console.
+- A task whose pull request's checks are still running now says Checks running in amber instead of Done, so it
+  doesn't look finished before the checks are.
 - Listening and thinking tones: a short rising tone when the app starts listening, a falling one when it stops,
   and a soft tone every few seconds while Claude is still working on an answer in the car, so you can keep your
   eyes on the road.
