@@ -81,6 +81,8 @@ Claude and cost:
   everything in the car, theme, daily and monthly limits, and sync. Per repo (`RepoSettings`, set by tapping a repo): merge when
   checks pass, the two automatic fixes, release on merge, and rules for that repo. A repo without saved settings uses
   the defaults; updating from global switches copies the old values onto every saved repo once.
+- The search box at the top of Settings filters sections and rows by name, section or related words listed in
+  `SettingsSearch.CATALOGUE` (core). Rows the catalogue doesn't list, like each saved repo, show with their section.
 - A repo's rules go in `ClaudeAgents.firstPrompt`, not the agent, so changing them never makes a new agent and they
   only reach that repo's tasks. Standing rules stay global and in the agent.
 - Changing the model, effort, web search or standing rules makes a new agent for the next task. Running tasks keep
@@ -133,6 +135,10 @@ Tasks, repos and sync:
 - Synced tasks keep their last 60 messages. A task runs on the device that started it until you reply to it or
   retry it from another device. The newer side wins for tasks and settings, and removals sync through tombstones.
   Per-repo settings sync as one setting with the rest.
+- A Google Assistant shortcut (App Actions custom intent in `app/src/main/res/xml/shortcuts.xml`) starts a task
+  with no taps and no confirmation, so it's truly hands-free. `VoiceShortcut` takes the repo from the start or end of
+  the request, only from saved repos, and otherwise uses the last-used repo. Google only registers it for apps on the
+  Play Console, so it waits on the Play plan for installs from GitHub releases.
 - The car chat remembers the last 20 exchanges across drives, with a switch to turn it off and a Forget button.
 - A car chat question asked with no signal is kept on the phone (up to 5, for 30 minutes) and answered aloud when
   the network returns. Only connection failures are queued, and never a turn that already ran a tool, so nothing
@@ -205,6 +211,9 @@ Security:
   with an APK. The app's release on merge publishes each release before the Release workflow attaches its APK, so
   the workflow turns it back into a draft while it builds and publishes it once the APK is attached
   (`ReleaseWorkflowTest` checks this). A failed build leaves the release a draft.
+- The shortcut's action reaches the exported `MainActivity`, so any app could send it. Android stops background
+  apps from opening activities, the request can only target saved repos, the spending limits still apply, and the
+  new task opens on screen and is announced, with Stop on it.
 - The GitHub token is only sent to api.github.com, and to gist.githubusercontent.com when moving an old sync gist,
   never to wherever a URL in a response points.
 
@@ -278,6 +287,8 @@ Newest first. Earlier work (before PR 13) isn't in the history; add older decisi
 
 - PR 93: Parked mode. While the car is parked, steps the agent's safety check flags wait for Approve or Deny on the
   car screen instead of being declined; driving off denies any still waiting.
+- PR 92: A search box at the top of Settings filters the page as you type. Pull request and repo-rule words find
+  the Repositories section, since those settings live behind each repo.
 - A release without an APK is no use, so the Release workflow drafts a release the app published on merge until its
   APK is attached, instead of leaving it public while the APK builds.
 - PR 100: The Release workflow's version is optional. Left empty, it releases the next patch after the latest tag,
@@ -300,6 +311,8 @@ Newest first. Earlier work (before PR 13) isn't in the history; add older decisi
   starts Talk and next or previous repeats the last update, through a media session that's only active then.
 - PR 87: Car chat questions asked with no signal are queued in `Assistant` and answered when the network comes back,
   instead of failing.
+- PR 86: Google Assistant shortcut that starts a task straight away, picking the repo from the request. It needs
+  the app on the Play Console to work.
 - PR 82: Every task reads the repo's README.md, CLAUDE.md and AGENTS.md before anything else, asked for in the
   first prompt.
 - PR 81: Keep listening until Stop restarts on recognizer errors instead of stopping or sending, so silence at

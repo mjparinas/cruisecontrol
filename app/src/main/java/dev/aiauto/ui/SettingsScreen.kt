@@ -74,6 +74,13 @@ import dev.aiauto.core.ChatProvider
 import dev.aiauto.core.RepoRef
 import dev.aiauto.core.RepoSettings
 import dev.aiauto.core.SpokenStatus
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import dev.aiauto.core.SettingsSearch
 
 data class SettingsState(
     val hasAnthropicKey: Boolean,
@@ -151,6 +158,8 @@ fun SettingsScreen(
         ChatProvider.Gemini -> state.hasGeminiKey
     }
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
+    var query by rememberSaveable { mutableStateOf("") }
+    val search = SettingsSearch(query)
     var editing by remember { mutableStateOf<RepoRef?>(null) }
     var removing by remember { mutableStateOf<RepoRef?>(null) }
 
@@ -164,120 +173,141 @@ fun SettingsScreen(
             )
         },
     ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .consumeWindowInsets(padding)
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 24.dp),
-        ) {
-            // Up top, so the result of a dialog's Save is in view without scrolling.
-            state.message?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
-                )
-            }
+        CompositionLocalProvider(LocalSettingsSearch provides search) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .consumeWindowInsets(padding)
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+            ) {
+                SettingsSearchField(query) { query = it }
+                if (search.nothingFound) Note("No settings match \"${query.trim()}\".")
 
-            SectionHeader("Accounts")
-            SettingsCard {
-                SettingRow(
-                    Icons.Rounded.Key, BadgeHue.Amber, "Claude API key",
-                    if (state.hasAnthropicKey) "Saved" else "Not set. Create one at platform.claude.com.",
-                    enabled = !state.busy,
-                ) { dialog = SettingsDialog.AnthropicKey }
-                SettingRow(
-                    Icons.Rounded.Code, BadgeHue.Violet, "GitHub token",
-                    if (state.hasGithubToken) "Saved" else "Not set",
-                    enabled = !state.busy,
-                ) { dialog = SettingsDialog.GithubToken }
-                SettingRow(
-                    Icons.Rounded.Key, BadgeHue.Teal, "OpenAI API key",
-                    if (state.hasOpenAiKey) "Saved" else "Optional, for the car chat",
-                    enabled = !state.busy,
-                ) { dialog = SettingsDialog.OpenAiKey }
-                SettingRow(
-                    Icons.Rounded.Key, BadgeHue.Blue, "Gemini API key",
-                    if (state.hasGeminiKey) "Saved" else "Optional, for the car chat",
-                    enabled = !state.busy,
-                ) { dialog = SettingsDialog.GeminiKey }
-            }
-            Note("Coding tasks always run on Claude. An OpenAI or Gemini key lets you pick one of their models for the car chat instead.")
-
-            SectionHeader("Repositories")
-            SettingsCard {
-                state.repos.forEach { repo ->
-                    SettingRow(
-                        Icons.Rounded.FolderOpen, BadgeHue.Blue, repo.fullName,
-                        RepoSettings.of(state.repoSettings, repo).summary(),
-                        enabled = !state.busy,
-                    ) { editing = repo }
+                // Up top, so the result of a dialog's Save is in view without scrolling.
+                state.message?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
+                    )
                 }
-                SettingRow(
-                    Icons.Rounded.Add, BadgeHue.Green, "Add repositories",
-                    if (state.hasGithubToken) "Pick from your GitHub account" else "Save a GitHub token first",
-                    enabled = !state.busy && state.hasGithubToken,
-                ) { dialog = SettingsDialog.PickRepos }
-            }
-            Note("Tap a repository for what happens to its pull requests and for rules Claude follows only there.")
 
-            SectionHeader("In the car")
-            SettingsCard {
-                SwitchRow(
-                    Icons.AutoMirrored.Rounded.VolumeUp, BadgeHue.Teal, "Read updates aloud",
-                    "Speaks each update through the car while Android Auto is connected.",
-                    state.readAloud, onReadAloud,
-                )
-                SwitchRow(
-                    Icons.Rounded.NotificationsPaused, BadgeHue.Blue, "Quiet mode",
-                    "Only tells you the result of each request, not every step along the way.",
-                    state.quietMode, onQuietMode,
-                )
-                VoiceRows(state.speechRate, state.voiceName, voices, onSpeechRate, onVoice, onPreviewVoice)
-                CarStartRows(
-                    state.listenOnOpen, state.listenUntilStop, state.wheelButtons, state.briefing, state.rememberChats,
-                    onListenOnOpen, onListenUntilStop, onWheelButtons, onBriefing, onRememberChats, onForgetChats,
-                )
-            }
+                SearchableSection("Accounts") {
+                    SectionHeader("Accounts")
+                    SettingsCard {
+                        SettingRow(
+                            Icons.Rounded.Key, BadgeHue.Amber, "Claude API key",
+                            if (state.hasAnthropicKey) "Saved" else "Not set. Create one at platform.claude.com.",
+                            enabled = !state.busy,
+                        ) { dialog = SettingsDialog.AnthropicKey }
+                        SettingRow(
+                            Icons.Rounded.Code, BadgeHue.Violet, "GitHub token",
+                            if (state.hasGithubToken) "Saved" else "Not set",
+                            enabled = !state.busy,
+                        ) { dialog = SettingsDialog.GithubToken }
+                        SettingRow(
+                            Icons.Rounded.Key, BadgeHue.Teal, "OpenAI API key",
+                            if (state.hasOpenAiKey) "Saved" else "Optional, for the car chat",
+                            enabled = !state.busy,
+                        ) { dialog = SettingsDialog.OpenAiKey }
+                        SettingRow(
+                            Icons.Rounded.Key, BadgeHue.Blue, "Gemini API key",
+                            if (state.hasGeminiKey) "Saved" else "Optional, for the car chat",
+                            enabled = !state.busy,
+                        ) { dialog = SettingsDialog.GeminiKey }
+                    }
+                    Note("Coding tasks always run on Claude. An OpenAI or Gemini key lets you pick one of their models for the car chat instead.")
+                }
 
-            ClaudeSettingsSection(state.agentProfile, state.chatProfile, onAgentProfile, onChatProfile, ::hasKey)
+                SearchableSection("Repositories") {
+                    SectionHeader("Repositories")
+                    SettingsCard {
+                        state.repos.forEach { repo ->
+                            SettingRow(
+                                Icons.Rounded.FolderOpen, BadgeHue.Blue, repo.fullName,
+                                RepoSettings.of(state.repoSettings, repo).summary(),
+                                enabled = !state.busy,
+                            ) { editing = repo }
+                        }
+                        SettingRow(
+                            Icons.Rounded.Add, BadgeHue.Green, "Add repositories",
+                            if (state.hasGithubToken) "Pick from your GitHub account" else "Save a GitHub token first",
+                            enabled = !state.busy && state.hasGithubToken,
+                        ) { dialog = SettingsDialog.PickRepos }
+                    }
+                    Note("Tap a repository for what happens to its pull requests and for rules Claude follows only there.")
+                }
 
-            SectionHeader("Appearance")
-            SettingsCard {
-                SettingRow(Icons.Rounded.DarkMode, BadgeHue.Violet, "Theme", state.themeMode.label) { dialog = SettingsDialog.Theme }
-                AccentRow(state.accent, onAccent)
-            }
+                SearchableSection("In the car") {
+                    SectionHeader("In the car")
+                    SettingsCard {
+                        SwitchRow(
+                            Icons.AutoMirrored.Rounded.VolumeUp, BadgeHue.Teal, "Read updates aloud",
+                            "Speaks each update through the car while Android Auto is connected.",
+                            state.readAloud, onReadAloud,
+                        )
+                        SwitchRow(
+                            Icons.Rounded.NotificationsPaused, BadgeHue.Blue, "Quiet mode",
+                            "Only tells you the result of each request, not every step along the way.",
+                            state.quietMode, onQuietMode,
+                        )
+                        VoiceRows(state.speechRate, state.voiceName, voices, onSpeechRate, onVoice, onPreviewVoice)
+                        CarStartRows(
+                            state.listenOnOpen, state.listenUntilStop, state.wheelButtons, state.briefing, state.rememberChats,
+                            onListenOnOpen, onListenUntilStop, onWheelButtons, onBriefing, onRememberChats, onForgetChats,
+                        )
+                    }
+                }
 
-            SectionHeader("Spending")
-            SettingsCard {
-                SettingRow(
-                    Icons.Rounded.Savings, BadgeHue.Green, "Daily limit",
-                    "Spent today: ${SpokenStatus.money(state.spentTodayUsd)}" +
-                        (state.dailyLimitUsd?.let { " of ${SpokenStatus.money(it)}" } ?: ", no limit"),
-                ) { dialog = SettingsDialog.DailyLimit }
-                SettingRow(
-                    Icons.Rounded.CalendarMonth, BadgeHue.Green, "Monthly limit",
-                    "Spent this month: ${SpokenStatus.money(state.spentThisMonthUsd)}" +
-                        (state.monthlyLimitUsd?.let { " of ${SpokenStatus.money(it)}" } ?: ", no limit"),
-                ) { dialog = SettingsDialog.MonthlyLimit }
-            }
-            Note("Claude stops when today's total or this month's total reaches its limit, counted at list price from what each session reports.")
+                SearchableSection("Claude") {
+                    ClaudeSettingsSection(state.agentProfile, state.chatProfile, onAgentProfile, onChatProfile, ::hasKey)
+                }
 
-            SyncSection(state.syncEnabled, state.syncStatus, state.busy, onSyncEnabled, onSyncNow)
+                SearchableSection("Appearance") {
+                    SectionHeader("Appearance")
+                    SettingsCard {
+                        SettingRow(Icons.Rounded.DarkMode, BadgeHue.Violet, "Theme", state.themeMode.label) { dialog = SettingsDialog.Theme }
+                        AccentRow(state.accent, onAccent)
+                    }
+                }
 
-            SectionHeader("About")
-            SettingsCard {
-                SettingRow(Icons.Rounded.Info, BadgeHue.Blue, "Cruise Control", "Version ${state.version}")
-                SettingRow(
-                    Icons.Rounded.SystemUpdate, BadgeHue.Teal, "Check for updates",
-                    "Looks for a newer release on GitHub",
-                    enabled = !state.busy,
-                    onClick = onCheckUpdate,
-                )
+                SearchableSection("Spending") {
+                    SectionHeader("Spending")
+                    SettingsCard {
+                        SettingRow(
+                            Icons.Rounded.Savings, BadgeHue.Green, "Daily limit",
+                            "Spent today: ${SpokenStatus.money(state.spentTodayUsd)}" +
+                                (state.dailyLimitUsd?.let { " of ${SpokenStatus.money(it)}" } ?: ", no limit"),
+                        ) { dialog = SettingsDialog.DailyLimit }
+                        SettingRow(
+                            Icons.Rounded.CalendarMonth, BadgeHue.Green, "Monthly limit",
+                            "Spent this month: ${SpokenStatus.money(state.spentThisMonthUsd)}" +
+                                (state.monthlyLimitUsd?.let { " of ${SpokenStatus.money(it)}" } ?: ", no limit"),
+                        ) { dialog = SettingsDialog.MonthlyLimit }
+                    }
+                    Note("Claude stops when today's total or this month's total reaches its limit, counted at list price from what each session reports.")
+                }
+
+                SearchableSection("Sync") {
+                    SyncSection(state.syncEnabled, state.syncStatus, state.busy, onSyncEnabled, onSyncNow)
+                }
+
+                SearchableSection("About") {
+                    SectionHeader("About")
+                    SettingsCard {
+                        SettingRow(Icons.Rounded.Info, BadgeHue.Blue, "Cruise Control", "Version ${state.version}")
+                        SettingRow(
+                            Icons.Rounded.SystemUpdate, BadgeHue.Teal, "Check for updates",
+                            "Looks for a newer release on GitHub",
+                            enabled = !state.busy,
+                            onClick = onCheckUpdate,
+                        )
+                    }
+                }
             }
         }
     }
@@ -373,11 +403,41 @@ fun SettingsScreen(
     }
 }
 
+/** Shows a section only when the search matches it, and tells its rows which section they're in. */
+@Composable
+private fun SearchableSection(name: String, content: @Composable () -> Unit) {
+    if (!LocalSettingsSearch.current.showsSection(name)) return
+    CompositionLocalProvider(LocalSettingsSection provides name) { content() }
+}
+
+/** The search box at the top of Settings: a pill on the card colour, like the reply box, with a clear button once something is typed. */
+@Composable
+private fun SettingsSearchField(query: String, onQuery: (String) -> Unit) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQuery,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        placeholder = { Text("Search settings") },
+        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+        trailingIcon = {
+            if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Rounded.Close, contentDescription = "Clear search") }
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(28.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedBorderColor = Color.Transparent,
+        ),
+    )
+}
+
 private enum class SettingsDialog { AnthropicKey, GithubToken, OpenAiKey, GeminiKey, PickRepos, AddRepo, DailyLimit, MonthlyLimit, Theme }
 
 /** Accent colour: a row of round swatches, the chosen one ticked. Each shrinks a little on a narrow phone rather than being cut off. */
 @Composable
 private fun AccentRow(selected: Accent, onPick: (Accent) -> Unit) {
+    if (!LocalSettingsSearch.current.showsRow(LocalSettingsSection.current, "Accent color")) return
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
