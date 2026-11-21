@@ -84,13 +84,15 @@ class TaskEngine(
 
     /**
      * Adds a follow-up prompt to an existing task. Short spoken commands ("status", "stop", "merge it",
-     * "fix it") and yes or no answers to the app's own questions are handled here; the rest goes to Claude.
+     * "fix it", "repeat that", "quiet") and yes or no answers to the app's own questions are handled here; the rest
+     * goes to Claude.
      */
     fun prompt(taskId: String, text: String) {
         val task = store.get(taskId) ?: return
         val command = VoiceCommand.parse(text)
         val pending = task.pending
-        if (pending != null) journal.update(taskId) { it.copy(pending = null) }
+        // Hearing a question again shouldn't cancel it, so "repeat that" then "yes" still answers it.
+        if (pending != null && command != VoiceCommand.Repeat) journal.update(taskId) { it.copy(pending = null) }
         val checksFailing = task.hasOpenPr && task.checks?.state == Checks.Failing
         val conflicting = task.hasOpenPr && task.conflicts
         when {
@@ -118,6 +120,18 @@ class TaskEngine(
                 journal.append(taskId, Speaker.You, text)
                 scope.launch(dispatcher) {
                     runCatching { askToMerge(taskId) }.onFailure { journal.status(taskId, "Couldn't check the pull request. ${Failures.describe(it)}") }
+                }
+            }
+            command == VoiceCommand.Repeat -> {
+                if (!journal.repeatLast(taskId)) journal.status(taskId, "There's nothing to repeat yet.")
+            }
+            command == VoiceCommand.Quiet -> {
+                journal.append(taskId, Speaker.You, text)
+                if (config.quietMode()) {
+                    journal.status(taskId, "Quiet mode is already on.")
+                } else {
+                    config.setQuietMode(true)
+                    journal.status(taskId, "Quiet mode is on. I'll only read out results and alerts. Turn it off in Settings.")
                 }
             }
             else -> send(taskId, text, text)

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Two new voice commands for task replies: say "repeat that" to hear the last message again, or "quiet" to turn on
+  quiet mode without going to Settings.
 - Every coding task now starts by reading the repo's README.md, CLAUDE.md and AGENTS.md, whichever exist, so
   Claude follows the project's own docs.
 - Keep listening until Stop now really waits for Stop. Staying quiet for the first few seconds used to end
