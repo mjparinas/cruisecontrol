@@ -86,6 +86,9 @@ When you reply to a task, the app handles a few short phrases itself without wai
 - **"Repeat that"** (or "say that again") reads the task's last message aloud again, for when a turn or a passenger
   drowned it out. A question the app asked stays open, so you can still answer it.
 - **"Quiet"** turns on quiet mode, so only results and alerts are read out. Turn it off again in Settings.
+- **"Undo that"** has Claude revert its last change and push, keeping the history.
+- **"Start over"** asks you to confirm. Say **"yes"** and Claude resets the branch to the main branch and does your
+  original request again from scratch, or **"no"** to keep the work. Neither works once the pull request is merged.
 
 Anything longer goes to Claude as usual, so "merge the two settings screens" is still a coding request.
 
