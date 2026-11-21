@@ -23,7 +23,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     `RepoRef`, `AgentSetup` and friends.
   - `GitHub.kt` is the REST client; `PullRequests.kt` follows checks, merges and auto-fixes; `Projects.kt` is
     the per-repo status view.
-  - `Assistant.kt` is the spoken car chat; `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
+  - `Assistant.kt` is the spoken car chat. `ChatProviders.kt` has the car chat models and talks to Claude, OpenAI
+    (Responses API) or Gemini (OpenAI-compatible endpoint); tests fake `ChatHttp`. `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
     replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `Briefing.kt` is the drive briefing.
   - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases.
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the

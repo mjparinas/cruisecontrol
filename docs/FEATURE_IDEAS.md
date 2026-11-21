@@ -16,6 +16,14 @@ These started on this list and are now in the app. See the README for how they w
 - **Spend per task** and a daily spending limit.
 - **Resume after lost signal**: tasks cut off by a dropped connection restart when the network comes back.
 - **Home screen widget** with running tasks and today's spend.
+- **Other AI providers for the car chat**: OpenAI and Gemini models, each with its own key in Settings.
+
+### Coding tasks on other providers
+
+The car chat can use OpenAI or Gemini, but coding tasks still need Claude, because each task is a Claude Managed
+Agents session: a hosted sandbox with the repo mounted, the GitHub token kept out of reach, a session budget and an
+event stream the engine follows. Running tasks on another provider would need an equivalent hosted runtime behind
+the `AgentClient` interface, with the same budget and token protections, rather than a plain chat API.
 
 ## Still missing
 

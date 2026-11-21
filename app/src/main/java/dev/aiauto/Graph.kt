@@ -84,7 +84,7 @@ class Graph(context: Context) {
 
     /** The spoken conversation behind the car's mic button. */
     val assistant = Assistant(
-        apiKey = { secrets.anthropicKey },
+        apiKey = { secrets.chatKey(it) },
         actions = object : AssistantActions {
             override fun context(): String {
                 val repoList = repos.repos.value.joinToString(", ") { it.fullName }.ifEmpty { "none" }

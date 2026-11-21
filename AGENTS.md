@@ -56,6 +56,10 @@ Claude and cost:
   the agent they started with.
 - Every task asks Claude to read `CLAUDE.md` at the repo root first instead of exploring the whole repo again, and
   to create it or fix it when it's missing or out of date, in the same pull request (PR 66).
+- The car chat can use an OpenAI model (through the Responses API) or a Gemini model (through Google's
+  OpenAI-compatible endpoint) when the owner adds that provider's key; each key is optional. Coding tasks stay on
+  Claude because they need Managed Agents, which has no equivalent elsewhere. The other providers' chat costs count
+  toward the daily limit at list price, using a model's later price when a launch discount is about to end.
 - Web search is off by default and only applies to coding tasks. With it on, tasks run in an environment with open
   internet access; otherwise the sandbox only reaches package registries.
 - A daily spending limit (default $20) stops Claude when the day's total reaches it, and is also set as each
@@ -84,7 +88,7 @@ Tasks, repos and sync:
   the name to the car assistant. Removing a repo needs a confirmation, leaves running tasks alone and changes nothing
   on GitHub.
 - Sync across devices is opt-in and lives in a private repo named cruise-control-sync on the token owner's account.
-  It never holds the API key, GitHub token, voice, spending total or agent setup. Sync refuses to write to a public
+  It never holds the API keys, GitHub token, voice, spending total or agent setup. Sync refuses to write to a public
   repo. It replaced a secret gist (PR 58) because anyone with a gist's link can read it.
 - Synced tasks keep their last 60 messages. A task runs on the device that started it until you reply to it or
   retry it from another device. The newer side wins for tasks and settings, and removals sync through tombstones.
@@ -123,7 +127,10 @@ Claude:
 - Instructions every task needs go in `ClaudeAgents.firstPrompt`, sent with each task, rather than the system
   prompt baked into the agent, so agents already saved on a phone pick them up without being remade.
 - The car chat uses the Messages API directly with a small set of tools (start a task, reply to a task, add a repo,
-  get status, stop a task, merge a pull request).
+  get status, stop a task, merge a pull request). The tools are described once in `Assistant` and sent in each
+  provider's format by `core/src/main/kotlin/dev/aiauto/core/ChatProviders.kt`, which keeps each conversation in
+  that provider's own message format so tool calls, OpenAI's encrypted reasoning and Gemini's thought signatures go
+  back exactly as they came. OpenAI requests are sent with store off.
 - Streams are reconnected by the engine, and past events are listed after reconnecting so nothing is reported
   twice and turns that ended offline are caught up. Tasks cut off by a lost connection retry every 30 seconds for up
   to two hours.
@@ -141,8 +148,9 @@ Reliability on the phone:
 
 Security:
 
-- The Claude API key and GitHub token are encrypted with an Android Keystore key
-  (`app/src/main/java/dev/aiauto/data/Secrets.kt`).
+- The Claude, OpenAI and Gemini API keys and the GitHub token are encrypted with an Android Keystore key
+  (`app/src/main/java/dev/aiauto/data/Secrets.kt`). The OpenAI and Gemini keys are only sent to their provider's
+  own chat endpoint.
 - Updates are only accepted from APKs that GitHub serves over HTTPS, and a downloaded APK must be signed with the
   installed app's key before the install prompt opens. Updates come from the mjparinas/cruisecontrol releases.
 - The GitHub token is only sent to api.github.com, and to gist.githubusercontent.com when moving an old sync gist,
@@ -212,6 +220,8 @@ Each line is checked against the code by `AgentsDocTest`.
 ## Decision log
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
+
+- PR 71: The car chat can use OpenAI or Gemini models with their own optional keys. Coding tasks stay on Claude.
 
 - PR 69: Every dependency moved to its latest stable release, including Gradle 9, Android Gradle Plugin 9,
   compileSdk 37.2, OkHttp 5 and Car App 1.7. targetSdk stays 35 and setup-gradle stays on v5.
