@@ -24,6 +24,8 @@ class EngineControlsTest {
     private class Config : EngineConfig {
         var limit: Double? = null
         var spent = 0.0
+        var monthLimit: Double? = null
+        var monthSpent = 0.0
         var merge = false
         var fixChecks = false
         var fixConflicts = false
@@ -34,7 +36,9 @@ class EngineControlsTest {
         override fun saveAgentSetup(setup: AgentSetup) {}
         override fun dailyLimitUsd() = limit
         override fun spentTodayUsd() = spent
-        override fun addSpend(usd: Double) { spent += usd }
+        override fun monthlyLimitUsd() = monthLimit
+        override fun spentThisMonthUsd() = monthSpent
+        override fun addSpend(usd: Double) { spent += usd; monthSpent += usd }
         override fun autoMerge() = merge
         override fun autoFixChecks() = fixChecks
         override fun autoFixConflicts() = fixConflicts
@@ -138,6 +142,29 @@ class EngineControlsTest {
         assertEquals(TaskStatus.Failed, failed.status)
         assertTrue(failed.lastMessage!!.text.contains("spending limit"))
         assertTrue(claude.sent.isEmpty())
+    }
+
+    @Test fun refusesToStartWhenThisMonthsLimitIsUsedUp() {
+        config.limit = 20.0
+        config.monthLimit = 50.0
+        config.monthSpent = 50.0
+        val task = engine().start(repo, "anything")
+        val failed = store.get(task.id)!!
+        assertEquals(TaskStatus.Failed, failed.status)
+        assertTrue(failed.lastMessage!!.text.startsWith("Stopped at this month's \$50.00 spending limit"))
+        assertTrue(claude.sent.isEmpty())
+    }
+
+    @Test fun canSpendUntilEitherLimitIsReached() {
+        val engine = engine()
+        config.limit = 10.0
+        config.monthLimit = 100.0
+        assertTrue(engine.canSpend())
+        config.monthSpent = 100.0
+        assertFalse(engine.canSpend())
+        config.monthSpent = 0.0
+        config.spent = 10.0
+        assertFalse(engine.canSpend())
     }
 
     @Test fun capsTheSessionAtWhatIsLeftToday() {
