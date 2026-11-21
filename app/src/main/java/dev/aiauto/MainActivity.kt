@@ -205,6 +205,10 @@ class MainActivity : ComponentActivity() {
                                 message = if (picked.size == 1) "Added ${picked[0].fullName}." else "Added ${picked.size} repositories.",
                             )
                         },
+                        onRemoveRepo = { repo ->
+                            g.repos.remove(repo)
+                            settings = settings.copy(message = "Removed ${repo.fullName}.")
+                        },
                         onReadAloud = { g.settings.readAloudInCar = it; settings = settings.copy(readAloud = it) },
                         onQuietMode = { g.settings.quietMode = it; settings = settings.copy(quietMode = it) },
                         onAutoMerge = { g.settings.autoMerge = it; settings = settings.copy(autoMerge = it) },

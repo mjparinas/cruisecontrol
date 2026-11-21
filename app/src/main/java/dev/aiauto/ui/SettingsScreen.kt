@@ -118,6 +118,7 @@ fun SettingsScreen(
     onAddRepo: (String) -> Unit,
     onLoadGithubRepos: suspend () -> Result<List<RepoRef>>,
     onAddRepos: (List<RepoRef>) -> Unit,
+    onRemoveRepo: (RepoRef) -> Unit,
     onReadAloud: (Boolean) -> Unit,
     onQuietMode: (Boolean) -> Unit,
     onAutoMerge: (Boolean) -> Unit,
@@ -142,6 +143,7 @@ fun SettingsScreen(
     onSyncNow: () -> Unit = {},
 ) {
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
+    var removing by remember { mutableStateOf<RepoRef?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -188,7 +190,9 @@ fun SettingsScreen(
 
             SectionHeader("Repositories")
             SettingsCard {
-                state.repos.forEach { repo -> SettingRow(Icons.Rounded.FolderOpen, BadgeHue.Blue, repo.fullName) }
+                state.repos.forEach { repo ->
+                    SettingRow(Icons.Rounded.FolderOpen, BadgeHue.Blue, repo.fullName, enabled = !state.busy) { removing = repo }
+                }
                 SettingRow(
                     Icons.Rounded.Add, BadgeHue.Green, "Add repositories",
                     if (state.hasGithubToken) "Pick from your GitHub account" else "Save a GitHub token first",
@@ -320,6 +324,17 @@ fun SettingsScreen(
             onSelect = onThemeMode,
         )
         null -> Unit
+    }
+
+    removing?.let { repo ->
+        AlertDialog(
+            onDismissRequest = { removing = null },
+            shape = RoundedCornerShape(28.dp),
+            title = { Text("Remove ${repo.fullName}?") },
+            text = { Text("Claude can't start new tasks in it until you add it again. Tasks already running keep going, and nothing changes on GitHub.") },
+            confirmButton = { TextButton(onClick = { removing = null; onRemoveRepo(repo) }) { Text("Remove") } },
+            dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancel") } },
+        )
     }
 }
 

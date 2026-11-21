@@ -59,6 +59,36 @@ class SyncTest {
         assertEquals(9, merged.settingsChangedMillis)
     }
 
+    @Test fun aRepoRemovedOnOneDeviceIsRemovedOnTheOther() {
+        val other = RepoRef("me", "other")
+        val local = SyncSnapshot(repos = listOf(other), repoChanges = listOf(RepoChange("me/app", addedMillis = 0, removedMillis = 10)))
+        val remote = SyncSnapshot(repos = listOf(repo, other))
+        val merged = SyncMerge.merge(local, remote)
+        assertEquals(listOf("me/other"), merged.repos.map { it.fullName })
+        assertEquals(listOf(RepoChange("me/app", 0, 10)), merged.repoChanges)
+        // The other way round too: the sync file remembers a removal made on another device.
+        assertEquals(listOf("me/other"), SyncMerge.merge(remote, merged).repos.map { it.fullName })
+    }
+
+    @Test fun addingARepoAgainAfterRemovingItBringsItBack() {
+        val removedHere = SyncSnapshot(repoChanges = listOf(RepoChange("me/app", removedMillis = 10)))
+        val addedLaterThere = SyncSnapshot(repos = listOf(RepoRef("Me", "App")), repoChanges = listOf(RepoChange("Me/App", addedMillis = 20)))
+        val merged = SyncMerge.merge(removedHere, addedLaterThere)
+        assertEquals(listOf("Me/App"), merged.repos.map { it.fullName })
+        assertEquals(20, merged.repoChanges.single().addedMillis)
+        assertEquals(10, merged.repoChanges.single().removedMillis)
+        assertEquals(listOf("Me/App"), SyncMerge.merge(addedLaterThere, removedHere).repos.map { it.fullName })
+    }
+
+    @Test fun aRepoAddedHereDuringASyncRoundIsKept() {
+        // What RepoStore does when a round finishes: merge what came back with the store's current state.
+        val (repos, _) = SyncMerge.mergeRepos(
+            local = listOf(repo), localChanges = listOf(RepoChange("me/app", addedMillis = 30)),
+            remote = emptyList(), remoteChanges = listOf(RepoChange("me/app", removedMillis = 20)),
+        )
+        assertEquals(listOf(repo), repos)
+    }
+
     @Test fun uploadTrimsMessagesAndDropsUnsentPrompts() {
         val many = (1..100).map { msg("$it", it.toLong()) }.toTypedArray()
         val up = SyncMerge.forUpload(SyncSnapshot(tasks = listOf(task("a", 1, *many).copy(pendingPrompt = "x"))))
