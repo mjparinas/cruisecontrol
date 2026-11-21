@@ -24,21 +24,25 @@ class EngineControlsTest {
     private class Config : EngineConfig {
         var limit: Double? = null
         var spent = 0.0
+        var monthLimit: Double? = null
+        var monthSpent = 0.0
         var merge = false
         var fixChecks = false
         var fixConflicts = false
         var releaseSince: Long? = null
+        var rules = ""
+        /** Settings for repos other than the one most tests use, which takes the switches above. */
+        val others = mutableMapOf<String, RepoSettings>()
         override fun anthropicKey() = "key"
         override fun githubToken() = "token"
         override fun agentSetup() = AgentSetup("agent", 1, "env", AgentProfile())
         override fun saveAgentSetup(setup: AgentSetup) {}
         override fun dailyLimitUsd() = limit
         override fun spentTodayUsd() = spent
-        override fun addSpend(usd: Double) { spent += usd }
-        override fun autoMerge() = merge
-        override fun autoFixChecks() = fixChecks
-        override fun autoFixConflicts() = fixConflicts
-        override fun autoReleaseSince() = releaseSince
+        override fun monthlyLimitUsd() = monthLimit
+        override fun spentThisMonthUsd() = monthSpent
+        override fun addSpend(usd: Double) { spent += usd; monthSpent += usd }
+        override fun repoSettings(repo: RepoRef) = others[repo.fullName] ?: RepoSettings(merge, fixChecks, fixConflicts, releaseSince, rules)
     }
 
     private class FakeClaude : AgentClient {
@@ -140,6 +144,29 @@ class EngineControlsTest {
         assertTrue(claude.sent.isEmpty())
     }
 
+    @Test fun refusesToStartWhenThisMonthsLimitIsUsedUp() {
+        config.limit = 20.0
+        config.monthLimit = 50.0
+        config.monthSpent = 50.0
+        val task = engine().start(repo, "anything")
+        val failed = store.get(task.id)!!
+        assertEquals(TaskStatus.Failed, failed.status)
+        assertTrue(failed.lastMessage!!.text.startsWith("Stopped at this month's \$50.00 spending limit"))
+        assertTrue(claude.sent.isEmpty())
+    }
+
+    @Test fun canSpendUntilEitherLimitIsReached() {
+        val engine = engine()
+        config.limit = 10.0
+        config.monthLimit = 100.0
+        assertTrue(engine.canSpend())
+        config.monthSpent = 100.0
+        assertFalse(engine.canSpend())
+        config.monthSpent = 0.0
+        config.spent = 10.0
+        assertFalse(engine.canSpend())
+    }
+
     @Test fun capsTheSessionAtWhatIsLeftToday() {
         config.limit = 10.0
         config.spent = 4.0
@@ -199,6 +226,15 @@ class EngineControlsTest {
         assertFalse(store.get("t")!!.archived)
     }
 
+    @Test fun clearRemovesAnArchivedTask() {
+        val engine = engine()
+        store.put(Task("t", repo, "x", "b", sessionId = "s", status = TaskStatus.Done, archived = true, createdMillis = 0, updatedMillis = 0))
+        engine.clear("t")
+        assertNull(store.get("t"))
+        assertEquals(listOf("s"), claude.archived)
+        assertTrue(claude.interrupted.isEmpty())
+    }
+
     @Test fun stopDoesNothingToAFinishedTask() {
         val engine = engine()
         store.put(Task("t", repo, "x", "b", sessionId = "s", status = TaskStatus.Done, createdMillis = 0, updatedMillis = 0))
@@ -237,6 +273,54 @@ class EngineControlsTest {
         assertTrue(said.any { it == "Merged pull request 7." })
         assertFalse(engine.isWatchingPullRequests())
         assertTrue(store.get(task.id)!!.isFinished)
+    }
+
+    @Test fun mergesOnlyInReposWhereMergeWhenChecksPassIsOn() {
+        config.merge = true
+        val other = RepoRef("me", "website")
+        config.others[other.fullName] = RepoSettings(autoMerge = false)
+        val engine = engine()
+        val here = engine.start(repo, "fix it")
+        assertTrue(said.last().contains("I'll merge it when checks pass"))
+        val there = engine.start(other, "fix it too")
+        assertTrue(said.last().contains("is open for review"))
+
+        github.checksResult = ChecksSummary(Checks.Passing, total = 1)
+        engine.refreshPullRequest(there.id)
+        assertTrue(github.merges.isEmpty())
+        assertEquals(PrState.Open, store.get(there.id)!!.prState)
+        engine.refreshPullRequest(here.id)
+        assertEquals(listOf(7), github.merges)
+    }
+
+    @Test fun fixesFailingChecksOnlyInReposThatAllowIt() {
+        val other = RepoRef("me", "website")
+        config.others[other.fullName] = RepoSettings(autoMerge = false, autoFixChecks = true)
+        val engine = engine()
+        val manual = engine.start(repo, "fix it")
+        github.checksResult = ChecksSummary(Checks.Failing, failing = listOf("build"), total = 1)
+        engine.refreshPullRequest(manual.id)
+        assertEquals(PendingAction.FixChecks, store.get(manual.id)!!.pending)
+        assertEquals(0, store.get(manual.id)!!.autoFixes)
+
+        github.checksResult = ChecksSummary(Checks.Pending, total = 1)
+        val automatic = engine.start(other, "fix it too")
+        github.checksResult = ChecksSummary(Checks.Failing, failing = listOf("build"), total = 1)
+        engine.refreshPullRequest(automatic.id)
+        assertEquals(1, store.get(automatic.id)!!.autoFixes)
+        assertTrue(said.any { it.endsWith("Asking Claude to fix them.") })
+    }
+
+    @Test fun sendsTheRepoRulesWithTheFirstPromptOnly() {
+        config.rules = "Run npm test before pushing\n\n  Never touch the docs folder  "
+        engine().start(repo, "add a toggle")
+        val first = claude.sent.first()
+        assertTrue("- Run npm test before pushing\n- Never touch the docs folder\n\nRequest" in first)
+
+        claude.sent.clear()
+        config.others[RepoRef("me", "website").fullName] = RepoSettings()
+        engine().start(RepoRef("me", "website"), "add a toggle")
+        assertFalse("Rules from the user for this repository" in claude.sent.first())
     }
 
     @Test fun releasesAPullRequestMergedByHandWhenAutoReleaseIsOn() {

@@ -48,14 +48,17 @@ class TaskEngineTest {
         var setupsCreated = 0
 
         var lastExisting: AgentSetup? = null
+        var lastSessionSetup: AgentSetup? = null
         override fun createSetup(profile: AgentProfile, existing: AgentSetup?): AgentSetup {
             setupsCreated++
             lastExisting = existing
-            return AgentSetup("agent2", 1, existing?.environmentId ?: "env2", profile)
+            val webEnvironmentId = existing?.webEnvironmentId ?: if (profile.webSearch) "web-env" else null
+            return AgentSetup("agent2", 1, existing?.environmentId ?: "env2", profile, webEnvironmentId)
         }
         override fun createSession(setup: AgentSetup, task: Task, githubToken: String): String {
             sessionFailures.removeFirstOrNull()?.let { throw it }
             sessionsCreated++
+            lastSessionSetup = setup
             return "session-${setup.agentId}"
         }
         override fun sendPrompt(sessionId: String, prompt: String) {
@@ -134,6 +137,24 @@ class TaskEngineTest {
         assertEquals("env", claude.lastExisting?.environmentId)
         engine().start(repo, "third")
         assertEquals(1, claude.setupsCreated)
+    }
+
+    @Test fun webSearchSwitchReachesNewTasks() {
+        engine().start(repo, "first")
+        assertEquals("env", claude.lastSessionSetup?.sessionEnvironmentId)
+
+        config.profile = AgentProfile(webSearch = true)
+        engine().start(repo, "look up the docs")
+        assertEquals(1, claude.setupsCreated)
+        assertEquals(true, claude.lastSessionSetup?.profile?.webSearch)
+        assertEquals("web-env", claude.lastSessionSetup?.sessionEnvironmentId)
+
+        config.profile = AgentProfile(webSearch = false)
+        engine().start(repo, "offline again")
+        assertEquals(2, claude.setupsCreated)
+        assertEquals(false, claude.lastSessionSetup?.profile?.webSearch)
+        assertEquals("env", claude.lastSessionSetup?.sessionEnvironmentId)
+        assertEquals("web-env", config.setup?.webEnvironmentId)
     }
 
     @Test fun leavesTasksFromOtherDevicesAloneUntilYouReply() {

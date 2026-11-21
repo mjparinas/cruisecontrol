@@ -46,6 +46,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -72,6 +77,7 @@ fun TaskScreen(
     onArchive: () -> Unit,
     onUnarchive: () -> Unit,
     onMerge: () -> Unit,
+    listenUntilStop: Boolean = false,
     onSend: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -79,7 +85,15 @@ fun TaskScreen(
     var confirmMerge by remember { mutableStateOf(false) }
     if (confirmMerge) task.prNumber?.let { ConfirmMergeDialog(it, task.checks, onConfirm = onMerge, onDismiss = { confirmMerge = false }) }
     val list = rememberLazyListState()
-    LaunchedEffect(task.messages.size) { if (task.messages.isNotEmpty()) list.animateScrollToItem(task.messages.size - 1) }
+    // Jump straight to the latest message when the task opens; only animate for messages that arrive while it's open.
+    // The pull request card and cost header sit above the messages, so scroll to the list's real last item.
+    var opened by remember(task.id) { mutableStateOf(false) }
+    LaunchedEffect(task.messages.size) {
+        if (task.messages.isEmpty()) return@LaunchedEffect
+        val last = (if (task.prUrl != null) 1 else 0) + (if (task.costUsd > 0) 1 else 0) + task.messages.size - 1
+        if (opened) list.animateScrollToItem(last) else list.scrollToItem(last)
+        opened = true
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -90,9 +104,13 @@ fun TaskScreen(
                     Column {
                         Text(task.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StatusPill(task.status, interrupted = task.interrupted)
+                            // A polite live region, so TalkBack says "Needs you", "Checks running" or "Done" when the status changes.
+                            StatusPill(
+                                task,
+                                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                            )
                             Text(
-                                task.repo.fullName,
+                                task.repo.name,
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -116,8 +134,9 @@ fun TaskScreen(
                         IconButton(onClick = onArchive) { Icon(Icons.Rounded.Archive, "Archive") }
                     }
                 },
-                // Tall enough for a two-line title plus the status/repo row.
-                expandedHeight = 88.dp,
+                // Tall enough for a two-line title plus the status/repo row, and it grows with the phone's font size
+                // so large text isn't clipped.
+                expandedHeight = 88.dp * LocalDensity.current.fontScale.coerceIn(1f, 2f),
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
@@ -127,14 +146,15 @@ fun TaskScreen(
                     LinearProgressIndicator(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary)
                 }
                 if (task.status == TaskStatus.Failed) StoppedBanner(task, onRetry)
-                PromptBar(placeholder = "Ask for a change…", onSend = onSend)
             }
         },
+        floatingActionButton = { MicButton(listenUntilStop = listenUntilStop, onSend = onSend) },
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
             state = list,
-            contentPadding = PaddingValues(16.dp),
+            // Room at the bottom so the last message can scroll clear of the floating microphone.
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 136.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             task.prUrl?.let { url ->
@@ -229,6 +249,8 @@ private fun Message(message: TaskMessage) {
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier
+                    // Who said it is shown only by the bubble's side and colour, so say it for screen readers.
+                    .semantics { contentDescription = "You: ${message.text}" }
                     .padding(start = 48.dp)
                     .widthIn(max = 320.dp)
                     .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 6.dp))
@@ -241,6 +263,7 @@ private fun Message(message: TaskMessage) {
             message.text,
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier
+                .semantics { contentDescription = "Claude: ${message.text}" }
                 .padding(end = 24.dp)
                 .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 6.dp, bottomEnd = 20.dp))
                 .background(MaterialTheme.colorScheme.surface)

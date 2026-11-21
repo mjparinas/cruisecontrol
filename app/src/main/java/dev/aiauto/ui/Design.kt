@@ -224,11 +224,12 @@ internal fun ScreenTopBar(
     )
 }
 
-/** A rounded card standing on its own, such as a task in the list. The whole card is tappable when [onClick] is set. */
+/** A rounded card standing on its own, such as a task in the list. The whole card is tappable when [onClick] is set, and [onClickLabel] says what a tap does. */
 @Composable
 internal fun RoundCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    onClickLabel: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
@@ -236,7 +237,8 @@ internal fun RoundCard(
             .fillMaxWidth()
             .clip(CardShape)
             .background(MaterialTheme.colorScheme.surface)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            // The label finishes TalkBack's "Double tap to …", so say what a tap does.
+            .then(if (onClick != null) Modifier.clickable(onClickLabel = onClickLabel, onClick = onClick) else Modifier)
             .padding(16.dp),
         content = content,
     )

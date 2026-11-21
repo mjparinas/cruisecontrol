@@ -16,10 +16,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.Gavel
@@ -31,6 +33,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,9 +47,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import dev.aiauto.core.AgentProfile
+import dev.aiauto.core.ChatModel
 import dev.aiauto.core.ChatProfile
+import dev.aiauto.core.ChatProvider
 import dev.aiauto.core.EffortChoice
 import dev.aiauto.core.ModelChoice
+import dev.aiauto.core.RepoRef
+import dev.aiauto.core.RepoSettings
 import dev.aiauto.core.StandingRule
 import dev.aiauto.notify.VoiceOption
 
@@ -60,13 +67,17 @@ internal fun rateLabel(rate: Float): String = when (rate) {
 
 private enum class ClaudeDialog { Model, Effort, ChatModel, ChatEffort, Rules }
 
-/** The "Claude" section: which model and effort coding tasks and the car chat use, web search, and standing rules. */
+/**
+ * The "Claude" section: which model and effort coding tasks and the car chat use, web search, and standing rules.
+ * The car chat can also use an OpenAI or Gemini model; [hasKey] says which providers have a key saved.
+ */
 @Composable
 internal fun ClaudeSettingsSection(
     agent: AgentProfile,
     chat: ChatProfile,
     onAgent: (AgentProfile) -> Unit,
     onChat: (ChatProfile) -> Unit,
+    hasKey: (ChatProvider) -> Boolean = { true },
 ) {
     var dialog by remember { mutableStateOf<ClaudeDialog?>(null) }
     val ruleCount = agent.rules.count { name -> StandingRule.entries.any { it.name == name } } +
@@ -80,7 +91,10 @@ internal fun ClaudeSettingsSection(
         SettingRow(Icons.Rounded.Psychology, BadgeHue.Violet, "Effort for tasks", "${agent.effortChoice.label}. ${agent.effortChoice.blurb}") {
             dialog = ClaudeDialog.Effort
         }
-        SettingRow(Icons.Rounded.Forum, BadgeHue.Teal, "Model for the car chat", chat.model.label) { dialog = ClaudeDialog.ChatModel }
+        SettingRow(
+            Icons.Rounded.Forum, BadgeHue.Teal, "Model for the car chat",
+            chat.model.label + if (hasKey(chat.model.provider)) "" else ". Add a ${chat.model.provider.label} API key under Accounts first.",
+        ) { dialog = ClaudeDialog.ChatModel }
         SettingRow(Icons.Rounded.Speed, BadgeHue.Blue, "Effort for the car chat", "${chat.effort.label}. ${chat.effort.blurb}") {
             dialog = ClaudeDialog.ChatEffort
         }
@@ -113,9 +127,9 @@ internal fun ClaudeSettingsSection(
         ) { onAgent(agent.copy(effort = it.name)) }
         ClaudeDialog.ChatModel -> ChoiceDialog(
             title = "Model for the car chat",
-            options = ModelChoice.entries,
+            options = ChatModel.entries,
             selected = chat.model,
-            label = { "${it.label}: ${it.blurb}" },
+            label = { "${it.label}: ${it.blurb}" + if (hasKey(it.provider)) "" else " (needs a ${it.provider.label} key)" },
             onDismiss = { dialog = null },
         ) { onChat(chat.copy(model = it)) }
         ClaudeDialog.ChatEffort -> ChoiceDialog(
@@ -184,6 +198,93 @@ private fun RulesDialog(agent: AgentProfile, onDismiss: () -> Unit, onSave: (Lis
     )
 }
 
+/**
+ * One repo's own settings: what happens to its pull requests, and rules Claude follows only on tasks in it.
+ * Everything that's the same across repos (model, standing rules, voice, spending) stays in the global settings.
+ */
+@Composable
+internal fun RepoSettingsDialog(
+    repo: RepoRef,
+    settings: RepoSettings,
+    onDismiss: () -> Unit,
+    onRemove: () -> Unit,
+    onSave: (RepoSettings) -> Unit,
+) {
+    var edited by remember { mutableStateOf(settings) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(28.dp),
+        title = { Text(repo.fullName) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                DialogSwitch(
+                    "Merge when checks pass",
+                    "Turns on GitHub auto-merge when the repo allows it, or merges once every check is green. Failing checks are never merged.",
+                    edited.autoMerge,
+                ) { edited = edited.copy(autoMerge = it) }
+                DialogSwitch(
+                    "Fix merge conflicts automatically",
+                    "Claude merges in the main branch, resolves the conflicts and pushes, without asking first.",
+                    edited.autoFixConflicts,
+                ) { edited = edited.copy(autoFixConflicts = it) }
+                DialogSwitch(
+                    "Fix failing checks automatically",
+                    "Claude fixes failing tests, builds or other checks and pushes, without asking first. Up to three tries per task.",
+                    edited.autoFixChecks,
+                ) { edited = edited.copy(autoFixChecks = it) }
+                DialogSwitch(
+                    "Release when a PR is merged",
+                    "Publishes a GitHub release with the next patch version, like v1.2.3 to v1.2.4, for pull requests merged from now on.",
+                    edited.autoReleaseSince != null,
+                ) { edited = edited.withAutoRelease(it, System.currentTimeMillis()) }
+                OutlinedTextField(
+                    value = edited.instructions,
+                    onValueChange = { edited = edited.copy(instructions = it) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    shape = MaterialTheme.shapes.large,
+                    minLines = 3,
+                    label = { Text("Rules for this repo, one per line") },
+                    placeholder = { Text("Run npm test before pushing") },
+                )
+                Text(
+                    "Claude follows these on every task in this repo, along with your standing rules. They apply from the next task.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onSave(edited.copy(instructions = edited.instructions.trim()))
+                onDismiss()
+            }) { Text("Save") }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onRemove) { Text("Remove") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
+}
+
+/** A switch with a title and a line of explanation, the whole row tappable, for use inside a dialog. */
+@Composable
+private fun DialogSwitch(title: String, summary: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RowText(title, summary, Modifier.weight(1f))
+        Spacer(Modifier.width(12.dp))
+        Switch(checked = checked, onCheckedChange = null)
+    }
+}
+
 private enum class VoiceDialog { Rate, Voice }
 
 /** Speed and voice for reading aloud, shown in the "In the car" card. */
@@ -225,13 +326,20 @@ internal fun VoiceRows(
     }
 }
 
-/** Hands-free start, the welcome-back briefing, and memory across drives, in the "In the car" card. */
+/**
+ * Hands-free start, listening until Stop, the experimental steering-wheel buttons, the welcome-back briefing, and
+ * memory across drives, in the "In the car" card.
+ */
 @Composable
 internal fun CarStartRows(
     listenOnOpen: Boolean,
+    listenUntilStop: Boolean,
+    wheelButtons: Boolean,
     briefing: Boolean,
     rememberOn: Boolean,
     onListenOnOpen: (Boolean) -> Unit,
+    onListenUntilStop: (Boolean) -> Unit,
+    onWheelButtons: (Boolean) -> Unit,
     onBriefing: (Boolean) -> Unit,
     onRemember: (Boolean) -> Unit,
     onForget: () -> Unit,
@@ -241,6 +349,16 @@ internal fun CarStartRows(
         Icons.Rounded.Mic, BadgeHue.Red, "Listen when opened",
         "Starts listening as soon as Cruise Control opens in the car, so \"Hey Google, open Cruise Control\" is all it takes.",
         listenOnOpen, onListenOnOpen,
+    )
+    SwitchRow(
+        Icons.Rounded.StopCircle, BadgeHue.Violet, "Keep listening until Stop",
+        "Pauses don't send what you said. The car and the phone's mic button keep listening until you tap Stop, so you can think mid-sentence.",
+        listenUntilStop, onListenUntilStop,
+    )
+    SwitchRow(
+        Icons.Rounded.DirectionsCar, BadgeHue.Green, "Steering-wheel buttons (experimental)",
+        "While Cruise Control is open in the car, the wheel's play or pause button starts Talk and next or previous repeats the last update. Android Auto may then treat the app as a media app.",
+        wheelButtons, onWheelButtons,
     )
     SwitchRow(
         Icons.Rounded.WbSunny, BadgeHue.Amber, "Briefing when you get in",
@@ -266,7 +384,7 @@ internal fun CarStartRows(
     }
 }
 
-/** Sync across devices through a secret gist on your GitHub account. */
+/** Sync across devices through a private repo on your GitHub account. */
 @Composable
 internal fun SyncSection(enabled: Boolean, status: String, busy: Boolean, onEnabled: (Boolean) -> Unit, onSyncNow: () -> Unit) {
     SectionHeader("Sync")
@@ -279,7 +397,8 @@ internal fun SyncSection(enabled: Boolean, status: String, busy: Boolean, onEnab
         if (enabled) SettingRow(Icons.Rounded.Sync, BadgeHue.Teal, "Sync now", status, enabled = !busy, onClick = onSyncNow)
     }
     Note(
-        "Stored in a secret gist on your GitHub account, so your token needs Gists set to read and write. " +
+        "Stored in a private repo named cruise-control-sync on your GitHub account, which the app makes the first time. " +
+            "Your token needs Contents set to read and write on it, and Administration set to read and write to make it. " +
             "Your API key and token stay on each device. A task keeps running on the device that started it until you reply from another.",
     )
 }

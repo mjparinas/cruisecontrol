@@ -8,6 +8,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import androidx.car.app.connection.CarConnection
 import androidx.lifecycle.Observer
+import dev.aiauto.core.SpeechHold
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -15,13 +16,18 @@ import java.util.concurrent.atomic.AtomicInteger
 /**
  * Reads updates aloud through the phone's text-to-speech, which Android Auto routes to the
  * car speakers. Only speaks while the phone is connected to a car. Music is ducked while it talks,
- * and anything said before the speech engine is ready is queued instead of dropped.
+ * and anything said before the speech engine is ready is queued instead of dropped. While the microphone is listening,
+ * updates are held and read once it stops, so the car doesn't talk over the driver.
  */
 /** A text-to-speech voice you can pick in Settings. */
 data class VoiceOption(val name: String, val label: String)
 
 class Speaker(context: Context, private val settings: dev.aiauto.data.Settings) {
     @Volatile var inCar = false
+        private set
+
+    /** The last thing queued to be read aloud, for the steering wheel's repeat button. */
+    @Volatile var lastSaid: String? = null
         private set
     private val audio = context.getSystemService(AudioManager::class.java)
     private val attributes = AudioAttributes.Builder()
@@ -35,6 +41,7 @@ class Speaker(context: Context, private val settings: dev.aiauto.data.Settings) 
     private val utteranceIds = AtomicInteger(0)
     private val pending = mutableListOf<Pair<String, (() -> Unit)?>>()
     private val callbacks = ConcurrentHashMap<String, () -> Unit>()
+    private val hold = SpeechHold<Pair<String, (() -> Unit)?>>(MAX_PENDING)
     private var ready = false
     private val tts = TextToSpeech(context.applicationContext) { status -> onInit(status) }
 
@@ -64,13 +71,24 @@ class Speaker(context: Context, private val settings: dev.aiauto.data.Settings) 
     @Synchronized
     fun speak(text: String, onDone: (() -> Unit)? = null) {
         if (text.isBlank()) return
+        lastSaid = text
+        if (hold.offer(text to onDone)) return
         if (ready) say(text, onDone)
         else if (pending.size < MAX_PENDING) pending.add(text to onDone)
     }
 
+    /** Holds new updates while the microphone listens. Call [releaseMicrophone] once for every call. */
+    @Synchronized
+    fun holdForMicrophone() = hold.hold()
+
+    /** Ends one microphone hold; once none are left, reads out what was held. */
+    @Synchronized
+    fun releaseMicrophone() = hold.release().forEach { (text, onDone) -> speak(text, onDone) }
+
     @Synchronized
     fun stop() {
         pending.clear()
+        hold.clear()
         callbacks.clear()
         if (ready) tts.stop()
         queued.set(0)

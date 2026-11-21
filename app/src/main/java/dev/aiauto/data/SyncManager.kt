@@ -2,9 +2,10 @@ package dev.aiauto.data
 
 import android.util.Log
 import dev.aiauto.core.Failures
-import dev.aiauto.core.GistSync
 import dev.aiauto.core.GitHub
 import dev.aiauto.core.GitHubException
+import dev.aiauto.core.RepoSync
+import dev.aiauto.core.SyncRepoNotPrivate
 import dev.aiauto.core.SyncSnapshot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +19,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * Syncs repos, tasks, settings and the car chat's memory through a secret gist on the user's GitHub account.
+ * Syncs repos, tasks, settings and the car chat's memory through a private repo on the user's GitHub account.
  * Runs every few minutes while the app is alive, shortly after tasks change, and when asked from Settings.
  */
 class SyncManager(
@@ -28,8 +29,11 @@ class SyncManager(
     private val repos: RepoStore,
     private val chat: FileChatMemory,
     private val scope: CoroutineScope,
+    /** Clears a task that was cleared on another device: stops it if it runs here, and removes its notification. */
+    private val removeTask: (String) -> Unit = tasks::remove,
 ) {
     private val lock = Mutex()
+    @Volatile private var checkedGist = false
 
     /** Starts the background rounds. Each one does nothing while sync is off. */
     @OptIn(FlowPreview::class)
@@ -81,23 +85,35 @@ class SyncManager(
             settings = settings.exportSynced(),
             settingsChangedMillis = settings.settingsChangedMillis,
             chat = if (settings.rememberChats) chat.recent() else emptyList(),
+            removedTasks = tasks.removedIds(),
+            chatForgottenMillis = chat.forgottenMillis,
+            repoChanges = repos.changes(),
         )
-        val (gistId, merged) = GistSync(GitHub(token)).sync(settings.syncGistId, local)
-        settings.syncGistId = gistId
+        // The first round since the app started also moves an old sync gist into the repo and deletes it, in case a
+        // device still on an older version made one again.
+        val result = RepoSync(GitHub(token)).sync(local, checkGist = !checkedGist)
+        checkedGist = true
+        if (result.movedGist) settings.syncGistId = null
+        val merged = result.merged
 
+        // Tasks cleared on another device go here too, instead of coming back on the next round.
+        tasks.rememberRemoved(merged.removedTasks)
+        merged.removedTasks.filter { tasks.get(it) != null }.forEach(removeTask)
         merged.tasks.forEach { incoming ->
             val current = tasks.get(incoming.id)
             // Skip a task that changed here while the round was running; the next round sends it.
             if (current == null || (current != incoming && current.updatedMillis <= incoming.updatedMillis)) tasks.put(incoming)
         }
-        merged.repos.filter { repos.find(it.fullName) == null }.forEach { repos.add(it) }
+        repos.applySynced(merged.repos, merged.repoChanges)
         if (merged.settingsChangedMillis > local.settingsChangedMillis) settings.importSynced(merged.settings, merged.settingsChangedMillis)
-        if (settings.rememberChats) chat.replaceAll(merged.chat)
+        if (settings.rememberChats) chat.replaceAll(merged.chat, merged.chatForgottenMillis)
     }
 
     private fun describe(e: Exception): String = when {
+        e is SyncRepoNotPrivate -> "${e.repo} is public, so sync is paused. Make it private on GitHub, then sync again."
         e is GitHubException && (e.code == 403 || e.code == 404) ->
-            "Your GitHub token can't use gists. Edit the token on GitHub and set Gists to read and write."
+            "Your GitHub token can't make or use the private ${RepoSync.REPO} repo. Make that repo on GitHub as private, " +
+                "and give the token Contents read and write on it."
         e is GitHubException && e.code == 401 -> "GitHub didn't accept the token. Save a new one above."
         else -> Failures.describe(e)
     }

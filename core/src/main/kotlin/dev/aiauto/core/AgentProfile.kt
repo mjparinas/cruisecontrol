@@ -2,20 +2,44 @@ package dev.aiauto.core
 
 import kotlinx.serialization.Serializable
 
-/** The Claude models the app lets you pick, with their list prices in US dollars per million tokens. */
-enum class ModelChoice(val id: String, val label: String, val blurb: String, val inputPerMTok: Double, val outputPerMTok: Double) {
-    Opus("claude-opus-5-5", "Opus 5.5", "Most capable", 4.0, 20.0),
-    Sonnet("claude-sonnet-5-5", "Sonnet 5.5", "Faster, about half the price", 2.0, 10.0),
-    Haiku("claude-haiku-5-5", "Haiku 5.5", "Fastest and cheapest, for small jobs", 0.10, 0.50),
+/**
+ * The Claude models the app lets you pick, with their list prices in US dollars per million tokens. [cacheReadPerMTok]
+ * is the price of a prompt cache hit, which Opus 5.5 and Sonnet 5.5 charge at 0.05 times input instead of 0.1.
+ */
+enum class ModelChoice(
+    val id: String,
+    val label: String,
+    val blurb: String,
+    val inputPerMTok: Double,
+    val outputPerMTok: Double,
+    val cacheReadPerMTok: Double,
+) {
+    Opus("claude-opus-5-5", "Opus 5.5", "Most capable", 4.0, 20.0, 0.20),
+    Sonnet("claude-sonnet-5-5", "Sonnet 5.5", "Faster, about half the price", 2.0, 10.0, 0.10),
+    Haiku("claude-haiku-5-5", "Haiku 5.5", "Fastest and cheapest, for small jobs", 0.10, 0.50, 0.01),
     ;
 
-    fun costUsd(inputTokens: Long, outputTokens: Long): Double =
-        (inputTokens * inputPerMTok + outputTokens * outputPerMTok) / 1_000_000.0
+    fun costUsd(inputTokens: Long, outputTokens: Long, cacheWriteTokens: Long = 0, cacheReadTokens: Long = 0): Double =
+        promptCostUsd(inputTokens, outputTokens, cacheWriteTokens, cacheReadTokens, inputPerMTok, outputPerMTok, cacheReadPerMTok)
 
     companion object {
         fun of(id: String?): ModelChoice = entries.firstOrNull { it.id == id || it.name == id } ?: Opus
     }
 }
+
+/** Prompt cache writes with the default 5-minute lifetime cost 1.25 times input; reads cost [cacheReadPerMTok]. */
+internal fun promptCostUsd(
+    inputTokens: Long,
+    outputTokens: Long,
+    cacheWriteTokens: Long,
+    cacheReadTokens: Long,
+    inputPerMTok: Double,
+    outputPerMTok: Double,
+    cacheReadPerMTok: Double,
+): Double = (
+    inputTokens * inputPerMTok + cacheWriteTokens * inputPerMTok * 1.25 +
+        cacheReadTokens * cacheReadPerMTok + outputTokens * outputPerMTok
+    ) / 1_000_000.0
 
 /** How hard Claude thinks before it answers. Higher is slower and costs more, and is better on hard problems. */
 enum class EffortChoice(val label: String, val blurb: String) {
@@ -75,6 +99,6 @@ data class AgentProfile(
 
 /** The model and effort for the spoken chat in the car. Low effort by default, so answers come back quickly. */
 data class ChatProfile(
-    val model: ModelChoice = ModelChoice.Opus,
+    val model: ChatModel = ChatModel.Opus,
     val effort: EffortChoice = EffortChoice.Low,
 )

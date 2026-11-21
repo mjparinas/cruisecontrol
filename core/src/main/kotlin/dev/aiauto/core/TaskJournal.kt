@@ -40,6 +40,17 @@ internal class TaskJournal(
             ?.let { runCatching { onMessage(task, it) } }
     }
 
+    /**
+     * Reads the task's last line from Claude or the app aloud again, skipping progress notes, even in quiet mode.
+     * Returns false when there is nothing to repeat.
+     */
+    fun repeatLast(taskId: String): Boolean {
+        val task = store.get(taskId) ?: return false
+        val last = task.messages.lastOrNull { it.speaker != Speaker.You && !it.id.startsWith(PROGRESS) } ?: return false
+        runCatching { onMessage(task, last) }
+        return true
+    }
+
     /** A status line from the app, read aloud like Claude's own messages. */
     fun status(taskId: String, text: String, notify: Boolean = true) = append(taskId, Speaker.Status, text, notify)
 
