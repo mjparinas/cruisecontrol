@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Two more quick voice commands on a task: "undo that" has Claude revert its last change, and "start over" asks
+  for a yes, then has Claude reset the branch and redo the original request from scratch.
+
 ## v0.7.1
 
 - New app icon again: a cruise control speedometer with the set-speed marker outside the dial, replacing the

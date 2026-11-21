@@ -71,6 +71,9 @@ When you reply to a task, the app handles a few short phrases itself without wai
   leave it. If checks failed, it won't merge. It offers to have Claude fix them instead.
 - **"Fix it"** sends the names of the failing checks to Claude. When the app announces failed checks, you can also
   just say **"yes"**.
+- **"Undo that"** has Claude revert its last change and push, keeping the history.
+- **"Start over"** asks you to confirm. Say **"yes"** and Claude resets the branch to the main branch and does your
+  original request again from scratch, or **"no"** to keep the work. Neither works once the pull request is merged.
 
 Anything longer goes to Claude as usual, so "merge the two settings screens" is still a coding request.
 

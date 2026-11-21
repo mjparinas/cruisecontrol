@@ -6,7 +6,7 @@ task, PRs opened automatically, updates read aloud). Ordered roughly by how much
 ## Close the loop by voice
 
 Built: CI results read aloud, merging from the car, merge by voice with a yes or no confirmation, and quick
-commands. See "Voice commands" in the README.
+commands, including "undo that" and "start over". See "Voice commands" in the README.
 
 - **Merge by voice.** Reply "merge it" to a task whose PR is open. The app checks that CI is green and the PR is
   mergeable, reads back "Merging PR 12 into main, say yes to confirm", then calls the GitHub merge API. Needs
@@ -17,7 +17,8 @@ commands. See "Voice commands" in the README.
 - **Review comments as prompts.** Watch the PR for new review comments and read them out: "Sam commented on PR 12:
   rename this function". Replying sends the comment plus your reply to the same session.
 - **Quick commands.** Recognise short replies like "stop", "status", "undo that", "start over" locally instead of
-  sending them to Claude. "Status" reads the latest progress line; "stop" calls `TaskEngine.stop`.
+  sending them to Claude. "Status" reads the latest progress line; "stop" calls `TaskEngine.stop`; "undo that" asks
+  Claude to revert its last commit; "start over" confirms, then has Claude reset the branch and redo the request.
 
 ## Start work without typing
 
