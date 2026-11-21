@@ -6,7 +6,9 @@ import dev.aiauto.core.AgentSetup
 import dev.aiauto.core.ChatProfile
 import dev.aiauto.core.EffortChoice
 import dev.aiauto.core.ModelChoice
+import dev.aiauto.core.RepoChange
 import dev.aiauto.core.RepoRef
+import dev.aiauto.core.SyncMerge
 import dev.aiauto.core.Task
 import dev.aiauto.core.TaskStore
 import dev.aiauto.core.TaskTemplate
@@ -79,10 +81,36 @@ class FileTaskStore(context: Context) : TaskStore {
 
 class RepoStore(context: Context) {
     private val list = JsonListFile(File(context.filesDir, "repos.json"), RepoRef.serializer())
+    private val changes = JsonListFile(File(context.filesDir, "repo_changes.json"), RepoChange.serializer())
     val repos: StateFlow<List<RepoRef>> = list.flow
 
+    /** When each repo was last added and removed here or on another device, for sync. */
+    fun changes(): List<RepoChange> = changes.flow.value
+
     @Synchronized
-    fun add(repo: RepoRef) = list.set(list.flow.value.filter { it.fullName != repo.fullName } + repo)
+    fun add(repo: RepoRef) {
+        list.set(list.flow.value.filter { it.fullName != repo.fullName } + repo)
+        note(RepoChange(repo.fullName, addedMillis = System.currentTimeMillis()))
+    }
+
+    @Synchronized
+    fun remove(repo: RepoRef) {
+        list.set(list.flow.value.filter { !it.fullName.equals(repo.fullName, ignoreCase = true) })
+        note(RepoChange(repo.fullName, removedMillis = System.currentTimeMillis()))
+    }
+
+    /** Takes the repos a sync round merged, keeping anything added or removed here while the round ran. */
+    @Synchronized
+    fun applySynced(repos: List<RepoRef>, synced: List<RepoChange>) {
+        val (merged, mergedChanges) = SyncMerge.mergeRepos(list.flow.value, changes.flow.value, repos, synced)
+        if (merged != list.flow.value) list.set(merged)
+        if (mergedChanges != changes.flow.value) changes.set(mergedChanges)
+    }
+
+    private fun note(change: RepoChange) {
+        val (_, merged) = SyncMerge.mergeRepos(emptyList(), changes.flow.value, emptyList(), listOf(change))
+        changes.set(merged)
+    }
 
     @Synchronized
 
@@ -235,6 +263,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("listen_on_open", true)
         set(value) = prefs.edit().putBoolean("listen_on_open", value).apply()
 
+    /** Keep listening through pauses in the car until the driver taps Stop, instead of sending at the first pause. */
+    var listenUntilStop: Boolean
+        get() = prefs.getBoolean("listen_until_stop", false)
+        set(value) = prefs.edit().putBoolean("listen_until_stop", value).apply()
+
     /** Read a summary of what happened since the last drive when the phone connects to the car. */
     var briefingOnConnect: Boolean
         get() = prefs.getBoolean("briefing", true)
@@ -342,7 +375,7 @@ class Settings(context: Context) {
         val SYNCED_KEYS = setOf(
             "read_aloud", "theme_mode", "accent", "quiet_mode", "daily_limit", "auto_merge", "auto_fix_checks",
             "auto_fix_conflicts", "auto_release_since", "agent_profile", "chat_model", "chat_effort", "speech_rate",
-            "listen_on_open", "briefing", "remember_chats",
+            "listen_on_open", "listen_until_stop", "briefing", "remember_chats",
         )
     }
 }

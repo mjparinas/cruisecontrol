@@ -54,7 +54,8 @@ failing checks automatically** does the same for failing tests, builds or any ot
 time it does this. After three automatic fixes on a task it goes back to asking you, so it can't loop forever. With
 either switch off, the app asks first, and you can say yes or "fix it".
 
-You can **Stop** a working task, **Clear** one, or clear every finished task at once. Each task shows what it has
+You can **Stop** a working task, **Clear** one, or clear every finished task at once. On the phone's task list,
+swipe a card right to archive it (with undo) or left to clear it (the app asks first). Each task shows what it has
 cost so far, and a **daily limit** (default $20, set in Settings) stops Claude when the day's total reaches it.
 The limit is also set as the session's budget on Anthropic's side, so it holds even if the phone loses signal.
 
@@ -86,7 +87,8 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
    the repos you want to use. Set **Contents** and **Pull requests** to read and write, and **Checks** and
    **Commit statuses** to read. For sync across devices, the token also needs the private `cruise-control-sync` repo
    (see below). To let GitHub merge on its own, turn on **Allow auto-merge** in the repo's settings.
-4. **Settings in the app.** Paste both, then add repos as `owner/name`. The key and token are encrypted with the
+4. **Settings in the app.** Paste both, then add repos as `owner/name`. To remove a repo, tap it and confirm. Its
+   running tasks keep going and nothing changes on GitHub. The key and token are encrypted with the
    Android Keystore. The GitHub token is also sent to Anthropic for each session, so the sandbox can clone and
    push. Anthropic's proxy adds the token to git requests outside the sandbox, so code running in the sandbox
    never sees it.
@@ -110,10 +112,18 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
   the web.
 - **Standing rules.** Tick common rules, like always adding tests or leaving CI files alone, and add your own, one
   per line. They're added to Claude's instructions for every task.
+- **Repository notes.** Each task asks Claude to read `CLAUDE.md` at the root of the repo first, so it doesn't have
+  to look through the whole repo again every time. If the file is missing, Claude writes it, and it fixes the file
+  when it's out of date, so the notes build up across tasks and arrive in the same pull request as the change. Edit
+  or delete it like any other file.
 - Changing any of these makes a new agent for the next task. Tasks already running keep the agent they started with.
 - **Listen when opened** (on by default): the car screen starts listening as soon as it opens, so saying
   "Hey Google, open Cruise Control", or pressing the steering-wheel voice button and saying that, is enough to start
   talking. Android Auto doesn't let other apps take over the voice button itself.
+- **Keep listening until Stop** (off by default): pauses don't end what you're saying. The car screen keeps listening
+  through them and joins your words until you tap **Stop**, which sends them. It works on **Talk**, **New task** and
+  **Reply**. With it on, saying nothing no longer ends the conversation; tap **Stop** instead. The phone's own mic
+  button still uses Google's speech dialog, which stops at the first pause.
 - **Briefing when you get in** (on by default): when the phone connects to the car, Claude reads what happened
   since your last drive, up to a day back: merged pull requests, finished and failed tasks, questions waiting for
   you and what you've spent today. If the car screen is open it reads it there, then listens.
@@ -136,13 +146,14 @@ The app syncs every three minutes while it runs, 20 seconds after a task changes
 now**. A task keeps running on the device that started it: other devices show it but don't follow its session or
 merge its pull request, until you reply to it or retry it from one of them, which moves it there. When both
 devices changed a task, the newer one wins and messages from both are kept. Settings work the same way as a whole.
+A repo removed on one device is removed on the others too, unless one of them added it again later.
 
 ## Building locally
 
 Requires JDK 17 and the Android SDK (API 37.2).
 
 ```
-./gradlew :core:test :app:assembleDebug
+./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug
 ```
 
 ## Making a release

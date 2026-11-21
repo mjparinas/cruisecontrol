@@ -91,6 +91,7 @@ class MainActivity : ComponentActivity() {
                         onOpen = { screen = Screen.Detail(it.id) },
                         onArchive = { g.engine.archive(it.id); g.notifier.clear(it.id) },
                         onUnarchive = { g.engine.unarchive(it.id) },
+                        onClear = { g.engine.clear(it.id); g.notifier.clear(it.id) },
                         onNew = { screen = Screen.NewTask },
                         onSettings = { screen = Screen.Settings },
                         onProjects = {
@@ -205,6 +206,10 @@ class MainActivity : ComponentActivity() {
                                 message = if (picked.size == 1) "Added ${picked[0].fullName}." else "Added ${picked.size} repositories.",
                             )
                         },
+                        onRemoveRepo = { repo ->
+                            g.repos.remove(repo)
+                            settings = settings.copy(message = "Removed ${repo.fullName}.")
+                        },
                         onReadAloud = { g.settings.readAloudInCar = it; settings = settings.copy(readAloud = it) },
                         onQuietMode = { g.settings.quietMode = it; settings = settings.copy(quietMode = it) },
                         onAutoMerge = { g.settings.autoMerge = it; settings = settings.copy(autoMerge = it) },
@@ -230,6 +235,7 @@ class MainActivity : ComponentActivity() {
                         onVoice = { g.settings.voiceName = it; settings = settings.copy(voiceName = it) },
                         onPreviewVoice = { g.speaker.stop(); g.speaker.speak("This is how I'll sound in the car.") },
                         onListenOnOpen = { g.settings.listenOnOpen = it; settings = settings.copy(listenOnOpen = it) },
+                        onListenUntilStop = { g.settings.listenUntilStop = it; settings = settings.copy(listenUntilStop = it) },
                         onBriefing = { g.settings.briefingOnConnect = it; settings = settings.copy(briefing = it) },
                         onRememberChats = { g.settings.rememberChats = it; settings = settings.copy(rememberChats = it) },
                         onForgetChats = { g.chatMemory.forget(); settings = settings.copy(message = "The car chat forgot your past drives.") },
@@ -296,6 +302,7 @@ class MainActivity : ComponentActivity() {
         speechRate = graph.settings.speechRate,
         voiceName = graph.settings.voiceName,
         listenOnOpen = graph.settings.listenOnOpen,
+        listenUntilStop = graph.settings.listenUntilStop,
         briefing = graph.settings.briefingOnConnect,
         rememberChats = graph.settings.rememberChats,
         syncEnabled = graph.settings.syncEnabled,

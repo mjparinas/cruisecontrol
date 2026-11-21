@@ -90,4 +90,7 @@ dependencies {
 
     implementation("androidx.car.app:app:1.7.0")
     implementation("androidx.car.app:app-projected:1.7.0")
+
+    // AGP's built-in Kotlin doesn't pick kotlin-test's JUnit variant on its own, so name it. Android unit tests run on JUnit 4.
+    testImplementation(kotlin("test-junit"))
 }
