@@ -78,6 +78,7 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   a release cut. To fix one, merge `origin/main` into its branch, keep only that pull request's own notes under
   Unreleased, keep the decision log newest first, and keep both sides of list entries. Open pull requests are the
   ones with a `refs/pull/N/merge` ref in `git ls-remote origin`; the GitHub API is rate-limited without a token.
+  That ref can be stale, so check for real conflicts with `git merge-tree --write-tree --name-only origin/main <branch>`.
   Push each merge straight to that pull request's own branch. When main added a setting, also add it to the
   branch's code that lists settings (such as `SettingsSearch.CATALOGUE`), not just the conflicting lines.
 
