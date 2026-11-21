@@ -125,6 +125,7 @@ class MainActivity : ComponentActivity() {
                         templates = templates,
                         onAddTemplate = { name, prompt -> g.templates.add(name, prompt) },
                         onDeleteTemplate = { g.templates.remove(it.id) },
+                        listenUntilStop = g.settings.listenUntilStop,
                         onBack = { screen = Screen.Home },
                         onStart = { repo, text ->
                             val task = g.engine.start(repo, text)
@@ -159,6 +160,7 @@ class MainActivity : ComponentActivity() {
                                 g.engine.retry(task.id)
                                 TaskService.ensureRunning(this)
                             },
+                            listenUntilStop = g.settings.listenUntilStop,
                         ) { text ->
                             g.engine.prompt(task.id, text)
                             TaskService.ensureRunning(this)
