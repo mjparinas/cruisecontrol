@@ -269,6 +269,15 @@ class GitHubClientTest {
         assertEquals(500, assertFailsWith<GitHubException> { github.branchExists(repo, "claude/fix") }.code)
     }
 
+    @Test fun aReplyWithNoBodyIsReportedByItsStatus() {
+        val bare = OkHttpClient.Builder().addInterceptor { chain ->
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(502).message("Bad gateway").build()
+        }.build()
+        val e = assertFailsWith<GitHubException> { GitHub("token", bare).branchExists(repo, "claude/fix") }
+        assertEquals(502, e.code)
+        assertEquals("GitHub: HTTP 502", e.message)
+    }
+
     // ---- Repos and commits ----------------------------------------------------------------------------------
 
     private fun repoJson(name: String, push: Boolean, branch: String = "main") =
@@ -325,5 +334,42 @@ class GitHubClientTest {
         on("GET", raw, 200, """{"complete": true}""")
         assertEquals("""{"complete": true}""", github.gistFile("g1", "sync.json"))
         assertNull(github.gistFile("g1", "other.json"))
+    }
+
+    @Test fun neverSendsTheTokenToAnotherHostForAGistFile() {
+        on("GET", "/gists/g1", 200, """{"id": "g1", "files": {"sync.json": {"content": "{", "truncated": true, "raw_url": "https://example.com/steal"}}}""")
+        assertNull(github.gistFile("g1", "sync.json"))
+        assertEquals(listOf("/gists/g1"), sent.map { it.path })
+    }
+
+    // ---- Sync repo ------------------------------------------------------------------------------------------
+
+    @Test fun readsAndWritesTheSyncFile() {
+        val encoded = java.util.Base64.getEncoder().encodeToString("""{"a": 1}""".toByteArray())
+        val sync = RepoRef("me", "cruise-control-sync")
+        on("GET", "/repos/me/cruise-control-sync/contents/s.json", 200, """{"sha": "abc", "size": 8, "encoding": "base64", "content": "${encoded.chunked(4).joinToString("\\n")}"}""")
+        on("PUT", "/repos/me/cruise-control-sync/contents/s.json", 200, "{}")
+        val file = github.repoFile(sync, "s.json")!!
+        assertEquals("""{"a": 1}""", file.content)
+        assertEquals("abc", file.sha)
+        github.putRepoFile(sync, "s.json", "hi", sha = "abc", message = "Sync")
+        val body = sent.last().body!!
+        assertTrue("\"sha\":\"abc\"" in body)
+        assertTrue("\"content\":\"aGk=\"" in body)
+    }
+
+    @Test fun aMissingSyncFileOrRepoIsNull() {
+        on("GET", "/repos/me/cruise-control-sync/contents/s.json", 404, """{"message": "Not Found"}""")
+        on("GET", "/repos/me/cruise-control-sync", 404, """{"message": "Not Found"}""")
+        assertNull(github.repoFile(RepoRef("me", "cruise-control-sync"), "s.json"))
+        assertNull(github.repoVisibility("me", "cruise-control-sync"))
+    }
+
+    @Test fun makesTheSyncRepoPrivate() {
+        on("POST", "/user/repos", 201, """{"name": "cruise-control-sync", "default_branch": "main", "owner": {"login": "me"}, "private": true}""")
+        assertEquals("me/cruise-control-sync", github.createPrivateRepo("cruise-control-sync", "d").fullName)
+        val body = sent.last().body!!
+        assertTrue("\"private\":true" in body)
+        assertTrue("\"auto_init\":true" in body)
     }
 }
