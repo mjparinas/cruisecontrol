@@ -54,7 +54,7 @@ Driving safety comes first:
   into repeating the last update. It stays off by default because a media session can make Android Auto treat the
   app as a media app.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
-- Short replies (status, stop, merge it, fix it, yes, no) are handled by the app without starting a Claude turn.
+- Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
 - A merge the driver asks for always asks for confirmation first, and the car assistant only merges on a yes in a
   later turn. The app only merges on its own when Merge when checks pass is on. Failing checks, conflicting pull
@@ -249,7 +249,7 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
-- Steering-wheel buttons (after PR 82): an experimental setting, off by default, where the wheel's play or pause
+- PR 88: Steering-wheel buttons, an experimental setting, off by default, where the wheel's play or pause
   starts Talk and next or previous repeats the last update, through a media session that's only active then.
 - PR 82: Every task reads the repo's README.md, CLAUDE.md and AGENTS.md before anything else, asked for in the
   first prompt.

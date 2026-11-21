@@ -40,9 +40,8 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 - **Hold spoken updates while the microphone is open.** `ListenScreen` and `MicScreen` stop the speaker when they
   start listening, but a task message or progress note that arrives mid-sentence is read out straight away, talks over
   the driver and can end up in the transcript. `Speaker` could queue new speech while listening and play it after.
-- **"Repeat that" and "quiet".** Two more quick commands in `VoiceCommand`, also for the car chat. "Repeat that"
-  replays the last thing the app said, for when a turn or a passenger drowned it out. "Quiet" turns on quiet mode
-  for the rest of the drive, so only results and alerts are read out, without a trip to Settings.
+- **"Repeat that" and "quiet" in the car chat.** Task replies already handle both. The car chat could too: "repeat
+  that" replaying its last answer, and "quiet" turning quiet mode on only for the rest of the drive.
 - **Every repo reachable in the car, last used first.** `PickRepoScreen` lists the first six saved repos in the order
   they were added, so a seventh can't be picked in the car at all. Sorting by last used, and asking the host for its
   real list size with `ConstraintManager.getContentLimit` instead of a fixed six (also in `TasksScreen` and
