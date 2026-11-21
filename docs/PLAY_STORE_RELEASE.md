@@ -33,6 +33,23 @@ listing:
    which the app can meet with the changes below.
 3. **GitHub releases stay** for anyone who wants the APK directly, as today.
 
+## Getting more out of Play without misrepresenting the app
+
+These stretch what Play allows without telling a reviewer anything untrue:
+
+- **Grow the closed track.** Closed testing isn't only for the 12 testers. Anyone can join through a Google Group or
+  an opt-in link, so the car build can reach every real user that way. It won't show up in Play search, and the
+  listing should say the car screen is a test feature.
+- **Hands-free without Android Auto.** The production build can still read updates aloud and take spoken replies over
+  the car's Bluetooth, like any phone app, as long as nothing asks the driver to look at the phone. It just doesn't
+  appear on the car screen.
+- **Make it genuinely peer-to-peer.** If people working on the same repo could message each other in the app, with
+  Claude taking part in their conversations, it would be a real messaging app and could ship messaging
+  notifications to production (templated screens are still testing-only). That's a product change, not a relabel,
+  and reviewers judge the app's main purpose, so it only works if talking to people is the main thing it does.
+- **Wait for the categories to change.** Google adds car categories every few months (games and weather were added
+  recently). If templated messaging opens to production or an assistant category appears, revisit this plan.
+
 ## Builds
 
 Add a `store` product flavour dimension in `app/build.gradle.kts`, so one codebase gives three outputs:
