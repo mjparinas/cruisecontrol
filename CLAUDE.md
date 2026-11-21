@@ -27,7 +27,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `Briefing.kt` is the drive briefing.
   - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases.
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the
-  Compose phone UI, `car/` is the Car App Library UI, `notify/` holds notifications and text-to-speech,
+  Compose phone UI, `car/` is the Car App Library UI (its `VoiceInput` also serves the phone's prompt box when
+  Keep listening until Stop is on), `notify/` holds notifications and text-to-speech,
   `data/` holds the stores, encrypted secrets and sync, `widget/` is the home-screen widget.
 - `docs/FEATURE_IDEAS.md` lists ideas; `CHANGELOG.md` has release notes.
 
@@ -35,7 +36,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 
 - `./gradlew :core:test` runs the core unit tests and needs only a JDK. The few app tests need the Android SDK.
 - `./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug` is what CI runs (needs the Android SDK,
-  API 37.2). Lint only reports.
+  API 37.2). Lint only reports. Without an SDK, install the command-line tools from dl.google.com, run
+  sdkmanager for `platforms;android-37.2` and set `ANDROID_HOME`. Maven Central may answer 429; just rerun.
 - CI skips pushes that only change Markdown files, except AGENTS.md: `AgentsDocTest` checks it against the code.
 
 ## Conventions

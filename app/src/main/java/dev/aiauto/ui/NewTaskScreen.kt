@@ -52,6 +52,7 @@ fun NewTaskScreen(
     onStart: (RepoRef, String) -> Unit,
     onAddTemplate: (name: String, prompt: String) -> Unit,
     onDeleteTemplate: (TaskTemplate) -> Unit,
+    listenUntilStop: Boolean = false,
 ) {
     var selected by remember { mutableStateOf(lastUsed?.takeIf { it in repos } ?: repos.firstOrNull()) }
     var adding by remember { mutableStateOf(false) }
@@ -61,7 +62,7 @@ fun NewTaskScreen(
         topBar = { ScreenTopBar("New task", onBack) },
         bottomBar = {
             Column(Modifier.bottomBarInsets()) {
-                PromptBar(placeholder = "What should Claude do?", enabled = selected != null) { text ->
+                PromptBar(placeholder = "What should Claude do?", enabled = selected != null, listenUntilStop = listenUntilStop) { text ->
                     selected?.let { onStart(it, text) }
                 }
             }
