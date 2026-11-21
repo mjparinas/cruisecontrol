@@ -4,6 +4,9 @@
 
 - Every coding task now starts by reading the repo's README.md, CLAUDE.md and AGENTS.md, whichever exist, so
   Claude follows the project's own docs.
+- Keep listening until Stop now really waits for Stop. Staying quiet for the first few seconds used to end
+  listening, and on the phone a pause could send what you'd said. Hiccups from the speech recognizer now just
+  start listening again, and only Stop sends.
 - Task card swipes are swapped: swipe left to archive, with undo, and right to clear after the app asks. On the
   Archived tab, swipe right to clear a task for good.
 

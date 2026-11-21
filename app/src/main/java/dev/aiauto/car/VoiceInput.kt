@@ -10,6 +10,8 @@ import android.media.AudioFormat
 import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.speech.RecognitionListener
@@ -26,7 +28,8 @@ import dev.aiauto.core.Dictation
  * Speech to text started from the car screen, or from the phone's prompt box with "Keep listening until Stop" on.
  * In the car it uses the car's microphone when the host supports it (car API 5 and Android 13+), and the phone's
  * microphone otherwise. With untilStopped, pauses don't end it: listening restarts after each one and the words
- * are joined until [finish] is called. On the phone, the caller asks for the microphone permission first.
+ * are joined until [finish] is called. Errors before then, which the recognizer often gives while restarting or after
+ * a stretch of silence, restart it too instead of ending or sending. On the phone, the caller asks for the microphone permission first.
  */
 class VoiceInput(private val context: Context) {
     private val carContext = context as? CarContext
@@ -43,6 +46,7 @@ class VoiceInput(private val context: Context) {
     private var carAudioFd: ParcelFileDescriptor? = null
     @Volatile private var recording = false
     private var dictation: Dictation? = null
+    private val main = Handler(Looper.getMainLooper())
 
     fun listen(onText: (String) -> Unit, onError: (String) -> Unit, untilStopped: Boolean = false) {
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
@@ -157,7 +161,14 @@ class VoiceInput(private val context: Context) {
     ) {
         val d = dictation ?: return
         if (step == Dictation.Next.Listen) {
-            recognize(useCarMic, onText, onError)
+            // Starting again straight away often finds the old recognizer still busy, so wait a moment.
+            main.postDelayed({
+                when {
+                    dictation !== d -> Unit
+                    d.stopped -> next(d.pause(null), useCarMic, onText, onError)
+                    else -> recognize(useCarMic, onText, onError)
+                }
+            }, RESTART_DELAY_MS)
             return
         }
         dictation = null
@@ -198,6 +209,7 @@ class VoiceInput(private val context: Context) {
 
     companion object {
         private const val MAX_LISTEN_MS = 20_000L
+        private const val RESTART_DELAY_MS = 300L
         const val MIC_PERMISSION = "Allow microphone access to talk to Claude."
     }
 }

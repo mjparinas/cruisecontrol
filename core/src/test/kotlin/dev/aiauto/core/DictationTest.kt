@@ -2,6 +2,7 @@ package dev.aiauto.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** Voice input that stops at the first pause, or keeps going until the driver taps Stop. */
 class DictationTest {
@@ -47,11 +48,52 @@ class DictationTest {
 
     @Test
     fun aBreakKeepsWhatWasHeard() {
-        assertEquals(Dictation.Next.Failed, Dictation(untilStopped = true).broke())
-        val d = Dictation(untilStopped = true)
+        assertEquals(Dictation.Next.Failed, Dictation(untilStopped = false).broke())
+        val d = Dictation(untilStopped = false)
         d.pause("fix the login bug")
         assertEquals(Dictation.Next.Send, d.broke())
         assertEquals("fix the login bug", d.text)
+    }
+
+    @Test
+    fun errorsBeforeAnyWordsKeepListeningUntilStopped() {
+        val d = Dictation(untilStopped = true)
+        assertEquals(Dictation.Next.Listen, d.broke())
+        assertEquals(Dictation.Next.Listen, d.pause(null))
+        assertEquals(Dictation.Next.Listen, d.broke())
+        assertEquals(Dictation.Next.Listen, d.pause("add dark mode"))
+    }
+
+    @Test
+    fun anErrorAfterAPauseDoesNotSendUntilStopped() {
+        val d = Dictation(untilStopped = true)
+        d.pause("fix the login bug")
+        assertEquals(Dictation.Next.Listen, d.broke())
+        assertEquals(Dictation.Next.Listen, d.pause("on the phone"))
+        d.stop()
+        assertEquals(Dictation.Next.Send, d.pause(null))
+        assertEquals("fix the login bug on the phone", d.text)
+    }
+
+    @Test
+    fun anErrorAfterStopSendsWhatWasHeard() {
+        val d = Dictation(untilStopped = true)
+        d.pause("fix the login bug")
+        d.stop()
+        assertTrue(d.stopped)
+        assertEquals(Dictation.Next.Send, d.broke())
+    }
+
+    @Test
+    fun errorsInARowEndListeningUntilStopped() {
+        val d = Dictation(untilStopped = true)
+        repeat(Dictation.MAX_FAILURES - 1) { assertEquals(Dictation.Next.Listen, d.broke()) }
+        assertEquals(Dictation.Next.Failed, d.broke())
+        val heard = Dictation(untilStopped = true)
+        heard.pause("rename the button")
+        repeat(Dictation.MAX_FAILURES - 1) { assertEquals(Dictation.Next.Listen, heard.broke()) }
+        assertEquals(Dictation.Next.Send, heard.broke())
+        assertEquals("rename the button", heard.text)
     }
 
     @Test
