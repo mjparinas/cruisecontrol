@@ -19,4 +19,12 @@ class CardSwipeTest {
     @Test fun aSettledCardDoesNothing() {
         assertNull(cardSwipe(SwipeToDismissBoxValue.Settled))
     }
+
+    @Test fun anActiveCardCanBeArchivedOrCleared() {
+        assertEquals(setOf(CardSwipe.Archive, CardSwipe.Clear), cardSwipes(archived = false))
+    }
+
+    @Test fun anArchivedCardCanOnlyBeCleared() {
+        assertEquals(setOf(CardSwipe.Clear), cardSwipes(archived = true))
+    }
 }
