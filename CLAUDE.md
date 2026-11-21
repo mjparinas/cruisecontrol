@@ -23,7 +23,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     `firstPrompt`.
   - `AgentProfile.kt` has the model, effort and standing rules picked in Settings (global). `RepoSettings.kt` has
     the per-repo settings: pull request switches and repo rules, read through `EngineConfig.repoSettings(repo)`.
-    `Models.kt` has `Task`, `RepoRef`, `AgentSetup` and friends.
+    `Models.kt` has `Task`, `RepoRef`, `AgentSetup` and friends, plus list helpers like `needsYouFirst` and
+    `runningCount` (the number on the phone's Active tab).
   - `GitHub.kt` is the REST client; `PullRequests.kt` follows checks, merges and auto-fixes; `Projects.kt` is
     the per-repo status view.
   - `Assistant.kt` is the spoken car chat, including the queue of questions asked with no signal, which
