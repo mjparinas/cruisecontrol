@@ -81,7 +81,8 @@ whichever is reached first stops Claude and the car chat. The tighter of the two
 budget on Anthropic's side, so it holds even if the phone loses signal.
 
 While you're in the car, the app reads Claude's messages and short progress notes like "Building or testing"
-aloud, ducking your music while it talks. You can turn this off in Settings.
+aloud, ducking your music while it talks. You can turn this off in Settings. While the microphone is listening to
+you, new updates wait and are read once it stops, so the car doesn't talk over you.
 
 ## Voice commands
 

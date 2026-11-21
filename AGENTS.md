@@ -53,6 +53,9 @@ Driving safety comes first:
   restart until Stop. The car chat plays a soft cue 3 seconds into a slow answer and every 5 seconds after, at most
   6 times. Tones use the assistant audio attributes, like the microphone, so music ducks. Their shape and timing
   live in `core/src/main/kotlin/dev/aiauto/core/Tones.kt` so they are tested; there is no switch to turn them off.
+- Nothing is read aloud while the microphone is listening, so the car never talks over the driver or hears itself.
+  `Speaker` holds new speech (up to 5 lines, oldest dropped) from when `VoiceInput` starts until it ends, across
+  restarts, and then reads it. `core/src/main/kotlin/dev/aiauto/core/SpeechHold.kt` holds the logic.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
 - Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet, undo that, start over) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
@@ -256,6 +259,7 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- PR 84: Spoken updates wait while the microphone is listening and are read once it stops.
 - v0.8.0 was still untagged after PR 79, so everything merged since went into its changelog entry instead of a new
   version, and `ChangelogTest` now also checks that every version entry has notes.
 - PR 83: Every repo the token can push to is offered for new tasks, most recently used first, in the phone and car

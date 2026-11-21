@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Spoken updates wait while the microphone is listening and are read once it stops, so the car doesn't talk over
+  you or hear itself.
+
 ## v0.8.0
 
 - Per-repo settings: tap a repo in Settings for its own Merge when checks pass, Fix merge conflicts automatically,
