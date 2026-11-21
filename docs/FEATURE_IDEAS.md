@@ -15,6 +15,8 @@ These started on this list and are now in the app. See the README for how they w
 - **Welcome-back briefing** when the phone connects to the car.
 - **Spend per task** and daily and monthly spending limits.
 - **Resume after lost signal**: tasks cut off by a dropped connection restart when the network comes back.
+- **Queue a car chat request with no signal**: the car chat keeps a question asked offline and answers it when the
+  network returns.
 - **Home screen widget** with running tasks and today's spend.
 - **Other AI providers for the car chat**: OpenAI and Gemini models, each with its own key in Settings.
 
@@ -78,10 +80,6 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 - **Google Assistant shortcut.** An App Actions capability (`shortcuts.xml` with a custom intent) so "Hey Google, ask
   Cruise Control to add dark mode to aiauto" starts a task with no taps at all. **Listen when opened** gets close
   today, but still needs the app to open and hear the request a second time.
-- **Queue a car chat request with no signal.** Coding tasks already resume after a dropped connection, but the car
-  chat fails if there's no signal when you speak. Keeping the spoken request on the phone and sending it when the
-  network returns, with "I'll send that when we're back online", would stop requests from being lost in tunnels and
-  dead zones.
 
 ### Ask, don't change
 

@@ -116,6 +116,9 @@ Tasks, repos and sync:
   retry it from another device. The newer side wins for tasks and settings, and removals sync through tombstones.
   Per-repo settings sync as one setting with the rest.
 - The car chat remembers the last 20 exchanges across drives, with a switch to turn it off and a Forget button.
+- A car chat question asked with no signal is kept on the phone (up to 5, for 30 minutes) and answered aloud when
+  the network returns. Only connection failures are queued, and never a turn that already ran a tool, so nothing
+  such as a task start can happen twice. The queue lives in memory, not on disk, since it only matters on a drive.
 - A briefing of what happened since the last drive (up to a day back) is read when the phone connects to the car.
 
 Look and accessibility:
@@ -248,6 +251,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- Car chat questions asked with no signal are queued in `Assistant` and answered when the network comes back,
+  instead of failing.
 - PR 84: Spoken updates wait while the microphone is listening and are read once it stops.
 - PR 82: Every task reads the repo's README.md, CLAUDE.md and AGENTS.md before anything else, asked for in the
   first prompt.
