@@ -162,7 +162,7 @@ checks its versions, numbers and paths against the code, so the build fails if i
 
 ## Making a release
 
-In the Actions tab, open **Release**, click **Run workflow** and enter the next version, like `v0.5.0`. You can
+In the Actions tab, open **Release**, click **Run workflow** and enter the next version, like `v0.8.0`. You can
 also push a tag like that. Either way, the workflow tests the code, builds a release APK and publishes a GitHub
 release with the APK attached. The version name comes from the tag and the version code from the run number, so
 there's nothing to bump in the code first.

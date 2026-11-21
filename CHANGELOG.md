@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.8.0
+
+- Sync across devices now lives in a private repo named cruise-control-sync instead of a secret gist, which anyone
+  with its link could read. The app moves an old sync gist into the repo and then deletes it. Give the GitHub token
+  Contents: read and write on that repo, and Administration: read and write if you want the app to make it.
+- Remove a saved repo from Settings, after confirming. Running tasks keep going, nothing changes on GitHub, and the
+  removal syncs to your other devices.
+- Swipe a task card right to archive it, with undo, or left to clear it after the app asks.
+- A new Keep listening until Stop setting lets the car's Talk, New task and Reply screens listen through pauses
+  and send what you said when you tap Stop.
+- Each task asks Claude to read CLAUDE.md repository notes first, and to create or fix them when they're missing or
+  out of date, so it doesn't explore the whole repo every time.
+- Updates are only accepted from APKs that GitHub serves over HTTPS, and a downloaded update must be signed with the
+  installed app's key before the install prompt opens.
+- Accessibility: accents and status colours meet AA contrast, TalkBack labels chat bubbles and offers Archive and
+  Clear as actions on task cards, the prompt box has an outline, accent swatches are easier to tap and the task
+  screen's top bar grows with large text.
+- The car's task screen shows less text, and the phone's task screen shows only the repo name, without the owner.
+- App text and what Claude writes use Canadian spelling.
+- Fixed tasks cleared on one device and forgotten car chat memory coming back from sync, a freeze when starting a
+  New chat in the car, a crash from Android 15's service timeout, and the task chat not scrolling to the last message.
+- Every dependency is on its latest stable release, including Android Gradle Plugin 9 and OkHttp 5.
+
 ## v0.7.1
 
 - New app icon again: a cruise control speedometer with the set-speed marker outside the dial, replacing the
