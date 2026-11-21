@@ -388,10 +388,18 @@ class ClaudeAgents(apiKey: String) : AgentClient {
         private val ASK = Optional.of(BetaManagedAgentsAgentEvaluatedPermission.ASK)
 
         /**
-         * The first message of a task: the user's spoken request plus the branch rules. It's sent with every task,
-         * not baked into the agent, so agents made before a change here pick it up too.
+         * The first message of a task: the user's spoken request plus the branch rules and [repoRules], the rules
+         * set for this repo in Settings. It's sent with every task, not baked into the agent, so agents made before
+         * a change here pick it up too, and each repo's rules reach only that repo's tasks.
          */
-        fun firstPrompt(task: Task, request: String): String = """
+        fun firstPrompt(task: Task, request: String, repoRules: List<String> = emptyList()): String {
+            val rules = if (repoRules.isEmpty()) "" else
+                "\n\nRules from the user for this repository, to follow on every task in it unless the request says otherwise:\n" +
+                    repoRules.joinToString("\n") { "- $it" }
+            return instructions(task) + rules + "\n\nRequest (spoken while driving, so it may contain transcription mistakes):\n" + request
+        }
+
+        private fun instructions(task: Task): String = """
             Repository: ${task.repo.fullName}, cloned at $REPO_PATH.
             Work on a new branch named `${task.branch}` created from `${task.repo.defaultBranch}`.
             Commit your changes and push the branch to origin. Don't open a pull request; the app does that.
@@ -401,9 +409,6 @@ class ClaudeAgents(apiKey: String) : AgentClient {
             and only look further for what the request needs. If it's missing, create it. If it's wrong or your
             change makes it out of date, fix it. Keep it short: what the project is, where things live, how to
             build and test it, and its conventions. Commit it with your change.
-
-            Request (spoken while driving, so it may contain transcription mistakes):
-            $request
         """.trimIndent()
 
         val SYSTEM_PROMPT = """

@@ -22,6 +22,7 @@ class AiAutoApp : Application() {
         // Each startup step runs on its own, so one failing (a bad file, a missing system service)
         // doesn't stop tasks from resuming or the app from opening.
         safely("fix cost units") { graph.settings.fixCostUnits(graph.tasks) }
+        safely("move repo settings") { graph.settings.moveGlobalRepoSettings(graph.repos.repos.value) }
         safely("create channels") { graph.notifier.createChannels() }
         safely("resume tasks") { graph.engine.resumeAll() }
         safely("watch network") { graph.watchNetwork(this) }

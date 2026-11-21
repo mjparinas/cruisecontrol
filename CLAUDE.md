@@ -20,8 +20,9 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   - `ClaudeAgents.kt` is the Managed Agents client. Its companion holds `SYSTEM_PROMPT` (baked into the agent)
     and `firstPrompt` (sent with each task). The agent is only remade when `AgentProfile` changes, so new
     per-task instructions belong in `firstPrompt`.
-  - `AgentProfile.kt` has the model, effort and standing rules picked in Settings. `Models.kt` has `Task`,
-    `RepoRef`, `AgentSetup` and friends.
+  - `AgentProfile.kt` has the model, effort and standing rules picked in Settings (global). `RepoSettings.kt` has
+    the per-repo settings: pull request switches and repo rules, read through `EngineConfig.repoSettings(repo)`.
+    `Models.kt` has `Task`, `RepoRef`, `AgentSetup` and friends.
   - `GitHub.kt` is the REST client; `PullRequests.kt` follows checks, merges and auto-fixes; `Projects.kt` is
     the per-repo status view.
   - `Assistant.kt` is the spoken car chat. `ChatProviders.kt` has the car chat models and talks to Claude, OpenAI
@@ -31,15 +32,16 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the
   Compose phone UI, `car/` is the Car App Library UI (its `VoiceInput` also serves the phone's prompt box when
   Keep listening until Stop is on), `notify/` holds notifications and text-to-speech,
-  `data/` holds the stores, encrypted secrets and sync, `widget/` is the home-screen widget.
+  `data/` holds the stores, encrypted secrets and sync, `widget/` is the home-screen widget. `data/Stores.kt`
+  `Settings` keeps every setting in SharedPreferences; `SYNCED_KEYS` lists the ones that sync.
 - `docs/FEATURE_IDEAS.md` lists ideas; `docs/PLAY_STORE_RELEASE.md` is the plan for Google Play; `CHANGELOG.md` has
   release notes.
 
 ## Build and test
 
 - `./gradlew :core:test` runs the core unit tests and needs only a JDK. The few app tests need the Android SDK.
-- The agent sandbox has no Android SDK, so only `:core:test` runs there. Its first run downloads from Maven Central,
-  which sometimes answers 429 Too Many Requests; just run it again.
+- The agent sandbox starts without an Android SDK (see below to install one). The first run downloads from Maven
+  Central, which sometimes answers 429 Too Many Requests; just run it again.
 - `./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug` is what CI runs (needs the Android SDK,
   API 37.2). Lint only reports. Without an SDK, install the command-line tools from dl.google.com, run
   sdkmanager for `platforms;android-37.2` and set `ANDROID_HOME`. Maven Central may answer 429; just rerun.

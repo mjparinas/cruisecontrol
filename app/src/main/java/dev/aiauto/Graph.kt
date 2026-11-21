@@ -58,10 +58,7 @@ class Graph(context: Context) {
             override fun monthlyLimitUsd() = settings.monthlyLimitUsd
             override fun spentThisMonthUsd() = settings.spentThisMonthUsd
             override fun addSpend(usd: Double) = settings.addSpend(usd)
-            override fun autoMerge() = settings.autoMerge
-            override fun autoFixChecks() = settings.autoFixChecks
-            override fun autoFixConflicts() = settings.autoFixConflicts
-            override fun autoReleaseSince() = settings.autoReleaseSince
+            override fun repoSettings(repo: RepoRef) = settings.repoSettings(repo)
         },
         scope = scope,
         onMessage = { task, message ->

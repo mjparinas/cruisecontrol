@@ -1,6 +1,7 @@
 package dev.aiauto.core
 
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class FirstPromptTest {
@@ -18,5 +19,25 @@ class FirstPromptTest {
         assertTrue(prompt.startsWith("Repository: mjparinas/aiauto, cloned at /workspace/repo."))
         assertTrue(prompt.indexOf(ClaudeAgents.NOTES_FILE) < prompt.indexOf("Request (spoken"))
         assertTrue(prompt.endsWith("\nadd a toggle"))
+    }
+
+    @Test fun repoRulesComeBetweenTheNotesAndTheRequest() {
+        val prompt = ClaudeAgents.firstPrompt(task, "add a toggle", listOf("Use pnpm", "Leave the docs alone"))
+        val rules = prompt.indexOf("Rules from the user for this repository")
+        assertTrue(prompt.indexOf("Commit it with your change.") < rules)
+        assertTrue(rules < prompt.indexOf("Request (spoken"))
+        assertTrue("\n- Use pnpm\n- Leave the docs alone\n\nRequest" in prompt)
+    }
+
+    @Test fun noRulesSectionWithoutRepoRules() {
+        val prompt = ClaudeAgents.firstPrompt(task, "add a toggle")
+        assertFalse("Rules from the user" in prompt)
+        assertTrue("Commit it with your change.\n\nRequest (spoken" in prompt)
+    }
+
+    @Test fun aMultiLineRequestIsKeptAsSpoken() {
+        val prompt = ClaudeAgents.firstPrompt(task, "add a toggle\nand a test")
+        assertTrue(prompt.startsWith("Repository: mjparinas/aiauto"))
+        assertTrue(prompt.endsWith("\nadd a toggle\nand a test"))
     }
 }

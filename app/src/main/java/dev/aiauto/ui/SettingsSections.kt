@@ -32,6 +32,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,6 +51,8 @@ import dev.aiauto.core.ChatProfile
 import dev.aiauto.core.ChatProvider
 import dev.aiauto.core.EffortChoice
 import dev.aiauto.core.ModelChoice
+import dev.aiauto.core.RepoRef
+import dev.aiauto.core.RepoSettings
 import dev.aiauto.core.StandingRule
 import dev.aiauto.notify.VoiceOption
 
@@ -192,6 +195,93 @@ private fun RulesDialog(agent: AgentProfile, onDismiss: () -> Unit, onSave: (Lis
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+/**
+ * One repo's own settings: what happens to its pull requests, and rules Claude follows only on tasks in it.
+ * Everything that's the same across repos (model, standing rules, voice, spending) stays in the global settings.
+ */
+@Composable
+internal fun RepoSettingsDialog(
+    repo: RepoRef,
+    settings: RepoSettings,
+    onDismiss: () -> Unit,
+    onRemove: () -> Unit,
+    onSave: (RepoSettings) -> Unit,
+) {
+    var edited by remember { mutableStateOf(settings) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(28.dp),
+        title = { Text(repo.fullName) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                DialogSwitch(
+                    "Merge when checks pass",
+                    "Turns on GitHub auto-merge when the repo allows it, or merges once every check is green. Failing checks are never merged.",
+                    edited.autoMerge,
+                ) { edited = edited.copy(autoMerge = it) }
+                DialogSwitch(
+                    "Fix merge conflicts automatically",
+                    "Claude merges in the main branch, resolves the conflicts and pushes, without asking first.",
+                    edited.autoFixConflicts,
+                ) { edited = edited.copy(autoFixConflicts = it) }
+                DialogSwitch(
+                    "Fix failing checks automatically",
+                    "Claude fixes failing tests, builds or other checks and pushes, without asking first. Up to three tries per task.",
+                    edited.autoFixChecks,
+                ) { edited = edited.copy(autoFixChecks = it) }
+                DialogSwitch(
+                    "Release when a PR is merged",
+                    "Publishes a GitHub release with the next patch version, like v1.2.3 to v1.2.4, for pull requests merged from now on.",
+                    edited.autoReleaseSince != null,
+                ) { edited = edited.withAutoRelease(it, System.currentTimeMillis()) }
+                OutlinedTextField(
+                    value = edited.instructions,
+                    onValueChange = { edited = edited.copy(instructions = it) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    shape = MaterialTheme.shapes.large,
+                    minLines = 3,
+                    label = { Text("Rules for this repo, one per line") },
+                    placeholder = { Text("Run npm test before pushing") },
+                )
+                Text(
+                    "Claude follows these on every task in this repo, along with your standing rules. They apply from the next task.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onSave(edited.copy(instructions = edited.instructions.trim()))
+                onDismiss()
+            }) { Text("Save") }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onRemove) { Text("Remove") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
+}
+
+/** A switch with a title and a line of explanation, the whole row tappable, for use inside a dialog. */
+@Composable
+private fun DialogSwitch(title: String, summary: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RowText(title, summary, Modifier.weight(1f))
+        Spacer(Modifier.width(12.dp))
+        Switch(checked = checked, onCheckedChange = null)
+    }
 }
 
 private enum class VoiceDialog { Rate, Voice }
