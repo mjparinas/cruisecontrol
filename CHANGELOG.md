@@ -4,6 +4,9 @@
 
 - An experimental Steering-wheel buttons switch in Settings, under In the car and off by default. While the car
   screen is open, the wheel's play or pause button starts Talk, and next or previous repeats the last update.
+- Listening and thinking tones: a short rising tone when the app starts listening, a falling one when it stops,
+  and a soft tone every few seconds while Claude is still working on an answer in the car, so you can keep your
+  eyes on the road.
 - The car chat no longer loses what you said when there's no signal. It tells you it'll send the question once
   you're back online, then answers it out loud as soon as the network returns, for up to 5 questions asked in the
   last 30 minutes.

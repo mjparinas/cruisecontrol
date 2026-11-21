@@ -53,6 +53,10 @@ Driving safety comes first:
   session (`app/src/main/java/dev/aiauto/car/WheelButtons.kt`) turns play or pause into Talk and next or previous
   into repeating the last update. It stays off by default because a media session can make Android Auto treat the
   app as a media app.
+- `VoiceInput` plays a rising tone when a go at listening starts and a falling one when it ends, not on each
+  restart until Stop. The car chat plays a soft cue 3 seconds into a slow answer and every 5 seconds after, at most
+  6 times. Tones use the assistant audio attributes, like the microphone, so music ducks. Their shape and timing
+  live in `core/src/main/kotlin/dev/aiauto/core/Tones.kt` so they are tested; there is no switch to turn them off.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
 - Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet, undo that, start over) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
@@ -252,6 +256,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- PR 89: Listening and thinking tones, so the driver can tell the microphone opened or closed, or that Claude is
+  still answering, without looking at the screen.
 - PR 88: Steering-wheel buttons, an experimental setting, off by default, where the wheel's play or pause
   starts Talk and next or previous repeats the last update, through a media session that's only active then.
 - PR 87: Car chat questions asked with no signal are queued in `Assistant` and answered when the network comes back,
