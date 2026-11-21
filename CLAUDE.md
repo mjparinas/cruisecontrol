@@ -2,6 +2,11 @@
 
 Read this first. It saves exploring the whole repository on every task. Keep it short and fix it when it's wrong.
 
+The product, engineering and development decisions behind the app live in AGENTS.md, imported here. Read it
+before changing anything, and update it in the same pull request when a change affects a decision.
+
+@AGENTS.md
+
 ## What this is
 
 Cruise Control: an Android and Android Auto app that sends spoken coding requests to Claude Managed Agents sessions,
@@ -9,7 +14,7 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 
 ## Layout
 
-- `core/` is plain Kotlin (JVM 17) with all the logic and every unit test. Package `dev.aiauto.core`.
+- `core/` is plain Kotlin (JVM 17) with all the logic and almost every unit test. Package `dev.aiauto.core`.
   - `TaskEngine.kt` runs tasks: one session per task, prompts, the event stream, reconnects, the spending limit.
   - `ClaudeAgents.kt` is the Managed Agents client. Its companion holds `SYSTEM_PROMPT` (baked into the agent)
     and `firstPrompt` (sent with each task). The agent is only remade when `AgentProfile` changes, so new
@@ -28,9 +33,10 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 
 ## Build and test
 
-- `./gradlew :core:test` runs every unit test and needs only a JDK.
-- `./gradlew :core:test :app:assembleDebug` is what CI runs (needs the Android SDK, API 37.2). Lint only reports.
-- CI skips pushes that only change Markdown files.
+- `./gradlew :core:test` runs the core unit tests and needs only a JDK. The few app tests need the Android SDK.
+- `./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug` is what CI runs (needs the Android SDK,
+  API 37.2). Lint only reports.
+- CI skips pushes that only change Markdown files, except AGENTS.md: `AgentsDocTest` checks it against the code.
 
 ## Conventions
 
