@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Spoken updates wait while the microphone is listening and are read once it stops, so the car doesn't talk over
+  you or hear itself.
+
 ## v0.7.1
 
 - New app icon again: a cruise control speedometer with the set-speed marker outside the dial, replacing the

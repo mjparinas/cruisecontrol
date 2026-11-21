@@ -19,10 +19,11 @@ import androidx.car.app.CarContext
 import androidx.car.app.media.CarAudioRecord
 import androidx.car.app.versioning.CarAppApiLevels
 import androidx.core.content.ContextCompat
+import dev.aiauto.graph
 
 /**
  * Speech to text started from the car screen. Uses the car's microphone when the host supports it
- * (car API 5 and Android 13+), and the phone's microphone otherwise.
+ * (car API 5 and Android 13+), and the phone's microphone otherwise. Spoken updates are held while it listens.
  */
 class VoiceInput(private val carContext: CarContext) {
     private val audio = carContext.getSystemService(AudioManager::class.java)
@@ -37,6 +38,7 @@ class VoiceInput(private val carContext: CarContext) {
     private var recognizer: SpeechRecognizer? = null
     private var carAudioFd: ParcelFileDescriptor? = null
     @Volatile private var recording = false
+    private var holdingSpeech = false
 
     fun listen(onText: (String) -> Unit, onError: (String) -> Unit) {
         if (!SpeechRecognizer.isRecognitionAvailable(carContext)) {
@@ -56,12 +58,21 @@ class VoiceInput(private val carContext: CarContext) {
     }
 
     fun cancel() {
+        stopRecognizer()
+        audio.abandonAudioFocusRequest(focus)
+        if (holdingSpeech) {
+            holdingSpeech = false
+            carContext.graph.speaker.releaseMicrophone()
+        }
+    }
+
+    /** Stops listening but keeps audio focus and the speech hold, for switching to the phone's microphone. */
+    private fun stopRecognizer() {
         recording = false
         recognizer?.destroy()
         recognizer = null
         carAudioFd?.close()
         carAudioFd = null
-        audio.abandonAudioFocusRequest(focus)
     }
 
     private fun start(onText: (String) -> Unit, onError: (String) -> Unit) {
@@ -72,12 +83,16 @@ class VoiceInput(private val carContext: CarContext) {
 
     private fun recognize(useCarMic: Boolean, onText: (String) -> Unit, onError: (String) -> Unit) {
         audio.requestAudioFocus(focus)
+        if (!holdingSpeech) {
+            holdingSpeech = true
+            carContext.graph.speaker.holdForMicrophone()
+        }
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         if (useCarMic && Build.VERSION.SDK_INT >= 33) {
             // The car's microphone isn't always available (host quirks, another app recording). Use the phone's.
             if (runCatching { addCarMicrophone(intent) }.isFailure) {
-                cancel()
+                stopRecognizer()
                 recognize(false, onText, onError)
                 return
             }
@@ -101,14 +116,15 @@ class VoiceInput(private val carContext: CarContext) {
             }
 
             override fun onError(error: Int) {
-                cancel()
                 val nothingSaid = error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
-                when {
-                    // Some recognizers can't take audio from the car; fall back to the phone's microphone.
-                    useCarMic && !heardSpeech && !nothingSaid -> recognize(false, onText, onError)
-                    nothingSaid -> onError("I didn't catch that.")
-                    else -> onError("Voice input stopped. Try again.")
+                // Some recognizers can't take audio from the car; fall back to the phone's microphone.
+                if (useCarMic && !heardSpeech && !nothingSaid) {
+                    stopRecognizer()
+                    recognize(false, onText, onError)
+                    return
                 }
+                cancel()
+                onError(if (nothingSaid) "I didn't catch that." else "Voice input stopped. Try again.")
             }
 
             override fun onReadyForSpeech(params: Bundle?) {}
@@ -118,8 +134,13 @@ class VoiceInput(private val carContext: CarContext) {
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
         runCatching { r.startListening(intent) }.onFailure {
-            cancel()
-            if (useCarMic) recognize(false, onText, onError) else onError("Voice input isn't working right now. Reply by message instead.")
+            if (useCarMic) {
+                stopRecognizer()
+                recognize(false, onText, onError)
+            } else {
+                cancel()
+                onError("Voice input isn't working right now. Reply by message instead.")
+            }
         }
     }
 
