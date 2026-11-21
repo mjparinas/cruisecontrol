@@ -190,7 +190,10 @@ has the Contents permission this needs.
 - There's no public API for your claude.ai or Claude app projects, so this app runs its own agent sessions through
   the Claude API. They don't appear in the Claude app.
 - Google Play doesn't accept general AI or productivity apps for Android Auto. The full car UI is for personal
-  installs and Play's internal testing track.
+  installs and Play's internal and closed testing tracks. [docs/PLAY_STORE_RELEASE.md](docs/PLAY_STORE_RELEASE.md)
+  has the plan for releasing on Play: the car build on the testing tracks and a phone-only build in production.
+  It also covers four honest ways to go further: open the closed track to everyone through a Google Group, keep the
+  production app hands-free over Bluetooth, add real person-to-person messaging, or wait for new car categories.
 - Costs are list prices as each session reports them, so they can differ a little from your invoice. The daily
   and monthly totals are counted on this phone and reset at local midnight and on the first of the month.
 - The app's own merge-when-green only works while the app is alive, for up to three hours after a pull request

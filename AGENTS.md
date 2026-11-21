@@ -29,6 +29,11 @@ What the app is:
   app opens a pull request. Updates come back as messages read aloud in the car.
 - It is a personal app installed from GitHub releases, not the Play Store. Play doesn't accept general AI apps for
   Android Auto, so the full car screen needs Android Auto's Unknown sources setting.
+- The plan for Play (`docs/PLAY_STORE_RELEASE.md`) doesn't pass the app off as a messaging app: car messaging apps
+  must be peer-to-peer, and misrepresenting the app puts the developer account at risk. Instead the car build goes
+  to Play's internal and closed testing tracks, where car review doesn't block, and production gets a phone-only
+  build without Android Auto support. To reach further honestly, the plan grows the closed track, keeps production
+  hands-free over Bluetooth, considers real peer-to-peer messaging, and waits for new car categories.
 - The applicationId, package (`dev.aiauto`) and signing key never change, so every release installs over the last
   one. The rename only changed labels, text and the APK name.
 
@@ -169,7 +174,7 @@ Security:
   pushing a tag like v0.8.0. The version name comes from the tag and the version code from the run number, so
   nothing is bumped in code. Releases are signed with the key in the repo secrets. `CHANGELOG.md` gets an entry per
   release.
-- Feature ideas live in `docs/FEATURE_IDEAS.md`.
+- Feature ideas live in `docs/FEATURE_IDEAS.md`. The Play Store release plan lives in `docs/PLAY_STORE_RELEASE.md`.
 
 ## Pinned versions
 
@@ -218,6 +223,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- PR 75: Play Store plan: the car build goes only to Play's internal and closed testing, production gets a
+  phone-only build, and the app is never described as a messaging app to pass review. Nothing is built yet.
 - PR 74: The phone app's mic button follows Keep listening until Stop too, listening in the app with the same
   `VoiceInput` as the car and a Stop button, instead of Google's speech dialog.
 - PR 73: An optional monthly spending limit, off by default, on top of the daily one. Both apply at once and the
