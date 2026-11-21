@@ -19,8 +19,9 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   - `ClaudeAgents.kt` is the Managed Agents client. Its companion holds `SYSTEM_PROMPT` (baked into the agent)
     and `firstPrompt` (sent with each task). The agent is only remade when `AgentProfile` changes, so new
     per-task instructions belong in `firstPrompt`.
-  - `AgentProfile.kt` has the model, effort and standing rules picked in Settings. `Models.kt` has `Task`,
-    `RepoRef`, `AgentSetup` and friends.
+  - `AgentProfile.kt` has the model, effort and standing rules picked in Settings (global). `RepoSettings.kt` has
+    the per-repo settings: pull request switches and repo rules, read through `EngineConfig.repoSettings(repo)`.
+    `Models.kt` has `Task`, `RepoRef`, `AgentSetup` and friends.
   - `GitHub.kt` is the REST client; `PullRequests.kt` follows checks, merges and auto-fixes; `Projects.kt` is
     the per-repo status view.
   - `Assistant.kt` is the spoken car chat; `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
@@ -28,7 +29,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases.
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the
   Compose phone UI, `car/` is the Car App Library UI, `notify/` holds notifications and text-to-speech,
-  `data/` holds the stores, encrypted secrets and sync, `widget/` is the home-screen widget.
+  `data/` holds the stores, encrypted secrets and sync, `widget/` is the home-screen widget. `data/Stores.kt`
+  `Settings` keeps every setting in SharedPreferences; `SYNCED_KEYS` lists the ones that sync.
 - `docs/FEATURE_IDEAS.md` lists ideas; `CHANGELOG.md` has release notes.
 
 ## Build and test

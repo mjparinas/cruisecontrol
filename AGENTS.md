@@ -52,6 +52,12 @@ Claude and cost:
 
 - Coding tasks default to Opus 5.5 at high effort. The car chat defaults to Opus 5.5 at low effort so answers come
   back quickly. Both can be changed in Settings, along with web search and standing rules.
+- Settings are either global or per repo, and don't overlap. Global: keys, model, effort, web search, standing rules,
+  everything in the car, theme, daily limit and sync. Per repo (`RepoSettings`, set by tapping a repo): merge when
+  checks pass, the two automatic fixes, release on merge, and rules for that repo. A repo without saved settings uses
+  the defaults; updating from global switches copies the old values onto every saved repo once.
+- A repo's rules go in `ClaudeAgents.firstPrompt`, not the agent, so changing them never makes a new agent and they
+  only reach that repo's tasks. Standing rules stay global and in the agent.
 - Changing the model, effort, web search or standing rules makes a new agent for the next task. Running tasks keep
   the agent they started with.
 - Every task asks Claude to read `CLAUDE.md` at the repo root first instead of exploring the whole repo again, and
@@ -65,13 +71,13 @@ Claude and cost:
 
 Pull requests and automation:
 
-- After a pull request opens, the app watches its checks for 3 hours, announces the result and, with Merge when
-  checks pass on (the default), turns on GitHub's auto-merge or merges once every check is green.
-- Fix merge conflicts automatically and Fix failing checks automatically are on by default. After 3 automatic fixes
+- After a pull request opens, the app watches its checks for 3 hours, announces the result and, with the repo's Merge
+  when checks pass on (the default), turns on GitHub's auto-merge or merges once every check is green.
+- Fix merge conflicts automatically and Fix failing checks automatically are per repo and on by default. After 3 automatic fixes
   on a task the app goes back to asking, so it can never loop.
 - Alerts for failed checks, questions from Claude and stuck tasks (no update for 15 minutes) are always shown, even
   in quiet mode, and can be answered by voice.
-- Release when a PR is merged is off by default. When on, the app publishes the next patch version on that repo for
+- Release when a PR is merged is per repo and off by default. When on, the app publishes the next patch version on that repo for
   pull requests merged after the switch was turned on.
 
 Tasks, repos and sync:
@@ -88,6 +94,7 @@ Tasks, repos and sync:
   repo. It replaced a secret gist (PR 58) because anyone with a gist's link can read it.
 - Synced tasks keep their last 60 messages. A task runs on the device that started it until you reply to it or
   retry it from another device. The newer side wins for tasks and settings, and removals sync through tombstones.
+  Per-repo settings sync as one setting with the rest.
 - The car chat remembers the last 20 exchanges across drives, with a switch to turn it off and a Forget button.
 - A briefing of what happened since the last drive (up to a day back) is read when the phone connects to the car.
 
@@ -213,6 +220,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- Per-repo settings (the PR after 70): the pull request switches moved from global to each repo, and each repo can
+  have its own rules for Claude, sent in the first prompt. Global and per-repo settings don't overlap.
 - PR 69: Every dependency moved to its latest stable release, including Gradle 9, Android Gradle Plugin 9,
   compileSdk 37.2, OkHttp 5 and Car App 1.7. targetSdk stays 35 and setup-gradle stays on v5.
 - PR 68: Added this file and `AgentsDocTest` to keep a checked record of decisions, imported from `CLAUDE.md`.

@@ -29,19 +29,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Key
-import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.NotificationsPaused
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Savings
-import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -74,6 +70,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.aiauto.core.RepoRef
+import dev.aiauto.core.RepoSettings
 import dev.aiauto.core.SpokenStatus
 
 data class SettingsState(
@@ -82,15 +79,12 @@ data class SettingsState(
     val repos: List<RepoRef>,
     val readAloud: Boolean,
     val quietMode: Boolean,
-    val autoMerge: Boolean,
-    val autoFixChecks: Boolean,
-    val autoFixConflicts: Boolean,
-    val autoRelease: Boolean,
     val dailyLimitUsd: Double?,
     val spentTodayUsd: Double,
     val version: String,
     val themeMode: ThemeMode,
     val accent: Accent,
+    val repoSettings: Map<String, RepoSettings> = emptyMap(),
     val agentProfile: dev.aiauto.core.AgentProfile = dev.aiauto.core.AgentProfile(),
     val chatProfile: dev.aiauto.core.ChatProfile = dev.aiauto.core.ChatProfile(),
     val speechRate: Float = 1f,
@@ -122,10 +116,6 @@ fun SettingsScreen(
     onRemoveRepo: (RepoRef) -> Unit,
     onReadAloud: (Boolean) -> Unit,
     onQuietMode: (Boolean) -> Unit,
-    onAutoMerge: (Boolean) -> Unit,
-    onAutoFixChecks: (Boolean) -> Unit,
-    onAutoFixConflicts: (Boolean) -> Unit,
-    onAutoRelease: (Boolean) -> Unit,
     onThemeMode: (ThemeMode) -> Unit,
     onAccent: (Accent) -> Unit,
     onDailyLimit: (Double?) -> Unit,
@@ -143,8 +133,10 @@ fun SettingsScreen(
     onForgetChats: () -> Unit = {},
     onSyncEnabled: (Boolean) -> Unit = {},
     onSyncNow: () -> Unit = {},
+    onRepoSettings: (RepoRef, RepoSettings) -> Unit = { _, _ -> },
 ) {
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
+    var editing by remember { mutableStateOf<RepoRef?>(null) }
     var removing by remember { mutableStateOf<RepoRef?>(null) }
 
     Scaffold(
@@ -193,7 +185,11 @@ fun SettingsScreen(
             SectionHeader("Repositories")
             SettingsCard {
                 state.repos.forEach { repo ->
-                    SettingRow(Icons.Rounded.FolderOpen, BadgeHue.Blue, repo.fullName, enabled = !state.busy) { removing = repo }
+                    SettingRow(
+                        Icons.Rounded.FolderOpen, BadgeHue.Blue, repo.fullName,
+                        RepoSettings.of(state.repoSettings, repo).summary(),
+                        enabled = !state.busy,
+                    ) { editing = repo }
                 }
                 SettingRow(
                     Icons.Rounded.Add, BadgeHue.Green, "Add repositories",
@@ -201,6 +197,7 @@ fun SettingsScreen(
                     enabled = !state.busy && state.hasGithubToken,
                 ) { dialog = SettingsDialog.PickRepos }
             }
+            Note("Tap a repository for what happens to its pull requests and for rules Claude follows only there.")
 
             SectionHeader("In the car")
             SettingsCard {
@@ -222,30 +219,6 @@ fun SettingsScreen(
             }
 
             ClaudeSettingsSection(state.agentProfile, state.chatProfile, onAgentProfile, onChatProfile)
-
-            SectionHeader("Pull requests")
-            SettingsCard {
-                SwitchRow(
-                    Icons.Rounded.DoneAll, BadgeHue.Green, "Merge when checks pass",
-                    "Turns on GitHub auto-merge when the repo allows it. Otherwise the app merges once every check is green. Failing checks are never merged.",
-                    state.autoMerge, onAutoMerge,
-                )
-                SwitchRow(
-                    Icons.Rounded.Sync, BadgeHue.Violet, "Fix merge conflicts automatically",
-                    "When a pull request conflicts with the main branch, Claude merges it in, resolves the conflicts and pushes, without asking first.",
-                    state.autoFixConflicts, onAutoFixConflicts,
-                )
-                SwitchRow(
-                    Icons.Rounded.Build, BadgeHue.Red, "Fix failing checks automatically",
-                    "When tests, the build or any other CI check fails, Claude fixes it and pushes, without asking first. Up to three tries per task before it asks you.",
-                    state.autoFixChecks, onAutoFixChecks,
-                )
-                SwitchRow(
-                    Icons.Rounded.NewReleases, BadgeHue.Amber, "Release when a PR is merged",
-                    "When a pull request from this app is merged, publishes a GitHub release with the next patch version, like v1.2.3 to v1.2.4.",
-                    state.autoRelease, onAutoRelease,
-                )
-            }
 
             SectionHeader("Appearance")
             SettingsCard {
@@ -326,6 +299,15 @@ fun SettingsScreen(
             onSelect = onThemeMode,
         )
         null -> Unit
+    }
+
+    editing?.let { repo ->
+        RepoSettingsDialog(
+            repo = repo,
+            settings = RepoSettings.of(state.repoSettings, repo),
+            onDismiss = { editing = null },
+            onRemove = { editing = null; removing = repo },
+        ) { onRepoSettings(repo, it) }
     }
 
     removing?.let { repo ->
