@@ -216,7 +216,9 @@ Security:
 - Android Lint only reports for now (`abortOnError = false` in `app/build.gradle.kts`) until the issues it found in
   existing code are fixed.
 - Releases come from the Release workflow (`.github/workflows/release.yml`), started from the Actions tab or by
-  pushing a tag like v0.8.0. The version name comes from the tag and the version code from the run number, so
+  pushing a tag like v0.8.0. Run from the Actions tab with the version left empty, it releases the next patch after
+  the latest tag, picked by `.github/scripts/next-version.sh` with the same rule as `Versions.nextPatch`, so
+  routine releases need no typing; hand-cut minor releases still enter their version. The version name comes from the tag and the version code from the run number, so
   nothing is bumped in code. Releases are signed with the key in the repo secrets. `CHANGELOG.md` gets an entry per
   release, newest first, and the README's release example names the newest one (`ChangelogTest` checks both).
   Release when a PR is merged is on for this repo, so merges publish patch tags between hand-cut minor releases.
@@ -269,6 +271,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- PR 100: The Release workflow's version is optional. Left empty, it releases the next patch after the latest tag,
+  using a shell script that mirrors `Versions.nextPatch` and is tested in the Build workflow.
 - PR 98: The Claude car chat uses automatic prompt caching with the 5-minute lifetime, and its cost counts cache
   writes and reads at their own prices instead of the base input price.
 - The phone app is voice first: the prompt box with its text field and Send button is gone from the New task screen

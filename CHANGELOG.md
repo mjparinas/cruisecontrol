@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The Release workflow no longer insists on a version. Leave it empty and it releases the next patch version after
+  the latest tag, the same way the app's release on merge does.
 - Opening a task with a long conversation jumps straight to the latest message instead of scrolling down to it.
   New messages that arrive while it's open still scroll smoothly.
 - Spoken updates wait while the microphone is listening and are read once it stops, so the car doesn't talk over
