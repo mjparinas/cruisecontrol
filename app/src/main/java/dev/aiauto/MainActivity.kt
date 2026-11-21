@@ -67,7 +67,9 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}.launch(permissions.toTypedArray())
         askToRunInBackground()
         val g = graph
-        screen = intent.taskTarget() ?: if (g.isConfigured) Screen.Home else Screen.Settings
+        // A recreated activity or one reopened from Recents still carries the shortcut, which already started its task.
+        val fresh = savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
+        screen = intent.taskTarget() ?: intent.takeIf { fresh }?.startFromShortcut() ?: if (g.isConfigured) Screen.Home else Screen.Settings
 
         setContent {
             var themeMode by remember { mutableStateOf(enumOrDefault(g.settings.themeMode, ThemeMode.System)) }
@@ -291,7 +293,34 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.taskTarget()?.let { screen = it }
+        (intent.taskTarget() ?: intent.startFromShortcut())?.let { screen = it }
+    }
+
+    /**
+     * Starts the task a Google Assistant shortcut asked for and says so, or says what's missing. Null when the
+     * intent isn't from the shortcut. Android stops background apps from opening activities, so only the Assistant
+     * or an app the user has open can get here, and the new task shows on screen with its Stop button.
+     */
+    private fun Intent.startFromShortcut(): Screen? {
+        if (action != ACTION_START_TASK) return null
+        val g = graph
+        val result = dev.aiauto.core.VoiceShortcut.resolve(
+            spoken = getStringExtra(EXTRA_REQUEST).orEmpty(),
+            repos = g.repos.repos.value,
+            lastUsed = g.tasks.all().maxByOrNull { it.createdMillis }?.repo,
+            templates = g.templates.templates.value,
+            configured = g.isConfigured,
+        )
+        if (g.settings.readAloudInCar && g.speaker.inCar) g.speaker.speak(result.spoken)
+        else android.widget.Toast.makeText(this@MainActivity, result.spoken, android.widget.Toast.LENGTH_LONG).show()
+        return when (result) {
+            is dev.aiauto.core.VoiceShortcut.Start -> {
+                val task = g.engine.start(result.repo, result.request)
+                TaskService.ensureRunning(this@MainActivity)
+                Screen.Detail(task.id)
+            }
+            is dev.aiauto.core.VoiceShortcut.Problem -> if (g.isConfigured && g.repos.repos.value.isNotEmpty()) Screen.NewTask else Screen.Settings
+        }
     }
 
     private fun settingsState(repos: List<RepoRef>) = SettingsState(
@@ -338,5 +367,9 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_TASK = "task"
+
+        /** The Google Assistant shortcut's action and spoken request, declared in res/xml/shortcuts.xml. */
+        const val ACTION_START_TASK = "dev.aiauto.action.START_TASK"
+        const val EXTRA_REQUEST = "request"
     }
 }

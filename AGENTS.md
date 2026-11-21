@@ -112,6 +112,10 @@ Tasks, repos and sync:
 - Synced tasks keep their last 60 messages. A task runs on the device that started it until you reply to it or
   retry it from another device. The newer side wins for tasks and settings, and removals sync through tombstones.
   Per-repo settings sync as one setting with the rest.
+- A Google Assistant shortcut (App Actions custom intent in `app/src/main/res/xml/shortcuts.xml`) starts a task
+  with no taps and no confirmation, so it's truly hands-free. `VoiceShortcut` takes the repo from the start or end of
+  the request, only from saved repos, and otherwise uses the last-used repo. Google only registers it for apps on the
+  Play Console, so it waits on the Play plan for installs from GitHub releases.
 - The car chat remembers the last 20 exchanges across drives, with a switch to turn it off and a Forget button.
 - A briefing of what happened since the last drive (up to a day back) is read when the phone connects to the car.
 
@@ -176,6 +180,9 @@ Security:
 - The update check lists the recent releases instead of reading GitHub's latest one, and offers the highest version
   with an APK. Each release is published before the Release workflow attaches its APK, so the latest one alone
   often has none.
+- The shortcut's action reaches the exported `MainActivity`, so any app could send it. Android stops background
+  apps from opening activities, the request can only target saved repos, the spending limits still apply, and the
+  new task opens on screen and is announced, with Stop on it.
 - The GitHub token is only sent to api.github.com, and to gist.githubusercontent.com when moving an old sync gist,
   never to wherever a URL in a response points.
 
@@ -244,6 +251,9 @@ Each line is checked against the code by `AgentsDocTest`.
 ## Decision log
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
+
+- PR 86: Google Assistant shortcut that starts a task straight away, picking the repo from the request. It needs
+  the app on the Play Console to work.
 
 - PR 82: Every task reads the repo's README.md, CLAUDE.md and AGENTS.md before anything else, asked for in the
   first prompt.

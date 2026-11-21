@@ -28,7 +28,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     the per-repo status view.
   - `Assistant.kt` is the spoken car chat. `ChatProviders.kt` has the car chat models and talks to Claude, OpenAI
     (Responses API) or Gemini (OpenAI-compatible endpoint); tests fake `ChatHttp`. `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
-    replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `Briefing.kt` is the drive briefing.
+    replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `Briefing.kt` is the drive briefing;
+    `VoiceShortcut.kt` turns a Google Assistant shortcut request into a repo and task (`MainActivity` runs it).
   - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases
     (the highest recent release with an APK) and picks release-on-merge tags.
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the

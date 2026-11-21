@@ -17,6 +17,8 @@ These started on this list and are now in the app. See the README for how they w
 - **Resume after lost signal**: tasks cut off by a dropped connection restart when the network comes back.
 - **Home screen widget** with running tasks and today's spend.
 - **Other AI providers for the car chat**: OpenAI and Gemini models, each with its own key in Settings.
+- **Google Assistant shortcut**: "Hey Google, start a task to ... on Cruise Control" starts a task with no taps,
+  once the app is uploaded to the Play Console.
 
 ### Coding tasks on other providers
 
@@ -76,14 +78,6 @@ the `AgentClient` interface, with the same budget and token protections, rather 
   adds "Closes #34" to the pull request body so GitHub closes the issue on merge. It needs `GitHub.issue()`, a
   `start_coding_task` option for an issue number in `Assistant`, and **Issues: read** on the token. A follow-up could read
   the newest open issues aloud so you can pick one.
-- **Google Assistant shortcut.** An App Actions capability (`shortcuts.xml` with a custom intent) so "Hey Google, ask
-  Cruise Control to add dark mode to aiauto" starts a task with no taps at all. **Listen when opened** gets close
-  today, but still needs the app to open and hear the request a second time. Link `shortcuts.xml` from the manifest
-  and give the intent a free-text request parameter (or use a built-in intent such as `actions.intent.CREATE_THING`)
-  that opens an activity with the spoken request. The app then picks the repo from the request, falling back to the
-  last-used one, and confirms aloud: "Starting add dark mode on aiauto". Static shortcuts for task templates ("Hey
-  Google, fix the failing build with Cruise Control") would come along with it. Check that it works while Android Auto
-  is connected and with Gemini, which is replacing the Assistant on many phones.
 - **Queue a car chat request with no signal.** Coding tasks already resume after a dropped connection, but the car
   chat fails if there's no signal when you speak. Keeping the spoken request on the phone and sending it when the
   network returns, with "I'll send that when we're back online", would stop requests from being lost in tunnels and
@@ -129,7 +123,7 @@ the `AgentClient` interface, with the same budget and token protections, rather 
   `MainActivity`.
 - **Launcher shortcuts and a quick settings tile.** Long-pressing the app icon could offer New task, Talk to Claude
   and the last-used repo. A quick settings tile could start a task or switch read aloud on and off. Both are small
-  and work on any phone, unlike the Google Assistant shortcut.
+  and work on any phone, unlike the Google Assistant shortcut, which needs the app on Play.
 - **Buttons on the result notification.** When a task's pull request opens or its checks pass, the notification
   only offers Reply. Adding Open pull request and, when checks are green, Merge (with the same confirmation as in the
   app) would save opening the app for the most common next step.
