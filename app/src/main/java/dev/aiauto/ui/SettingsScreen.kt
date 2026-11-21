@@ -96,6 +96,7 @@ data class SettingsState(
     val speechRate: Float = 1f,
     val voiceName: String? = null,
     val listenOnOpen: Boolean = true,
+    val listenUntilStop: Boolean = false,
     val briefing: Boolean = true,
     val rememberChats: Boolean = true,
     val syncEnabled: Boolean = false,
@@ -136,6 +137,7 @@ fun SettingsScreen(
     onVoice: (String?) -> Unit = {},
     onPreviewVoice: () -> Unit = {},
     onListenOnOpen: (Boolean) -> Unit = {},
+    onListenUntilStop: (Boolean) -> Unit = {},
     onBriefing: (Boolean) -> Unit = {},
     onRememberChats: (Boolean) -> Unit = {},
     onForgetChats: () -> Unit = {},
@@ -214,8 +216,8 @@ fun SettingsScreen(
                 )
                 VoiceRows(state.speechRate, state.voiceName, voices, onSpeechRate, onVoice, onPreviewVoice)
                 CarStartRows(
-                    state.listenOnOpen, state.briefing, state.rememberChats,
-                    onListenOnOpen, onBriefing, onRememberChats, onForgetChats,
+                    state.listenOnOpen, state.listenUntilStop, state.briefing, state.rememberChats,
+                    onListenOnOpen, onListenUntilStop, onBriefing, onRememberChats, onForgetChats,
                 )
             }
 

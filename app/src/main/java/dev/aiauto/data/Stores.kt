@@ -263,6 +263,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("listen_on_open", true)
         set(value) = prefs.edit().putBoolean("listen_on_open", value).apply()
 
+    /** Keep listening through pauses in the car until the driver taps Stop, instead of sending at the first pause. */
+    var listenUntilStop: Boolean
+        get() = prefs.getBoolean("listen_until_stop", false)
+        set(value) = prefs.edit().putBoolean("listen_until_stop", value).apply()
+
     /** Read a summary of what happened since the last drive when the phone connects to the car. */
     var briefingOnConnect: Boolean
         get() = prefs.getBoolean("briefing", true)
@@ -370,7 +375,7 @@ class Settings(context: Context) {
         val SYNCED_KEYS = setOf(
             "read_aloud", "theme_mode", "accent", "quiet_mode", "daily_limit", "auto_merge", "auto_fix_checks",
             "auto_fix_conflicts", "auto_release_since", "agent_profile", "chat_model", "chat_effort", "speech_rate",
-            "listen_on_open", "briefing", "remember_chats",
+            "listen_on_open", "listen_until_stop", "briefing", "remember_chats",
         )
     }
 }

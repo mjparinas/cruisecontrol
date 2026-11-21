@@ -23,8 +23,9 @@ import kotlinx.coroutines.withContext
 /**
  * The car's home screen: one big mic button. Tap it, say anything, and Claude's answer is read aloud
  * and shown here. Once the answer has been read out it listens again, so the driver can reply without
- * tapping; saying nothing ends the conversation. Claude can start or answer coding tasks from the
- * conversation too. The task list is one tap away in the corner.
+ * tapping; saying nothing ends the conversation. With "Keep listening until Stop" on, pauses don't send:
+ * Stop does. Claude can start or answer coding tasks from the conversation too. The task list is one tap
+ * away in the corner.
  */
 class MicScreen(carContext: CarContext) : Screen(carContext) {
     private val g = carContext.graph
@@ -33,6 +34,7 @@ class MicScreen(carContext: CarContext) : Screen(carContext) {
     private var text = if (g.isConfigured) HELLO else SETUP
     private var heard: String? = null
     private var thinking: Job? = null
+    private var untilStop = false
 
     private enum class State { Idle, Listening, Thinking }
 
@@ -76,10 +78,12 @@ class MicScreen(carContext: CarContext) : Screen(carContext) {
         thinking?.cancel()
         g.speaker.stop()
         heard = null
-        show(State.Listening, "Listening…")
+        untilStop = g.settings.listenUntilStop
+        show(State.Listening, if (untilStop) "Listening. Tap Stop when you're done." else "Listening…")
         voice.listen(
             onText = { spoken -> answer(spoken) },
             onError = { reason -> show(State.Idle, reason) },
+            untilStopped = untilStop,
         )
     }
 
@@ -114,7 +118,9 @@ class MicScreen(carContext: CarContext) : Screen(carContext) {
     override fun onGetTemplate(): Template {
         val body = heard?.takeIf { state != State.Listening }?.let { "You: $it\n\n$text" } ?: text
         val main = when (state) {
-            State.Listening -> Action.Builder().setTitle("Stop").setOnClickListener { stopListening() }
+            State.Listening -> Action.Builder().setTitle("Stop").setOnClickListener {
+                if (untilStop) voice.finish() else stopListening()
+            }
             State.Thinking -> Action.Builder().setTitle("Ask again").setOnClickListener { talk() }
             State.Idle -> Action.Builder()
                 .setTitle("Talk")

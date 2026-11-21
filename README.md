@@ -120,6 +120,10 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
 - **Listen when opened** (on by default): the car screen starts listening as soon as it opens, so saying
   "Hey Google, open Cruise Control", or pressing the steering-wheel voice button and saying that, is enough to start
   talking. Android Auto doesn't let other apps take over the voice button itself.
+- **Keep listening until Stop** (off by default): pauses don't end what you're saying. The car screen keeps listening
+  through them and joins your words until you tap **Stop**, which sends them. It works on **Talk**, **New task** and
+  **Reply**. With it on, saying nothing no longer ends the conversation; tap **Stop** instead. The phone's own mic
+  button still uses Google's speech dialog, which stops at the first pause.
 - **Briefing when you get in** (on by default): when the phone connects to the car, Claude reads what happened
   since your last drive, up to a day back: merged pull requests, finished and failed tasks, questions waiting for
   you and what you've spent today. If the car screen is open it reads it there, then listens.
