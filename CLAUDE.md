@@ -15,7 +15,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 ## Layout
 
 - `core/` is plain Kotlin (JVM 17) with all the logic and almost every unit test. Package `dev.aiauto.core`.
-  - `TaskEngine.kt` runs tasks: one session per task, prompts, the event stream, reconnects, the spending limit.
+  - `TaskEngine.kt` runs tasks: one session per task, prompts, the event stream, reconnects, and the daily and
+    monthly spending limits through `SpendingLimit.kt`.
   - `ClaudeAgents.kt` is the Managed Agents client. Its companion holds `SYSTEM_PROMPT` (baked into the agent)
     and `firstPrompt` (sent with each task). The agent is only remade when `AgentProfile` changes, so new
     per-task instructions belong in `firstPrompt`.
@@ -32,7 +33,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   Keep listening until Stop is on), `notify/` holds notifications and text-to-speech,
   `data/` holds the stores, encrypted secrets and sync, `widget/` is the home-screen widget. `data/Stores.kt`
   `Settings` keeps every setting in SharedPreferences; `SYNCED_KEYS` lists the ones that sync.
-- `docs/FEATURE_IDEAS.md` lists ideas; `CHANGELOG.md` has release notes.
+- `docs/FEATURE_IDEAS.md` lists ideas; `docs/PLAY_STORE_RELEASE.md` is the plan for Google Play; `CHANGELOG.md` has
+  release notes.
 
 ## Build and test
 

@@ -55,6 +55,8 @@ class Graph(context: Context) {
             override fun quietMode() = settings.quietMode
             override fun dailyLimitUsd() = settings.dailyLimitUsd
             override fun spentTodayUsd() = settings.spentTodayUsd
+            override fun monthlyLimitUsd() = settings.monthlyLimitUsd
+            override fun spentThisMonthUsd() = settings.spentThisMonthUsd
             override fun addSpend(usd: Double) = settings.addSpend(usd)
             override fun repoSettings(repo: RepoRef) = settings.repoSettings(repo)
         },
@@ -142,7 +144,7 @@ class Graph(context: Context) {
 
             override fun merge(repo: RepoRef, number: Int) = voiceControls.merge(repo, number)
         },
-        canSpend = { settings.dailyLimitUsd?.let { settings.spentTodayUsd < it } ?: true },
+        canSpend = { engine.canSpend() },
         onSpend = { settings.addSpend(it) },
         profile = { settings.chatProfile },
         memory = { if (settings.rememberChats) chatMemory else dev.aiauto.core.NoChatMemory },

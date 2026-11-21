@@ -291,6 +291,11 @@ class Settings(context: Context) {
         get() = if (prefs.contains("daily_limit")) prefs.getFloat("daily_limit", 0f).toDouble().takeIf { it > 0 } else DEFAULT_DAILY_LIMIT
         set(value) = prefs.edit().putFloat("daily_limit", (value ?: 0.0).toFloat()).apply()
 
+    /** Monthly spending cap in US dollars, or null for none. Applies on top of the daily limit; off by default. */
+    var monthlyLimitUsd: Double?
+        get() = prefs.getFloat("monthly_limit", 0f).toDouble().takeIf { it > 0 }
+        set(value) = prefs.edit().putFloat("monthly_limit", (value ?: 0.0).toFloat()).apply()
+
     /** Each repo's own settings, keyed by full name. Repos missing here use [RepoSettings]' defaults. */
     val repoSettings: Map<String, RepoSettings>
         get() = prefs.getString("repo_settings", null)
@@ -329,13 +334,29 @@ class Settings(context: Context) {
     val spentTodayUsd: Double
         get() = if (prefs.getString("spend_day", null) == today()) prefs.getFloat("spend_usd", 0f).toDouble() else 0.0
 
+    /** What Claude has cost this calendar month, by the phone's local date: every day's spend added up. */
+    @get:Synchronized
+    val spentThisMonthUsd: Double
+        get() = when (prefs.getString("spend_month", null)) {
+            thisMonth() -> prefs.getFloat("spend_month_usd", 0f).toDouble()
+            // Builds before the monthly total only kept today's, so the month starts from that.
+            null -> spentTodayUsd
+            else -> 0.0
+        }
+
     @Synchronized
     fun addSpend(usd: Double) {
-        val total = spentTodayUsd + usd
-        prefs.edit().putString("spend_day", today()).putFloat("spend_usd", total.toFloat()).apply()
+        val day = spentTodayUsd + usd
+        val month = spentThisMonthUsd + usd
+        prefs.edit()
+            .putString("spend_day", today()).putFloat("spend_usd", day.toFloat())
+            .putString("spend_month", thisMonth()).putFloat("spend_month_usd", month.toFloat())
+            .apply()
     }
 
     private fun today() = java.time.LocalDate.now().toString()
+
+    private fun thisMonth() = java.time.YearMonth.now().toString()
 
     /**
      * Builds before this fix read the API's cents as dollars, so saved costs are 100 times too high.
@@ -387,8 +408,9 @@ class Settings(context: Context) {
          * drive times (counted per device), the agent setup (tied to each device's key), and sync itself.
          */
         val SYNCED_KEYS = setOf(
-            "read_aloud", "theme_mode", "accent", "quiet_mode", "daily_limit", "repo_settings", "agent_profile",
-            "chat_model", "chat_effort", "speech_rate", "listen_on_open", "listen_until_stop", "briefing", "remember_chats",
+            "read_aloud", "theme_mode", "accent", "quiet_mode", "daily_limit", "monthly_limit", "repo_settings",
+            "agent_profile", "chat_model", "chat_effort", "speech_rate", "listen_on_open", "listen_until_stop", "briefing",
+            "remember_chats",
         )
 
         /** The global pull request switches from before per-repo settings, moved onto each repo by [moveGlobalRepoSettings]. */

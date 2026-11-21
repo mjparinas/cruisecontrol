@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.DarkMode
@@ -81,6 +82,8 @@ data class SettingsState(
     val quietMode: Boolean,
     val dailyLimitUsd: Double?,
     val spentTodayUsd: Double,
+    val monthlyLimitUsd: Double?,
+    val spentThisMonthUsd: Double,
     val version: String,
     val themeMode: ThemeMode,
     val accent: Accent,
@@ -119,6 +122,7 @@ fun SettingsScreen(
     onThemeMode: (ThemeMode) -> Unit,
     onAccent: (Accent) -> Unit,
     onDailyLimit: (Double?) -> Unit,
+    onMonthlyLimit: (Double?) -> Unit,
     onCheckUpdate: () -> Unit,
     onAgentProfile: (dev.aiauto.core.AgentProfile) -> Unit = {},
     onChatProfile: (dev.aiauto.core.ChatProfile) -> Unit = {},
@@ -233,8 +237,13 @@ fun SettingsScreen(
                     "Spent today: ${SpokenStatus.money(state.spentTodayUsd)}" +
                         (state.dailyLimitUsd?.let { " of ${SpokenStatus.money(it)}" } ?: ", no limit"),
                 ) { dialog = SettingsDialog.DailyLimit }
+                SettingRow(
+                    Icons.Rounded.CalendarMonth, BadgeHue.Green, "Monthly limit",
+                    "Spent this month: ${SpokenStatus.money(state.spentThisMonthUsd)}" +
+                        (state.monthlyLimitUsd?.let { " of ${SpokenStatus.money(it)}" } ?: ", no limit"),
+                ) { dialog = SettingsDialog.MonthlyLimit }
             }
-            Note("Claude stops when today's total reaches the limit, counted at list price from what each session reports.")
+            Note("Claude stops when today's total or this month's total reaches its limit, counted at list price from what each session reports.")
 
             SyncSection(state.syncEnabled, state.syncStatus, state.busy, onSyncEnabled, onSyncNow)
 
@@ -290,6 +299,16 @@ fun SettingsScreen(
             filter = { it.filter { c -> c.isDigit() || c == '.' } },
             onDismiss = { dialog = null },
         ) { onDailyLimit(it.toDoubleOrNull()?.takeIf { v -> v > 0 }) }
+        SettingsDialog.MonthlyLimit -> TextDialog(
+            title = "Monthly limit",
+            help = "In US dollars, for every day this month added up. Leave blank for no limit.",
+            label = "Monthly limit",
+            initial = state.monthlyLimitUsd?.let { "%.2f".format(java.util.Locale.US, it).removeSuffix(".00") }.orEmpty(),
+            keyboard = KeyboardType.Decimal,
+            allowBlank = true,
+            filter = { it.filter { c -> c.isDigit() || c == '.' } },
+            onDismiss = { dialog = null },
+        ) { onMonthlyLimit(it.toDoubleOrNull()?.takeIf { v -> v > 0 }) }
         SettingsDialog.Theme -> ChoiceDialog(
             title = "Theme",
             options = ThemeMode.entries,
@@ -322,7 +341,7 @@ fun SettingsScreen(
     }
 }
 
-private enum class SettingsDialog { AnthropicKey, GithubToken, PickRepos, AddRepo, DailyLimit, Theme }
+private enum class SettingsDialog { AnthropicKey, GithubToken, PickRepos, AddRepo, DailyLimit, MonthlyLimit, Theme }
 
 /** Accent colour: a row of round swatches, the chosen one ticked. Each shrinks a little on a narrow phone rather than being cut off. */
 @Composable

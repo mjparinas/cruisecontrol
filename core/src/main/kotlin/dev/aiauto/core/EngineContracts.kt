@@ -28,6 +28,11 @@ interface EngineConfig {
     fun dailyLimitUsd(): Double? = null
     /** What has been spent today so far. */
     fun spentTodayUsd(): Double = 0.0
+    /** The most Claude may spend per calendar month across all tasks, in US dollars. Null means no limit. */
+    fun monthlyLimitUsd(): Double? = null
+    /** What has been spent this month so far: every day's spend added up. */
+    fun spentThisMonthUsd(): Double = 0.0
+    /** Adds a cost to both today's and this month's totals. */
     fun addSpend(usd: Double) {}
 
     /** What happens to [repo]'s pull requests, and the rules Claude follows on every task in it. */

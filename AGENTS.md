@@ -29,6 +29,11 @@ What the app is:
   app opens a pull request. Updates come back as messages read aloud in the car.
 - It is a personal app installed from GitHub releases, not the Play Store. Play doesn't accept general AI apps for
   Android Auto, so the full car screen needs Android Auto's Unknown sources setting.
+- The plan for Play (`docs/PLAY_STORE_RELEASE.md`) doesn't pass the app off as a messaging app: car messaging apps
+  must be peer-to-peer, and misrepresenting the app puts the developer account at risk. Instead the car build goes
+  to Play's internal and closed testing tracks, where car review doesn't block, and production gets a phone-only
+  build without Android Auto support. To reach further honestly, the plan grows the closed track, keeps production
+  hands-free over Bluetooth, considers real peer-to-peer messaging, and waits for new car categories.
 - The applicationId, package (`dev.aiauto`) and signing key never change, so every release installs over the last
   one. The rename only changed labels, text and the APK name.
 
@@ -55,7 +60,7 @@ Claude and cost:
 - Coding tasks default to Opus 5.5 at high effort. The car chat defaults to Opus 5.5 at low effort so answers come
   back quickly. Both can be changed in Settings, along with web search and standing rules.
 - Settings are either global or per repo, and don't overlap. Global: keys, model, effort, web search, standing rules,
-  everything in the car, theme, daily limit and sync. Per repo (`RepoSettings`, set by tapping a repo): merge when
+  everything in the car, theme, daily and monthly limits, and sync. Per repo (`RepoSettings`, set by tapping a repo): merge when
   checks pass, the two automatic fixes, release on merge, and rules for that repo. A repo without saved settings uses
   the defaults; updating from global switches copies the old values onto every saved repo once.
 - A repo's rules go in `ClaudeAgents.firstPrompt`, not the agent, so changing them never makes a new agent and they
@@ -66,8 +71,10 @@ Claude and cost:
   to create it or fix it when it's missing or out of date, in the same pull request (PR 66).
 - Web search is off by default and only applies to coding tasks. With it on, tasks run in an environment with open
   internet access; otherwise the sandbox only reaches package registries.
-- A daily spending limit (default $20) stops Claude when the day's total reaches it, and is also set as each
-  session's budget on Anthropic's side so it holds even when the phone loses signal. Costs are list prices.
+- A daily spending limit (default $20) stops Claude when the day's total reaches it. An optional monthly limit (off
+  by default) adds up every day's spend in the calendar month and stops Claude when that reaches it. Both apply at
+  once, to tasks and the car chat, and the tighter one is also set as each session's budget on Anthropic's side so
+  it holds even when the phone loses signal. Costs are list prices.
 - Claude writes in Canadian spelling (colour, centre, cancelled, organize) in app text, spoken answers, commit
   messages and pull requests (PR 54).
 
@@ -75,12 +82,12 @@ Pull requests and automation:
 
 - After a pull request opens, the app watches its checks for 3 hours, announces the result and, with the repo's Merge
   when checks pass on (the default), turns on GitHub's auto-merge or merges once every check is green.
-- Fix merge conflicts automatically and Fix failing checks automatically are per repo and on by default. After 3 automatic fixes
-  on a task the app goes back to asking, so it can never loop.
+- Fix merge conflicts automatically and Fix failing checks automatically are per repo and on by default. After 3
+  automatic fixes on a task the app goes back to asking, so it can never loop.
 - Alerts for failed checks, questions from Claude and stuck tasks (no update for 15 minutes) are always shown, even
   in quiet mode, and can be answered by voice.
-- Release when a PR is merged is per repo and off by default. When on, the app publishes the next patch version on that repo for
-  pull requests merged after the switch was turned on.
+- Release when a PR is merged is per repo and off by default. When on, the app publishes the next patch version on
+  that repo for pull requests merged after the switch was turned on.
 
 Tasks, repos and sync:
 
@@ -119,7 +126,7 @@ Structure:
 - `app/` is the Android app: Jetpack Compose on the phone, the Android for Cars App Library in the car, messaging
   notifications that Android Auto reads aloud, a foreground service, and a home-screen widget.
 - `TaskEngine` keeps the task lifecycle and the Claude session. It delegates to `TaskJournal` (task state and
-  messages), `SpendingLimit` (the daily limit and session budget) and `PullRequests` (opening, watching and
+  messages), `SpendingLimit` (the daily and monthly limits and session budget) and `PullRequests` (opening, watching and
   merging), split out in PR 20 to keep each part small.
 - Interfaces like `AgentClient`, `GitHub` and `TaskStore` exist so tests can use fakes. The real GitHub client is
   tested against canned HTTP responses through an OkHttp interceptor.
@@ -174,7 +181,7 @@ Security:
   pushing a tag like v0.8.0. The version name comes from the tag and the version code from the run number, so
   nothing is bumped in code. Releases are signed with the key in the repo secrets. `CHANGELOG.md` gets an entry per
   release.
-- Feature ideas live in `docs/FEATURE_IDEAS.md`.
+- Feature ideas live in `docs/FEATURE_IDEAS.md`. The Play Store release plan lives in `docs/PLAY_STORE_RELEASE.md`.
 
 ## Pinned versions
 
@@ -225,8 +232,12 @@ Newest first. Earlier work (before PR 13) isn't in the history; add older decisi
 
 - PR 76: Per-repo settings. The pull request switches moved from global to each repo, and each repo can
   have its own rules for Claude, sent in the first prompt. Global and per-repo settings don't overlap.
+- PR 75: Play Store plan: the car build goes only to Play's internal and closed testing, production gets a
+  phone-only build, and the app is never described as a messaging app to pass review. Nothing is built yet.
 - PR 74: The phone app's mic button follows Keep listening until Stop too, listening in the app with the same
   `VoiceInput` as the car and a Stop button, instead of Google's speech dialog.
+- PR 73: An optional monthly spending limit, off by default, on top of the daily one. Both apply at once and the
+  monthly total and limit live alongside the daily ones; the limit syncs, the total stays per device.
 - PR 71: Archived task cards can be cleared by swiping left, after asking.
 - PR 69: Every dependency moved to its latest stable release, including Gradle 9, Android Gradle Plugin 9,
   compileSdk 37.2, OkHttp 5 and Car App 1.7. targetSdk stays 35 and setup-gradle stays on v5.

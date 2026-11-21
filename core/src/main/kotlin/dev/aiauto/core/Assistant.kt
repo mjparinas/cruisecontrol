@@ -68,7 +68,7 @@ class Assistant(
     @Synchronized
     fun ask(spoken: String): String {
         val key = apiKey() ?: return "Add your Anthropic API key in the app on your phone first."
-        if (!canSpend()) return "You've reached today's spending limit, so I can't answer right now. You can raise it in Settings on your phone."
+        if (!canSpend()) return "You've reached your daily or monthly spending limit, so I can't answer right now. You can raise it in Settings on your phone."
         val start = history.size
         return try {
             val claude = clientFor(key)
