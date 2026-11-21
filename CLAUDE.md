@@ -32,6 +32,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     (Responses API) or Gemini (OpenAI-compatible endpoint); tests fake `ChatHttp`. Claude chat requests use
     automatic prompt caching, and `ModelChoice` holds each model's cache hit price. `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
     replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `Briefing.kt` is the drive briefing.
+    `SteeringWheel.kt` maps the experimental steering-wheel buttons to actions; the app's `car/WheelButtons.kt`
+    media session feeds it while the car screen shows.
   - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases
     (the highest recent release with an APK) and picks release-on-merge tags.
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the
@@ -54,13 +56,17 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 - `./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug` is what CI runs (needs the Android SDK,
   API 37.2). Lint only reports. Without an SDK, install the command-line tools from dl.google.com, run
   sdkmanager for `platforms;android-37.2` and set `ANDROID_HOME`. Maven Central may answer 429; just rerun.
+- The Release workflow keeps a release made on merge a draft until its APK is attached; `ReleaseWorkflowTest` checks
+  the order of those steps.
+- `.github/scripts/next-version-test.sh` tests the Release workflow's version picker and runs in CI before Gradle.
 - CI skips pushes that only change Markdown files, except AGENTS.md: `AgentsDocTest` checks it against the code.
 
 ## Releasing
 
 - Cutting a release means moving CHANGELOG's Unreleased notes (plus any merged features they missed) into a version
   entry and pointing the README's release example at it; `ChangelogTest` checks both. After the pull request merges,
-  the owner runs the Release workflow with that version. The agent can't push tags. If the newest changelog
+  the owner runs the Release workflow with that version. Left empty, the workflow releases the next patch after
+  the latest tag via `.github/scripts/next-version.sh`, which follows the same rule as `Versions.nextPatch`. The agent can't push tags. If the newest changelog
   version still has no tag (v0.8.0 didn't as of v0.7.20), fold the Unreleased notes into it instead of adding a new one.
 - Release when a PR is merged is on for this repo, so every merge publishes a patch tag. Check the real latest
   version with `git ls-remote --tags origin`. The local `main` branch can be stale: branch from `origin/main`.

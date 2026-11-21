@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- A release made when a pull request merges stays a draft until the Release workflow attaches its APK, so no public
+  release is ever missing the APK. If the build fails, the release stays a draft.
+- The Release workflow no longer insists on a version. Leave it empty and it releases the next patch version after
+  the latest tag, the same way the app's release on merge does.
+- Opening a task with a long conversation jumps straight to the latest message instead of scrolling down to it.
+  New messages that arrive while it's open still scroll smoothly.
 - Spoken updates wait while the microphone is listening and are read once it stops, so the car doesn't talk over
   you or hear itself.
 - The car chat uses Claude's prompt caching, so each answer rereads the instructions and earlier turns from the
@@ -9,6 +15,8 @@
 - Parked mode: once the car has stood still for ten seconds, a step Claude's safety check flags waits for you to
   approve or deny it on the car's task screen, instead of being skipped. Driving off denies any step still waiting.
   The car screen asks once for the car speed permission it needs.
+- An experimental Steering-wheel buttons switch in Settings, under In the car and off by default. While the car
+  screen is open, the wheel's play or pause button starts Talk, and next or previous repeats the last update.
 
 ## v0.8.0
 

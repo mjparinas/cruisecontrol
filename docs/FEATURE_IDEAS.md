@@ -53,9 +53,9 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 - **Hand-off when you park.** When the phone disconnects from the car, post one phone notification that sums up what
   is still going: "2 tasks still running, PR 12 is ready to review". Tapping it opens the task list, so nothing
   started on the drive is forgotten once you're out of the car.
-- **Steering-wheel button (experiment).** A media session would let the wheel's play or next button start Talk or
-  replay the last update. It also makes Android Auto treat the app as a media app, with its own audio screen, so
-  try it behind a setting before relying on it.
+- **Steering-wheel button (experiment).** Built behind the Steering-wheel buttons setting, off by default: play or
+  pause starts Talk, next or previous repeats the last update. Still to learn: whether cars send the buttons to it
+  reliably, and whether a media browser service is needed for that.
 
 ### Close the loop by voice
 
