@@ -17,6 +17,8 @@ These started on this list and are now in the app. See the README for how they w
 - **Resume after lost signal**: tasks cut off by a dropped connection restart when the network comes back.
 - **Home screen widget** with running tasks and today's spend.
 - **Other AI providers for the car chat**: OpenAI and Gemini models, each with its own key in Settings.
+- **Every repo available, most recently used first**: the phone and car repo pickers and the car chat offer every
+  repo the GitHub token can push to, not only saved ones, with repos you've used most recently at the top.
 
 ### Coding tasks on other providers
 
@@ -43,10 +45,10 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 - **"Repeat that" and "quiet".** Two more quick commands in `VoiceCommand`, also for the car chat. "Repeat that"
   replays the last thing the app said, for when a turn or a passenger drowned it out. "Quiet" turns on quiet mode
   for the rest of the drive, so only results and alerts are read out, without a trip to Settings.
-- **Every repo reachable in the car, last used first.** `PickRepoScreen` lists the first six saved repos in the order
-  they were added, so a seventh can't be picked in the car at all. Sorting by last used, and asking the host for its
-  real list size with `ConstraintManager.getContentLimit` instead of a fixed six (also in `TasksScreen` and
-  `TemplatesScreen`), would fix both.
+- **More than six rows in car lists.** `PickRepoScreen` now lists every repo last used first, but still shows only
+  the first six, so an older repo can't be picked in the car. Asking the host for its real list size with
+  `ConstraintManager.getContentLimit` instead of a fixed six (also in `TasksScreen` and `TemplatesScreen`) would
+  fix that.
 - **Hand-off when you park.** When the phone disconnects from the car, post one phone notification that sums up what
   is still going: "2 tasks still running, PR 12 is ready to review". Tapping it opens the task list, so nothing
   started on the drive is forgotten once you're out of the car.
@@ -83,11 +85,6 @@ the `AgentClient` interface, with the same budget and token protections, rather 
   chat fails if there's no signal when you speak. Keeping the spoken request on the phone and sending it when the
   network returns, with "I'll send that when we're back online", would stop requests from being lost in tunnels and
   dead zones.
-- **Every repo available, most recently used first.** Offer every repo the GitHub token can push to in the phone
-  and car repo pickers, not just the ones saved in Settings, so a task can start anywhere without adding the repo
-  first. Order the list by most recently used: repos with recent tasks at the top, then the rest by last push
-  (`GitHub.myRepos()` already sorts that way). Cache the list so the car picker opens without waiting on GitHub.
-  This goes further than "Every repo reachable in the car" above, which covers saved repos only.
 
 ### Ask, don't change
 

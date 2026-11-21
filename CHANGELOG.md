@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Start a task in any repo your GitHub token can push to, without saving it in Settings first. The repo pickers on
+  the phone and in the car, and the car chat, list those repos with the ones you used most recently at the top.
 - Every coding task now starts by reading the repo's README.md, CLAUDE.md and AGENTS.md, whichever exist, so
   Claude follows the project's own docs.
 - Keep listening until Stop now really waits for Stop. Staying quiet for the first few seconds used to end
