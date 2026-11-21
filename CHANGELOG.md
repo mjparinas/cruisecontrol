@@ -2,11 +2,18 @@
 
 ## Unreleased
 
+- Spoken updates wait while the microphone is listening and are read once it stops, so the car doesn't talk over
+  you or hear itself.
+- The car chat uses Claude's prompt caching, so each answer rereads the instructions and earlier turns from the
+  cache instead of paying full price for them again. Its cost now counts cache writes and reads at their own prices.
 - A search box at the top of Settings shows only the settings that match what you type, by name, section or a
   related word like "colour" or "money". Searching for a pull request switch finds your repos, where those live now.
 
 ## v0.8.0
 
+- The phone app is voice first. The New task screen and each task's chat drop the text box for a floating microphone
+  at the bottom right. It turns into a Stop button while listening, sends as soon as you stop talking, and with Keep
+  listening until Stop on, waits for Stop instead.
 - Per-repo settings: tap a repo in Settings for its own Merge when checks pass, Fix merge conflicts automatically,
   Fix failing checks automatically and Release when a PR is merged switches, plus rules for Claude that apply only
   to that repo. These switches used to be global; on update, every saved repo keeps the values you had.
@@ -27,7 +34,7 @@
   for a yes and then has Claude reset the branch and redo the original request from scratch.
 - A new Keep listening until Stop setting lets the car's Talk, New task and Reply screens listen through pauses
   and send what you said only when you tap Stop. Silence at the start and hiccups from the speech recognizer just
-  start listening again. The mic button in the phone app's prompt box follows it too.
+  start listening again. The phone app's microphone follows it too.
 - The Active tab on the phone's task list shows how many tasks are running right now, like Active (2).
 - A task whose pull request's checks are still running says Checks running in amber instead of Done, so it doesn't
   look finished before the checks are.

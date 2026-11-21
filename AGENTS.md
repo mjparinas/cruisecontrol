@@ -45,14 +45,19 @@ Driving safety comes first:
   review them while driving. The driver hears that a step was skipped and the task carries on.
 - Voice input sends as soon as the driver stops talking on the app's own car screen. The car screen opens on one big
   Talk button and starts listening when it opens. Android Auto's messaging view always asks for Send, which apps
-  can't turn off, so the app explains how to avoid it. Keep listening until Stop (off by default) makes pauses not
-  send, both on the car screen and from the phone app's mic button, which then listens in the app instead of
-  opening Google's speech dialog. Until Stop, recognizer errors restart listening too (up to 5 in a row), since
+  can't turn off, so the app explains how to avoid it. The phone app is voice first: the New task screen and the
+  task chat have no text box, only a floating microphone at the bottom right (`MicButton`) that listens in the app
+  with `VoiceInput`, turns into a Stop button while listening, and sends when the person stops talking. Keep
+  listening until Stop (off by default) makes pauses not send, both on the car screen and on the phone, and Stop
+  sends instead. Until Stop, recognizer errors restart listening too (up to 5 in a row), since
   it often fails after silence or while restarting, and an error must never send.
 - `VoiceInput` plays a rising tone when a go at listening starts and a falling one when it ends, not on each
   restart until Stop. The car chat plays a soft cue 3 seconds into a slow answer and every 5 seconds after, at most
   6 times. Tones use the assistant audio attributes, like the microphone, so music ducks. Their shape and timing
   live in `core/src/main/kotlin/dev/aiauto/core/Tones.kt` so they are tested; there is no switch to turn them off.
+- Nothing is read aloud while the microphone is listening, so the car never talks over the driver or hears itself.
+  `Speaker` holds new speech (up to 5 lines, oldest dropped) from when `VoiceInput` starts until it ends, across
+  restarts, and then reads it. `core/src/main/kotlin/dev/aiauto/core/SpeechHold.kt` holds the logic.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
 - Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet, undo that, start over) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
@@ -164,6 +169,10 @@ Claude:
   provider's format by `core/src/main/kotlin/dev/aiauto/core/ChatProviders.kt`, which keeps each conversation in
   that provider's own message format so tool calls, OpenAI's encrypted reasoning and Gemini's thought signatures go
   back exactly as they came. OpenAI requests are sent with store off.
+- Claude car chat requests turn on automatic prompt caching (a top-level `cache_control` with the default 5-minute
+  lifetime), so tools, system prompt and earlier turns are read from the cache on each turn. A drive's back and
+  forth is well inside five minutes, so the 1-hour lifetime, which costs twice input to write, isn't worth it.
+  Cache writes are priced at 1.25 times input and reads at each model's cache hit price (`ModelChoice`).
 - Streams are reconnected by the engine, and past events are listed after reconnecting so nothing is reported
   twice and turns that ended offline are caught up. Tasks cut off by a lost connection retry every 30 seconds for up
   to two hours.
@@ -260,6 +269,12 @@ Newest first. Earlier work (before PR 13) isn't in the history; add older decisi
 
 - PR 92: A search box at the top of Settings filters the page as you type. Pull request and repo-rule words find
   the Repositories section, since those settings live behind each repo.
+- PR 98: The Claude car chat uses automatic prompt caching with the 5-minute lifetime, and its cost counts cache
+  writes and reads at their own prices instead of the base input price.
+- The phone app is voice first: the prompt box with its text field and Send button is gone from the New task screen
+  and the task chat, replaced by a floating microphone at the bottom right that follows Keep listening until Stop.
+  Google's speech dialog is no longer used, so the microphone can always turn into a Stop button.
+- PR 84: Spoken updates wait while the microphone is listening and are read once it stops.
 - v0.8.0 was still untagged after PR 79, so everything merged since went into its changelog entry instead of a new
   version, and `ChangelogTest` now also checks that every version entry has notes.
 - PR 83: Every repo the token can push to is offered for new tasks, most recently used first, in the phone and car
