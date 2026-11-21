@@ -19,10 +19,12 @@ import androidx.car.app.CarContext
 import androidx.car.app.media.CarAudioRecord
 import androidx.car.app.versioning.CarAppApiLevels
 import androidx.core.content.ContextCompat
+import dev.aiauto.core.Dictation
 
 /**
  * Speech to text started from the car screen. Uses the car's microphone when the host supports it
- * (car API 5 and Android 13+), and the phone's microphone otherwise.
+ * (car API 5 and Android 13+), and the phone's microphone otherwise. With untilStopped, pauses don't end it:
+ * listening restarts after each one and the words are joined until [finish] is called.
  */
 class VoiceInput(private val carContext: CarContext) {
     private val audio = carContext.getSystemService(AudioManager::class.java)
@@ -37,25 +39,39 @@ class VoiceInput(private val carContext: CarContext) {
     private var recognizer: SpeechRecognizer? = null
     private var carAudioFd: ParcelFileDescriptor? = null
     @Volatile private var recording = false
+    private var dictation: Dictation? = null
 
-    fun listen(onText: (String) -> Unit, onError: (String) -> Unit) {
+    fun listen(onText: (String) -> Unit, onError: (String) -> Unit, untilStopped: Boolean = false) {
         if (!SpeechRecognizer.isRecognitionAvailable(carContext)) {
             onError("Speech recognition isn't available on this phone.")
             return
         }
         if (ContextCompat.checkSelfPermission(carContext, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            start(onText, onError)
+            start(untilStopped, onText, onError)
         } else {
             runCatching {
                 carContext.requestPermissions(listOf(Manifest.permission.RECORD_AUDIO)) { granted, _ ->
-                    if (Manifest.permission.RECORD_AUDIO in granted) start(onText, onError)
+                    if (Manifest.permission.RECORD_AUDIO in granted) start(untilStopped, onText, onError)
                     else onError("Allow microphone access to talk to Claude.")
                 }
             }.onFailure { onError("Open Cruise Control on your phone once to allow the microphone.") }
         }
     }
 
+    /** Stops listening and sends what was heard, once the recognizer has handed over the last words. */
+    fun finish() {
+        val d = dictation ?: return
+        d.stop()
+        recording = false
+        recognizer?.stopListening()
+    }
+
     fun cancel() {
+        dictation = null
+        release()
+    }
+
+    private fun release() {
         recording = false
         recognizer?.destroy()
         recognizer = null
@@ -64,8 +80,9 @@ class VoiceInput(private val carContext: CarContext) {
         audio.abandonAudioFocusRequest(focus)
     }
 
-    private fun start(onText: (String) -> Unit, onError: (String) -> Unit) {
+    private fun start(untilStopped: Boolean, onText: (String) -> Unit, onError: (String) -> Unit) {
         cancel()
+        dictation = Dictation(untilStopped)
         val useCarMic = Build.VERSION.SDK_INT >= 33 && carContext.carAppApiLevel >= CarAppApiLevels.LEVEL_5
         recognize(useCarMic, onText, onError)
     }
@@ -77,7 +94,7 @@ class VoiceInput(private val carContext: CarContext) {
         if (useCarMic && Build.VERSION.SDK_INT >= 33) {
             // The car's microphone isn't always available (host quirks, another app recording). Use the phone's.
             if (runCatching { addCarMicrophone(intent) }.isFailure) {
-                cancel()
+                release()
                 recognize(false, onText, onError)
                 return
             }
@@ -85,8 +102,8 @@ class VoiceInput(private val carContext: CarContext) {
 
         var heardSpeech = false
         val r = runCatching { SpeechRecognizer.createSpeechRecognizer(carContext) }.getOrElse {
-            cancel()
-            onError("Voice input isn't working right now. Reply by message instead.")
+            release()
+            next(dictation?.broke(), useCarMic, onText, onError)
             return
         }
         recognizer = r
@@ -95,19 +112,20 @@ class VoiceInput(private val carContext: CarContext) {
             override fun onEndOfSpeech() { recording = false }
 
             override fun onResults(results: Bundle) {
-                val text = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim()
-                cancel()
-                if (text.isNullOrEmpty()) onError("I didn't catch that.") else onText(text)
+                val text = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                release()
+                next(dictation?.pause(text), useCarMic, onText, onError)
             }
 
             override fun onError(error: Int) {
-                cancel()
+                release()
                 val nothingSaid = error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+                val d = dictation ?: return
                 when {
                     // Some recognizers can't take audio from the car; fall back to the phone's microphone.
                     useCarMic && !heardSpeech && !nothingSaid -> recognize(false, onText, onError)
-                    nothingSaid -> onError("I didn't catch that.")
-                    else -> onError("Voice input stopped. Try again.")
+                    nothingSaid -> next(d.pause(null), useCarMic, onText, onError)
+                    else -> next(d.broke(), useCarMic, onText, onError, failure = "Voice input stopped. Try again.")
                 }
             }
 
@@ -118,8 +136,29 @@ class VoiceInput(private val carContext: CarContext) {
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
         runCatching { r.startListening(intent) }.onFailure {
-            cancel()
-            if (useCarMic) recognize(false, onText, onError) else onError("Voice input isn't working right now. Reply by message instead.")
+            release()
+            if (useCarMic) recognize(false, onText, onError) else next(dictation?.broke(), false, onText, onError)
+        }
+    }
+
+    /** Listens again after a pause, or ends this go and hands over the words or what went wrong. */
+    private fun next(
+        step: Dictation.Next?,
+        useCarMic: Boolean,
+        onText: (String) -> Unit,
+        onError: (String) -> Unit,
+        failure: String = "Voice input isn't working right now. Reply by message instead.",
+    ) {
+        val d = dictation ?: return
+        if (step == Dictation.Next.Listen) {
+            recognize(useCarMic, onText, onError)
+            return
+        }
+        dictation = null
+        when (step) {
+            Dictation.Next.Send -> onText(d.text)
+            Dictation.Next.NothingHeard -> onError("I didn't catch that.")
+            else -> onError(failure)
         }
     }
 

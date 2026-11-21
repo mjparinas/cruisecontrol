@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.Gavel
@@ -225,13 +226,15 @@ internal fun VoiceRows(
     }
 }
 
-/** Hands-free start, the welcome-back briefing, and memory across drives, in the "In the car" card. */
+/** Hands-free start, listening until Stop, the welcome-back briefing, and memory across drives, in the "In the car" card. */
 @Composable
 internal fun CarStartRows(
     listenOnOpen: Boolean,
+    listenUntilStop: Boolean,
     briefing: Boolean,
     rememberOn: Boolean,
     onListenOnOpen: (Boolean) -> Unit,
+    onListenUntilStop: (Boolean) -> Unit,
     onBriefing: (Boolean) -> Unit,
     onRemember: (Boolean) -> Unit,
     onForget: () -> Unit,
@@ -241,6 +244,11 @@ internal fun CarStartRows(
         Icons.Rounded.Mic, BadgeHue.Red, "Listen when opened",
         "Starts listening as soon as Cruise Control opens in the car, so \"Hey Google, open Cruise Control\" is all it takes.",
         listenOnOpen, onListenOnOpen,
+    )
+    SwitchRow(
+        Icons.Rounded.StopCircle, BadgeHue.Violet, "Keep listening until Stop",
+        "Pauses don't send what you said. The car keeps listening until you tap Stop, so you can think mid-sentence.",
+        listenUntilStop, onListenUntilStop,
     )
     SwitchRow(
         Icons.Rounded.WbSunny, BadgeHue.Amber, "Briefing when you get in",
