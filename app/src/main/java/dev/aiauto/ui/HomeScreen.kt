@@ -21,6 +21,7 @@ import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ClearAll
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.ErrorOutline
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.QuestionAnswer
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.StopCircle
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -45,10 +47,12 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -57,6 +61,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -77,6 +84,7 @@ fun HomeScreen(
     onOpen: (Task) -> Unit,
     onArchive: (Task) -> Unit,
     onUnarchive: (Task) -> Unit,
+    onClear: (Task) -> Unit,
     onNew: () -> Unit,
     onSettings: () -> Unit,
     onProjects: () -> Unit,
@@ -100,6 +108,9 @@ fun HomeScreen(
             if (result == SnackbarResult.ActionPerformed) onUnarchive(task)
         }
     }
+    // Clearing can't be undone, so a right swipe asks first.
+    var clearing by remember { mutableStateOf<Task?>(null) }
+    clearing?.let { task -> ConfirmClearDialog(onConfirm = { onClear(task) }, onDismiss = { clearing = null }) }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
@@ -139,10 +150,10 @@ fun HomeScreen(
                 }
             }
             when {
-                shown.isNotEmpty() -> TaskList(shown, spentToday, dailyLimit, onOpen, onArchive = if (showArchived) null else archive)
+                shown.isNotEmpty() -> TaskList(shown, spentToday, dailyLimit, onOpen, onArchive = archive, onClear = { task -> clearing = task })
                 showArchived -> EmptyState(
                     Icons.Rounded.Archive, BadgeHue.Blue, "No archived chats",
-                    "Swipe a task card, or archive it from its chat, to keep it here out of the main list.",
+                    "Swipe a task card left, or archive it from its chat, to keep it here out of the main list.",
                 )
                 hasRepos -> EmptyState(
                     Icons.Rounded.DirectionsCar, BadgeHue.Accent, "Nothing running yet",
@@ -163,7 +174,8 @@ private fun TaskList(
     spentToday: Double,
     dailyLimit: Double?,
     onOpen: (Task) -> Unit,
-    onArchive: ((Task) -> Unit)?,
+    onArchive: (Task) -> Unit,
+    onClear: (Task) -> Unit,
 ) {
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -175,44 +187,88 @@ private fun TaskList(
             SectionHeader("Today · ${SpokenStatus.money(spentToday)}" + (dailyLimit?.let { " of ${SpokenStatus.money(it)}" } ?: ""), inset = 16.dp)
         }
         items(tasks, key = { it.id }) { task ->
-            if (onArchive == null) TaskCard(task) { onOpen(task) }
-            else SwipeToArchive(onArchive = { onArchive(task) }) { TaskCard(task) { onOpen(task) } }
+            val swipes = cardSwipes(task.archived)
+            SwipeActions(swipes, onArchive = { onArchive(task) }, onClear = { onClear(task) }) {
+                TaskCard(task, swipes, onArchive = { onArchive(task) }, onClear = { onClear(task) }) { onOpen(task) }
+            }
         }
     }
 }
 
-/** Swiping the card either way archives it. */
+/** What swiping a task card does: left archives it, right clears it. */
+internal enum class CardSwipe { Archive, Clear }
+
+/** The swipes a card offers. An archived card can only be cleared, since it's already archived. */
+internal fun cardSwipes(archived: Boolean): Set<CardSwipe> =
+    if (archived) setOf(CardSwipe.Clear) else setOf(CardSwipe.Archive, CardSwipe.Clear)
+
+@OptIn(ExperimentalMaterial3Api::class)
+internal fun cardSwipe(value: SwipeToDismissBoxValue): CardSwipe? = when (value) {
+    SwipeToDismissBoxValue.StartToEnd -> CardSwipe.Clear
+    SwipeToDismissBoxValue.EndToStart -> CardSwipe.Archive
+    SwipeToDismissBoxValue.Settled -> null
+}
+
+/** Swiping the card left archives it; swiping right asks to clear it, so the card springs back until you confirm. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SwipeToArchive(onArchive: () -> Unit, content: @Composable () -> Unit) {
+private fun SwipeActions(swipes: Set<CardSwipe>, onArchive: () -> Unit, onClear: () -> Unit, content: @Composable () -> Unit) {
     val state = rememberSwipeToDismissBoxState(
         confirmValueChange = {
-            if (it != SwipeToDismissBoxValue.Settled) onArchive()
-            it != SwipeToDismissBoxValue.Settled
+            when (cardSwipe(it)) {
+                CardSwipe.Archive -> { onArchive(); true }
+                CardSwipe.Clear -> { onClear(); false }
+                null -> false
+            }
         },
     )
     SwipeToDismissBox(
         state = state,
+        enableDismissFromStartToEnd = CardSwipe.Clear in swipes,
+        enableDismissFromEndToStart = CardSwipe.Archive in swipes,
         backgroundContent = {
-            val alignment = if (state.dismissDirection == SwipeToDismissBoxValue.EndToStart) Alignment.CenterEnd else Alignment.CenterStart
+            val clear = cardSwipe(state.dismissDirection) == CardSwipe.Clear
+            val tint = if (clear) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
             Box(
                 Modifier
                     .fillMaxSize()
                     .clip(CardShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                    .background(tint.copy(alpha = 0.15f))
                     .padding(horizontal = 24.dp),
-                contentAlignment = alignment,
+                contentAlignment = if (clear) Alignment.CenterStart else Alignment.CenterEnd,
             ) {
-                Icon(Icons.Rounded.Archive, contentDescription = "Archive", tint = MaterialTheme.colorScheme.primary)
+                // Decorative: the card itself offers its swipe actions to screen readers.
+                Icon(if (clear) Icons.Rounded.Delete else Icons.Rounded.Archive, contentDescription = null, tint = tint)
             }
         },
     ) { content() }
 }
 
+/** Asks before clearing a task, since it can't be brought back. */
 @Composable
-private fun TaskCard(task: Task, onClick: () -> Unit) {
+private fun ConfirmClearDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Clear this task?") },
+        text = { Text("It leaves the list and its chat is deleted. Its pull request stays on GitHub.") },
+        confirmButton = { TextButton(onClick = { onDismiss(); onConfirm() }) { Text("Clear") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun TaskCard(task: Task, swipes: Set<CardSwipe>, onArchive: () -> Unit, onClear: () -> Unit, onClick: () -> Unit) {
     val (icon, hue) = task.status.badge(task.interrupted)
-    RoundCard(onClick = onClick) {
+    // Swiping is hard or impossible with TalkBack or switch access, so the swipe actions are also in the card's actions menu.
+    val actions = Modifier.semantics {
+        customActions = swipes.map {
+            when (it) {
+                CardSwipe.Archive -> CustomAccessibilityAction("Archive") { onArchive(); true }
+                CardSwipe.Clear -> CustomAccessibilityAction("Clear") { onClear(); true }
+            }
+        }
+    }
+    RoundCard(actions, onClick = onClick, onClickLabel = "open chat") {
         Row(verticalAlignment = Alignment.Top) {
             IconBadge(icon, hue)
             Spacer(Modifier.width(14.dp))

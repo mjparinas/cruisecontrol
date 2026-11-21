@@ -14,6 +14,12 @@ class CoreTest {
         assertNull(RepoRef.parse("owner/.."))
     }
 
+    @Test fun repoNameLeavesOutTheOwner() {
+        val repo = RepoRef("mjparinas", "aiauto")
+        assertEquals("aiauto", repo.name)
+        assertEquals("mjparinas/aiauto", repo.fullName)
+    }
+
     @Test fun matchesSpokenRepoNames() {
         val mine = listOf(RepoRef("mjparinas", "aiauto"), RepoRef("mjparinas", "my-site"), RepoRef("other", "my_site"))
         assertEquals(listOf(mine[0]), RepoRef.matchSpoken("AI auto", mine))

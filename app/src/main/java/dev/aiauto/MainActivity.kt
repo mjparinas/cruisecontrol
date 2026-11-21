@@ -91,6 +91,7 @@ class MainActivity : ComponentActivity() {
                         onOpen = { screen = Screen.Detail(it.id) },
                         onArchive = { g.engine.archive(it.id); g.notifier.clear(it.id) },
                         onUnarchive = { g.engine.unarchive(it.id) },
+                        onClear = { g.engine.clear(it.id); g.notifier.clear(it.id) },
                         onNew = { screen = Screen.NewTask },
                         onSettings = { screen = Screen.Settings },
                         onProjects = {
@@ -124,6 +125,7 @@ class MainActivity : ComponentActivity() {
                         templates = templates,
                         onAddTemplate = { name, prompt -> g.templates.add(name, prompt) },
                         onDeleteTemplate = { g.templates.remove(it.id) },
+                        listenUntilStop = g.settings.listenUntilStop,
                         onBack = { screen = Screen.Home },
                         onStart = { repo, text ->
                             val task = g.engine.start(repo, text)
@@ -158,6 +160,7 @@ class MainActivity : ComponentActivity() {
                                 g.engine.retry(task.id)
                                 TaskService.ensureRunning(this)
                             },
+                            listenUntilStop = g.settings.listenUntilStop,
                         ) { text ->
                             g.engine.prompt(task.id, text)
                             TaskService.ensureRunning(this)
@@ -205,15 +208,16 @@ class MainActivity : ComponentActivity() {
                                 message = if (picked.size == 1) "Added ${picked[0].fullName}." else "Added ${picked.size} repositories.",
                             )
                         },
+                        onRemoveRepo = { repo ->
+                            g.repos.remove(repo)
+                            settings = settings.copy(message = "Removed ${repo.fullName}.")
+                        },
+                        onRepoSettings = { repo, changed ->
+                            g.settings.setRepoSettings(repo, changed)
+                            settings = settings.copy(repoSettings = g.settings.repoSettings, message = "Saved settings for ${repo.name}.")
+                        },
                         onReadAloud = { g.settings.readAloudInCar = it; settings = settings.copy(readAloud = it) },
                         onQuietMode = { g.settings.quietMode = it; settings = settings.copy(quietMode = it) },
-                        onAutoMerge = { g.settings.autoMerge = it; settings = settings.copy(autoMerge = it) },
-                        onAutoFixChecks = { g.settings.autoFixChecks = it; settings = settings.copy(autoFixChecks = it) },
-                        onAutoFixConflicts = { g.settings.autoFixConflicts = it; settings = settings.copy(autoFixConflicts = it) },
-                        onAutoRelease = {
-                            g.settings.autoReleaseSince = if (it) System.currentTimeMillis() else null
-                            settings = settings.copy(autoRelease = it)
-                        },
                         onThemeMode = { g.settings.themeMode = it.name; themeMode = it },
                         onAccent = { g.settings.accent = it.name; accent = it },
                         onDailyLimit = {
@@ -223,6 +227,13 @@ class MainActivity : ComponentActivity() {
                                 message = it?.let { v -> "Daily limit set to ${dev.aiauto.core.SpokenStatus.money(v)}." } ?: "No daily limit.",
                             )
                         },
+                        onMonthlyLimit = {
+                            g.settings.monthlyLimitUsd = it
+                            settings = settings.copy(
+                                monthlyLimitUsd = it,
+                                message = it?.let { v -> "Monthly limit set to ${dev.aiauto.core.SpokenStatus.money(v)}." } ?: "No monthly limit.",
+                            )
+                        },
                         onAgentProfile = { g.settings.agentProfile = it; settings = settings.copy(agentProfile = it) },
                         onChatProfile = { g.settings.chatProfile = it; settings = settings.copy(chatProfile = it) },
                         voices = { g.speaker.voices() },
@@ -230,6 +241,7 @@ class MainActivity : ComponentActivity() {
                         onVoice = { g.settings.voiceName = it; settings = settings.copy(voiceName = it) },
                         onPreviewVoice = { g.speaker.stop(); g.speaker.speak("This is how I'll sound in the car.") },
                         onListenOnOpen = { g.settings.listenOnOpen = it; settings = settings.copy(listenOnOpen = it) },
+                        onListenUntilStop = { g.settings.listenUntilStop = it; settings = settings.copy(listenUntilStop = it) },
                         onBriefing = { g.settings.briefingOnConnect = it; settings = settings.copy(briefing = it) },
                         onRememberChats = { g.settings.rememberChats = it; settings = settings.copy(rememberChats = it) },
                         onForgetChats = { g.chatMemory.forget(); settings = settings.copy(message = "The car chat forgot your past drives.") },
@@ -240,6 +252,12 @@ class MainActivity : ComponentActivity() {
                                 val result = g.sync.syncNow()
                                 settings = settings.copy(message = result, syncStatus = syncStatus())
                             }
+                        },
+                        onSaveChatKey = { provider, key ->
+                            val saved = runCatching { g.secrets.setChatKey(provider, key) }
+                            settings = settings.copy(
+                                message = if (saved.isSuccess) "Saved." else "Couldn't save securely on this phone. Try again, or restart the app.",
+                            )
                         },
                         onSyncNow = {
                             settings = settings.copy(busy = true, message = "Syncing…")
@@ -282,12 +300,11 @@ class MainActivity : ComponentActivity() {
         repos = repos,
         readAloud = graph.settings.readAloudInCar,
         quietMode = graph.settings.quietMode,
-        autoMerge = graph.settings.autoMerge,
-        autoFixChecks = graph.settings.autoFixChecks,
-        autoFixConflicts = graph.settings.autoFixConflicts,
-        autoRelease = graph.settings.autoReleaseSince != null,
+        repoSettings = graph.settings.repoSettings,
         dailyLimitUsd = graph.settings.dailyLimitUsd,
         spentTodayUsd = graph.settings.spentTodayUsd,
+        monthlyLimitUsd = graph.settings.monthlyLimitUsd,
+        spentThisMonthUsd = graph.settings.spentThisMonthUsd,
         version = (application as AiAutoApp).updater.currentVersion,
         themeMode = enumOrDefault(graph.settings.themeMode, ThemeMode.System),
         accent = enumOrDefault(graph.settings.accent, Accent.Clay),
@@ -296,8 +313,11 @@ class MainActivity : ComponentActivity() {
         speechRate = graph.settings.speechRate,
         voiceName = graph.settings.voiceName,
         listenOnOpen = graph.settings.listenOnOpen,
+        listenUntilStop = graph.settings.listenUntilStop,
         briefing = graph.settings.briefingOnConnect,
         rememberChats = graph.settings.rememberChats,
+        hasOpenAiKey = graph.secrets.openAiKey != null,
+        hasGeminiKey = graph.secrets.geminiKey != null,
         syncEnabled = graph.settings.syncEnabled,
         syncStatus = syncStatus(),
     )

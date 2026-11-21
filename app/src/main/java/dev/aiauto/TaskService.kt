@@ -90,6 +90,16 @@ class TaskService : Service() {
         }
     }
 
+    /**
+     * Android 15 gives a data-sync foreground service about six hours a day. When that runs out the service has to
+     * stop within seconds, or Android crashes the app. Tasks keep running while the app is open, and resume on restart.
+     */
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        Log.w("AiAuto", "Foreground time ran out; stopping the task service")
+        watcher?.cancel()
+        stopSelf()
+    }
+
     override fun onDestroy() {
         watcher?.cancel()
         runCatching { wakeLock?.takeIf { it.isHeld }?.release() }
