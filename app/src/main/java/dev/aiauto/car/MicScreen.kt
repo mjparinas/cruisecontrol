@@ -70,7 +70,8 @@ class MicScreen(carContext: CarContext) : Screen(carContext) {
         runCatching { g.speaker.speak(briefing) { if (listen) lifecycleScope.launch { listenForReply(briefing) } } }
     }
 
-    private fun talk() {
+    /** Starts listening, as if Talk was tapped. The steering-wheel buttons call this too. */
+    fun talk() {
         if (!g.isConfigured) {
             show(State.Idle, SETUP)
             return

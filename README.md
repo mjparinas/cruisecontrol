@@ -137,6 +137,11 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
 - **Listen when opened** (on by default): the car screen starts listening as soon as it opens, so saying
   "Hey Google, open Cruise Control", or pressing the steering-wheel voice button and saying that, is enough to start
   talking. Android Auto doesn't let other apps take over the voice button itself.
+- **Steering-wheel buttons (experimental)** (off by default): while Cruise Control is open on the car screen, the
+  wheel's play or pause button starts Talk, and next or previous repeats the last thing the app read aloud. It works
+  through a media session, so Android Auto may start treating the app as a media app with its own audio screen, and
+  some cars may keep sending the buttons to your music app instead. It takes effect the next time the car screen
+  opens.
 - **Keep listening until Stop** (off by default): pauses don't end what you're saying. The car screen keeps listening
   through them and joins your words until you tap **Stop**, which sends them. It works on **Talk**, **New task** and
   **Reply**. With it on, saying nothing no longer ends the conversation, even at the start or if the speech recognizer

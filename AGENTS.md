@@ -49,6 +49,10 @@ Driving safety comes first:
   send, both on the car screen and from the phone app's mic button, which then listens in the app instead of
   opening Google's speech dialog. Until Stop, recognizer errors restart listening too (up to 5 in a row), since
   it often fails after silence or while restarting, and an error must never send.
+- Steering-wheel buttons are an experiment behind a setting, off by default: while the car screen shows, a media
+  session (`app/src/main/java/dev/aiauto/car/WheelButtons.kt`) turns play or pause into Talk and next or previous
+  into repeating the last update. It stays off by default because a media session can make Android Auto treat the
+  app as a media app.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
 - Short replies (status, stop, merge it, fix it, yes, no) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
@@ -245,6 +249,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- Steering-wheel buttons (after PR 82): an experimental setting, off by default, where the wheel's play or pause
+  starts Talk and next or previous repeats the last update, through a media session that's only active then.
 - PR 82: Every task reads the repo's README.md, CLAUDE.md and AGENTS.md before anything else, asked for in the
   first prompt.
 - PR 81: Keep listening until Stop restarts on recognizer errors instead of stopping or sending, so silence at
