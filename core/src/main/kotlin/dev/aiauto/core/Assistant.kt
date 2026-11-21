@@ -61,7 +61,7 @@ class Assistant(
         val chat = profile()
         val provider = chat.model.provider
         val key = apiKey(provider) ?: return "Add your ${provider.label} API key in the app on your phone first."
-        if (!canSpend()) return "You've reached today's spending limit, so I can't answer right now. You can raise it in Settings on your phone."
+        if (!canSpend()) return "You've reached your daily or monthly spending limit, so I can't answer right now. You can raise it in Settings on your phone."
         var talk: ChatConversation? = null
         var start = 0
         return try {

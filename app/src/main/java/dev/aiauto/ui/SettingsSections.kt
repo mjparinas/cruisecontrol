@@ -256,7 +256,7 @@ internal fun CarStartRows(
     )
     SwitchRow(
         Icons.Rounded.StopCircle, BadgeHue.Violet, "Keep listening until Stop",
-        "Pauses don't send what you said. The car keeps listening until you tap Stop, so you can think mid-sentence.",
+        "Pauses don't send what you said. The car and the phone's mic button keep listening until you tap Stop, so you can think mid-sentence.",
         listenUntilStop, onListenUntilStop,
     )
     SwitchRow(

@@ -125,6 +125,7 @@ class MainActivity : ComponentActivity() {
                         templates = templates,
                         onAddTemplate = { name, prompt -> g.templates.add(name, prompt) },
                         onDeleteTemplate = { g.templates.remove(it.id) },
+                        listenUntilStop = g.settings.listenUntilStop,
                         onBack = { screen = Screen.Home },
                         onStart = { repo, text ->
                             val task = g.engine.start(repo, text)
@@ -159,6 +160,7 @@ class MainActivity : ComponentActivity() {
                                 g.engine.retry(task.id)
                                 TaskService.ensureRunning(this)
                             },
+                            listenUntilStop = g.settings.listenUntilStop,
                         ) { text ->
                             g.engine.prompt(task.id, text)
                             TaskService.ensureRunning(this)
@@ -226,6 +228,13 @@ class MainActivity : ComponentActivity() {
                             settings = settings.copy(
                                 dailyLimitUsd = it,
                                 message = it?.let { v -> "Daily limit set to ${dev.aiauto.core.SpokenStatus.money(v)}." } ?: "No daily limit.",
+                            )
+                        },
+                        onMonthlyLimit = {
+                            g.settings.monthlyLimitUsd = it
+                            settings = settings.copy(
+                                monthlyLimitUsd = it,
+                                message = it?.let { v -> "Monthly limit set to ${dev.aiauto.core.SpokenStatus.money(v)}." } ?: "No monthly limit.",
                             )
                         },
                         onAgentProfile = { g.settings.agentProfile = it; settings = settings.copy(agentProfile = it) },
@@ -300,6 +309,8 @@ class MainActivity : ComponentActivity() {
         autoRelease = graph.settings.autoReleaseSince != null,
         dailyLimitUsd = graph.settings.dailyLimitUsd,
         spentTodayUsd = graph.settings.spentTodayUsd,
+        monthlyLimitUsd = graph.settings.monthlyLimitUsd,
+        spentThisMonthUsd = graph.settings.spentThisMonthUsd,
         version = (application as AiAutoApp).updater.currentVersion,
         themeMode = enumOrDefault(graph.settings.themeMode, ThemeMode.System),
         accent = enumOrDefault(graph.settings.accent, Accent.Clay),

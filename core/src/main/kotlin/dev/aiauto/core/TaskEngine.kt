@@ -320,6 +320,9 @@ class TaskEngine(
     /** Today's spend against the daily limit, for display. */
     fun spentTodayUsd(): Double = spending.spentTodayUsd()
 
+    /** False once the daily or monthly spending limit is reached, so the car chat stops answering too. */
+    fun canSpend(): Boolean = !spending.overLimit()
+
     // ---- Pull requests -------------------------------------------------------------------------
 
     /** True while some pull request's checks or merge are worth watching, so the app should stay awake. */

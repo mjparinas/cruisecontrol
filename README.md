@@ -26,7 +26,7 @@ Tap **Talk** on the car screen and say anything. Claude (Opus 5.5, low effort fo
 through the car speakers, then listens for your reply, which is sent as soon as you stop talking. Say nothing to end
 the conversation. Claude can also start a coding task in one of your saved repos or answer a running task when you
 ask it to. You can also add a repo by voice: say something like "add my repo aiauto" and Claude finds it among the
-repos your GitHub token can push to and saves it. **New chat** starts the conversation over. Each answer counts toward the daily spending limit.
+repos your GitHub token can push to and saves it. **New chat** starts the conversation over. Each answer counts toward the daily and monthly spending limits.
 
 If the car only shows Cruise Control's messaging view ("No new messages during this drive"), Android Auto is hiding the
 app screen, usually because **Unknown sources** is off (see setup below). You can still talk to Claude there: each
@@ -55,9 +55,13 @@ time it does this. After three automatic fixes on a task it goes back to asking 
 either switch off, the app asks first, and you can say yes or "fix it".
 
 You can **Stop** a working task, **Clear** one, or clear every finished task at once. On the phone's task list,
-swipe a card right to archive it (with undo) or left to clear it (the app asks first). Each task shows what it has
-cost so far, and a **daily limit** (default $20, set in Settings) stops Claude when the day's total reaches it.
-The limit is also set as the session's budget on Anthropic's side, so it holds even if the phone loses signal.
+swipe a card right to archive it (with undo) or left to clear it (the app asks first). On the Archived tab, swipe a
+card left to clear it for good, again after the app asks. Each task shows what it has cost so far, and a **daily
+limit** (default $20, set in Settings) stops Claude when the day's total reaches it.
+An optional **monthly limit** (off until you set it in Settings) adds up every day's spend in the calendar month
+and stops Claude when that reaches it, so a run of busy days can't add up past it. Both limits apply at once:
+whichever is reached first stops Claude and the car chat. The tighter of the two is also set as the session's
+budget on Anthropic's side, so it holds even if the phone loses signal.
 
 While you're in the car, the app reads Claude's messages and short progress notes like "Building or testing"
 aloud, ducking your music while it talks. You can turn this off in Settings.
@@ -111,8 +115,8 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
   key** (from aistudio.google.com) under Accounts, and the car chat's model list also offers GPT-6.2 Astra, GPT-6.2
   Sol and GPT-6 Luna, or Gemini 4 Carbon and Gemini 4 Hydrogen. The chosen model answers in the car and can start,
   check, stop and merge tasks the same way Claude does. Coding tasks always run on Claude, because each one is a
-  Claude Managed Agents session. Chat costs from every provider count toward the daily limit, at list price. OpenAI
-  requests aren't stored on OpenAI's side; the app sends the conversation with each request.
+  Claude Managed Agents session. Chat costs from every provider count toward the daily and monthly limits, at list
+  price. OpenAI requests aren't stored on OpenAI's side; the app sends the conversation with each request.
 - **Allow web search.** Lets Claude search the web and read pages while it works. Its workspace then runs with open
   internet access instead of only package registries. It applies to coding tasks only; the car chat doesn't search
   the web.
@@ -128,8 +132,9 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
   talking. Android Auto doesn't let other apps take over the voice button itself.
 - **Keep listening until Stop** (off by default): pauses don't end what you're saying. The car screen keeps listening
   through them and joins your words until you tap **Stop**, which sends them. It works on **Talk**, **New task** and
-  **Reply**. With it on, saying nothing no longer ends the conversation; tap **Stop** instead. The phone's own mic
-  button still uses Google's speech dialog, which stops at the first pause.
+  **Reply**. With it on, saying nothing no longer ends the conversation; tap **Stop** instead. The mic button in the
+  phone app's prompt box follows it too: instead of Google's speech dialog, which sends at the first pause, the app
+  listens itself and the mic turns into a Stop button that sends what you said, after anything you typed.
 - **Briefing when you get in** (on by default): when the phone connects to the car, Claude reads what happened
   since your last drive, up to a day back: merged pull requests, finished and failed tasks, questions waiting for
   you and what you've spent today. If the car screen is open it reads it there, then listens.
@@ -191,9 +196,12 @@ has the Contents permission this needs.
 - There's no public API for your claude.ai or Claude app projects, so this app runs its own agent sessions through
   the Claude API. They don't appear in the Claude app.
 - Google Play doesn't accept general AI or productivity apps for Android Auto. The full car UI is for personal
-  installs and Play's internal testing track.
+  installs and Play's internal and closed testing tracks. [docs/PLAY_STORE_RELEASE.md](docs/PLAY_STORE_RELEASE.md)
+  has the plan for releasing on Play: the car build on the testing tracks and a phone-only build in production.
+  It also covers four honest ways to go further: open the closed track to everyone through a Google Group, keep the
+  production app hands-free over Bluetooth, add real person-to-person messaging, or wait for new car categories.
 - Costs are list prices as each session reports them, so they can differ a little from your invoice. The daily
-  total is counted on this phone and resets at local midnight.
+  and monthly totals are counted on this phone and reset at local midnight and on the first of the month.
 - The app's own merge-when-green only works while the app is alive, for up to three hours after a pull request
   opens. GitHub's auto-merge has no such limit, but it only waits for checks the repo marks as required.
 - While you're driving, the agent declines any step that its safety check flags for review. You'll hear that it

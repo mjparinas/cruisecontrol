@@ -29,6 +29,11 @@ What the app is:
   app opens a pull request. Updates come back as messages read aloud in the car.
 - It is a personal app installed from GitHub releases, not the Play Store. Play doesn't accept general AI apps for
   Android Auto, so the full car screen needs Android Auto's Unknown sources setting.
+- The plan for Play (`docs/PLAY_STORE_RELEASE.md`) doesn't pass the app off as a messaging app: car messaging apps
+  must be peer-to-peer, and misrepresenting the app puts the developer account at risk. Instead the car build goes
+  to Play's internal and closed testing tracks, where car review doesn't block, and production gets a phone-only
+  build without Android Auto support. To reach further honestly, the plan grows the closed track, keeps production
+  hands-free over Bluetooth, considers real peer-to-peer messaging, and waits for new car categories.
 - The applicationId, package (`dev.aiauto`) and signing key never change, so every release installs over the last
   one. The rename only changed labels, text and the APK name.
 
@@ -40,7 +45,9 @@ Driving safety comes first:
   review them while driving. The driver hears that a step was skipped and the task carries on.
 - Voice input sends as soon as the driver stops talking on the app's own car screen. The car screen opens on one big
   Talk button and starts listening when it opens. Android Auto's messaging view always asks for Send, which apps
-  can't turn off, so the app explains how to avoid it.
+  can't turn off, so the app explains how to avoid it. Keep listening until Stop (off by default) makes pauses not
+  send, both on the car screen and from the phone app's mic button, which then listens in the app instead of
+  opening Google's speech dialog.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
 - Short replies (status, stop, merge it, fix it, yes, no) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
@@ -59,11 +66,13 @@ Claude and cost:
 - The car chat can use an OpenAI model (through the Responses API) or a Gemini model (through Google's
   OpenAI-compatible endpoint) when the owner adds that provider's key; each key is optional. Coding tasks stay on
   Claude because they need Managed Agents, which has no equivalent elsewhere. The other providers' chat costs count
-  toward the daily limit at list price, using a model's later price when a launch discount is about to end.
+  toward the daily and monthly limits at list price, using a model's later price when a launch discount is about to end.
 - Web search is off by default and only applies to coding tasks. With it on, tasks run in an environment with open
   internet access; otherwise the sandbox only reaches package registries.
-- A daily spending limit (default $20) stops Claude when the day's total reaches it, and is also set as each
-  session's budget on Anthropic's side so it holds even when the phone loses signal. Costs are list prices.
+- A daily spending limit (default $20) stops Claude when the day's total reaches it. An optional monthly limit (off
+  by default) adds up every day's spend in the calendar month and stops Claude when that reaches it. Both apply at
+  once, to tasks and the car chat, and the tighter one is also set as each session's budget on Anthropic's side so
+  it holds even when the phone loses signal. Costs are list prices.
 - Claude writes in Canadian spelling (colour, centre, cancelled, organize) in app text, spoken answers, commit
   messages and pull requests (PR 54).
 
@@ -83,6 +92,7 @@ Tasks, repos and sync:
 - One task is one Managed Agents session on one repo. Tasks that need a reply are listed first, and new tasks start
   on the last-used repo.
 - On the phone, swiping a task card right archives it with undo, and swiping left clears it after asking (PR 65).
+  On the Archived tab, swiping left clears an archived task after asking; there's no right swipe there.
   Archived tasks are hidden from the car and the voice assistant.
 - Repos are added from the list of repos the token can push to, several at once, by typing owner/name, or by saying
   the name to the car assistant. Removing a repo needs a confirmation, leaves running tasks alone and changes nothing
@@ -113,7 +123,7 @@ Structure:
 - `app/` is the Android app: Jetpack Compose on the phone, the Android for Cars App Library in the car, messaging
   notifications that Android Auto reads aloud, a foreground service, and a home-screen widget.
 - `TaskEngine` keeps the task lifecycle and the Claude session. It delegates to `TaskJournal` (task state and
-  messages), `SpendingLimit` (the daily limit and session budget) and `PullRequests` (opening, watching and
+  messages), `SpendingLimit` (the daily and monthly limits and session budget) and `PullRequests` (opening, watching and
   merging), split out in PR 20 to keep each part small.
 - Interfaces like `AgentClient`, `GitHub` and `TaskStore` exist so tests can use fakes. The real GitHub client is
   tested against canned HTTP responses through an OkHttp interceptor.
@@ -172,7 +182,7 @@ Security:
   pushing a tag like v0.8.0. The version name comes from the tag and the version code from the run number, so
   nothing is bumped in code. Releases are signed with the key in the repo secrets. `CHANGELOG.md` gets an entry per
   release.
-- Feature ideas live in `docs/FEATURE_IDEAS.md`.
+- Feature ideas live in `docs/FEATURE_IDEAS.md`. The Play Store release plan lives in `docs/PLAY_STORE_RELEASE.md`.
 
 ## Pinned versions
 
@@ -221,8 +231,14 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
-- PR 71: The car chat can use OpenAI or Gemini models with their own optional keys. Coding tasks stay on Claude.
-
+- PR 77: The car chat can use OpenAI or Gemini models with their own optional keys. Coding tasks stay on Claude.
+- PR 75: Play Store plan: the car build goes only to Play's internal and closed testing, production gets a
+  phone-only build, and the app is never described as a messaging app to pass review. Nothing is built yet.
+- PR 74: The phone app's mic button follows Keep listening until Stop too, listening in the app with the same
+  `VoiceInput` as the car and a Stop button, instead of Google's speech dialog.
+- PR 73: An optional monthly spending limit, off by default, on top of the daily one. Both apply at once and the
+  monthly total and limit live alongside the daily ones; the limit syncs, the total stays per device.
+- PR 71: Archived task cards can be cleared by swiping left, after asking.
 - PR 69: Every dependency moved to its latest stable release, including Gradle 9, Android Gradle Plugin 9,
   compileSdk 37.2, OkHttp 5 and Car App 1.7. targetSdk stays 35 and setup-gradle stays on v5.
 - PR 68: Added this file and `AgentsDocTest` to keep a checked record of decisions, imported from `CLAUDE.md`.
