@@ -54,7 +54,7 @@ Driving safety comes first:
   6 times. Tones use the assistant audio attributes, like the microphone, so music ducks. Their shape and timing
   live in `core/src/main/kotlin/dev/aiauto/core/Tones.kt` so they are tested; there is no switch to turn them off.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
-- Short replies (status, stop, merge it, fix it, yes, no) are handled by the app without starting a Claude turn.
+- Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
 - A merge the driver asks for always asks for confirmation first, and the car assistant only merges on a yes in a
   later turn. The app only merges on its own when Merge when checks pass is on. Failing checks, conflicting pull
@@ -249,7 +249,7 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
-- PR 84: Listening and thinking tones, so the driver can tell the microphone opened or closed, or that Claude is
+- PR 89: Listening and thinking tones, so the driver can tell the microphone opened or closed, or that Claude is
   still answering, without looking at the screen.
 - PR 82: Every task reads the repo's README.md, CLAUDE.md and AGENTS.md before anything else, asked for in the
   first prompt.
