@@ -212,15 +212,12 @@ class MainActivity : ComponentActivity() {
                             g.repos.remove(repo)
                             settings = settings.copy(message = "Removed ${repo.fullName}.")
                         },
+                        onRepoSettings = { repo, changed ->
+                            g.settings.setRepoSettings(repo, changed)
+                            settings = settings.copy(repoSettings = g.settings.repoSettings, message = "Saved settings for ${repo.name}.")
+                        },
                         onReadAloud = { g.settings.readAloudInCar = it; settings = settings.copy(readAloud = it) },
                         onQuietMode = { g.settings.quietMode = it; settings = settings.copy(quietMode = it) },
-                        onAutoMerge = { g.settings.autoMerge = it; settings = settings.copy(autoMerge = it) },
-                        onAutoFixChecks = { g.settings.autoFixChecks = it; settings = settings.copy(autoFixChecks = it) },
-                        onAutoFixConflicts = { g.settings.autoFixConflicts = it; settings = settings.copy(autoFixConflicts = it) },
-                        onAutoRelease = {
-                            g.settings.autoReleaseSince = if (it) System.currentTimeMillis() else null
-                            settings = settings.copy(autoRelease = it)
-                        },
                         onThemeMode = { g.settings.themeMode = it.name; themeMode = it },
                         onAccent = { g.settings.accent = it.name; accent = it },
                         onDailyLimit = {
@@ -297,10 +294,7 @@ class MainActivity : ComponentActivity() {
         repos = repos,
         readAloud = graph.settings.readAloudInCar,
         quietMode = graph.settings.quietMode,
-        autoMerge = graph.settings.autoMerge,
-        autoFixChecks = graph.settings.autoFixChecks,
-        autoFixConflicts = graph.settings.autoFixConflicts,
-        autoRelease = graph.settings.autoReleaseSince != null,
+        repoSettings = graph.settings.repoSettings,
         dailyLimitUsd = graph.settings.dailyLimitUsd,
         spentTodayUsd = graph.settings.spentTodayUsd,
         monthlyLimitUsd = graph.settings.monthlyLimitUsd,

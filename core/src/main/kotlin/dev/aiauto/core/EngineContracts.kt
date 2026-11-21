@@ -35,15 +35,6 @@ interface EngineConfig {
     /** Adds a cost to both today's and this month's totals. */
     fun addSpend(usd: Double) {}
 
-    /** Merge a task's pull request once its checks pass. */
-    fun autoMerge(): Boolean = false
-
-    /** Ask Claude to fix failing checks on its pull request without waiting for the driver. */
-    fun autoFixChecks(): Boolean = false
-
-    /** Ask Claude to resolve merge conflicts on its pull request without waiting for the driver. */
-    fun autoFixConflicts(): Boolean = false
-
-    /** When auto-release was switched on, or null when it's off. Only pull requests merged after this get a release. */
-    fun autoReleaseSince(): Long? = null
+    /** What happens to [repo]'s pull requests, and the rules Claude follows on every task in it. */
+    fun repoSettings(repo: RepoRef): RepoSettings = RepoSettings.MANUAL
 }

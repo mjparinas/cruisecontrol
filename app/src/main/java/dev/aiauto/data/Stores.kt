@@ -8,6 +8,7 @@ import dev.aiauto.core.EffortChoice
 import dev.aiauto.core.ModelChoice
 import dev.aiauto.core.RepoChange
 import dev.aiauto.core.RepoRef
+import dev.aiauto.core.RepoSettings
 import dev.aiauto.core.SyncMerge
 import dev.aiauto.core.Task
 import dev.aiauto.core.TaskStore
@@ -16,6 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import java.io.File
 
@@ -293,27 +296,38 @@ class Settings(context: Context) {
         get() = prefs.getFloat("monthly_limit", 0f).toDouble().takeIf { it > 0 }
         set(value) = prefs.edit().putFloat("monthly_limit", (value ?: 0.0).toFloat()).apply()
 
-    /** Merge a task's pull request once its checks pass. */
-    var autoMerge: Boolean
-        get() = prefs.getBoolean("auto_merge", true)
-        set(value) = prefs.edit().putBoolean("auto_merge", value).apply()
+    /** Each repo's own settings, keyed by full name. Repos missing here use [RepoSettings]' defaults. */
+    val repoSettings: Map<String, RepoSettings>
+        get() = prefs.getString("repo_settings", null)
+            ?.let { runCatching { json.decodeFromString(repoSettingsSerializer, it) }.getOrNull() } ?: emptyMap()
 
-    /** Send failing checks on a task's pull request back to Claude without asking. */
-    var autoFixChecks: Boolean
-        get() = prefs.getBoolean("auto_fix_checks", true)
-        set(value) = prefs.edit().putBoolean("auto_fix_checks", value).apply()
+    fun repoSettings(repo: RepoRef): RepoSettings = RepoSettings.of(repoSettings, repo)
 
-    /** Have Claude resolve merge conflicts on a task's pull request without asking. */
-    var autoFixConflicts: Boolean
-        get() = prefs.getBoolean("auto_fix_conflicts", true)
-        set(value) = prefs.edit().putBoolean("auto_fix_conflicts", value).apply()
+    @Synchronized
+    fun setRepoSettings(repo: RepoRef, settings: RepoSettings) {
+        val others = repoSettings.filterKeys { !it.equals(repo.fullName, ignoreCase = true) }
+        prefs.edit().putString("repo_settings", json.encodeToString(repoSettingsSerializer, others + (repo.fullName to settings))).apply()
+    }
 
-    /** When auto-release was switched on, or null when it's off. */
-    var autoReleaseSince: Long?
-        get() = prefs.getLong("auto_release_since", 0L).takeIf { it > 0 }
-        set(value) = prefs.edit().apply {
-            if (value == null) remove("auto_release_since") else putLong("auto_release_since", value)
-        }.apply()
+    /**
+     * The pull request switches used to be global. Copies them onto every saved repo that has no settings of its
+     * own, once, so nothing changes for repos added before per-repo settings.
+     */
+    @Synchronized
+    fun moveGlobalRepoSettings(repos: List<RepoRef>) {
+        if (LEGACY_REPO_KEYS.none { prefs.contains(it) }) return
+        val legacy = RepoSettings(
+            autoMerge = prefs.getBoolean("auto_merge", true),
+            autoFixChecks = prefs.getBoolean("auto_fix_checks", true),
+            autoFixConflicts = prefs.getBoolean("auto_fix_conflicts", true),
+            autoReleaseSince = prefs.getLong("auto_release_since", 0L).takeIf { it > 0 },
+        )
+        val seeded = RepoSettings.seed(repoSettings, repos, legacy)
+        prefs.edit()
+            .putString("repo_settings", json.encodeToString(repoSettingsSerializer, seeded))
+            .apply { LEGACY_REPO_KEYS.forEach { remove(it) } }
+            .apply()
+    }
 
     /** What Claude has cost today, by the phone's local date. Resets at midnight. */
     @get:Synchronized
@@ -394,9 +408,14 @@ class Settings(context: Context) {
          * drive times (counted per device), the agent setup (tied to each device's key), and sync itself.
          */
         val SYNCED_KEYS = setOf(
-            "read_aloud", "theme_mode", "accent", "quiet_mode", "daily_limit", "monthly_limit", "auto_merge",
-            "auto_fix_checks", "auto_fix_conflicts", "auto_release_since", "agent_profile", "chat_model", "chat_effort", "speech_rate",
-            "listen_on_open", "listen_until_stop", "briefing", "remember_chats",
+            "read_aloud", "theme_mode", "accent", "quiet_mode", "daily_limit", "monthly_limit", "repo_settings",
+            "agent_profile", "chat_model", "chat_effort", "speech_rate", "listen_on_open", "listen_until_stop", "briefing",
+            "remember_chats",
         )
+
+        /** The global pull request switches from before per-repo settings, moved onto each repo by [moveGlobalRepoSettings]. */
+        private val LEGACY_REPO_KEYS = listOf("auto_merge", "auto_fix_checks", "auto_fix_conflicts", "auto_release_since")
+
+        private val repoSettingsSerializer = MapSerializer(String.serializer(), RepoSettings.serializer())
     }
 }

@@ -48,11 +48,13 @@ When a task's pull request opens, the app follows its checks and tells you when 
 even with your phone off. Otherwise the app merges once every check is green, as long as it's still running. Failing
 checks, or checks your token can't read, are never merged.
 
-Two more switches in Settings, both on by default, send problems straight back to Claude. **Fix merge conflicts
+Two more switches, both on by default, send problems straight back to Claude. **Fix merge conflicts
 automatically** has Claude merge the latest main branch into its pull request, resolve the conflicts and push. **Fix
 failing checks automatically** does the same for failing tests, builds or any other CI check. The app tells you each
 time it does this. After three automatic fixes on a task it goes back to asking you, so it can't loop forever. With
 either switch off, the app asks first, and you can say yes or "fix it".
+
+These switches, and **Release when a PR is merged**, are set for each repo: see [Per-repo settings](#per-repo-settings).
 
 You can **Stop** a working task, **Clear** one, or clear every finished task at once. On the phone's task list,
 swipe a card right to archive it (with undo) or left to clear it (the app asks first). On the Archived tab, swipe a
@@ -91,8 +93,8 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
    the repos you want to use. Set **Contents** and **Pull requests** to read and write, and **Checks** and
    **Commit statuses** to read. For sync across devices, the token also needs the private `cruise-control-sync` repo
    (see below). To let GitHub merge on its own, turn on **Allow auto-merge** in the repo's settings.
-4. **Settings in the app.** Paste both, then add repos as `owner/name`. To remove a repo, tap it and confirm. Its
-   running tasks keep going and nothing changes on GitHub. The key and token are encrypted with the
+4. **Settings in the app.** Paste both, then add repos as `owner/name`. Tap a repo for its own settings, or to
+   remove it with **Remove** and a confirmation. Its running tasks keep going and nothing changes on GitHub. The key and token are encrypted with the
    Android Keystore. The GitHub token is also sent to Anthropic for each session, so the sandbox can clone and
    push. Anthropic's proxy adds the token to git requests outside the sandbox, so code running in the sandbox
    never sees it.
@@ -115,7 +117,8 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
   internet access instead of only package registries. It applies to coding tasks only; the car chat doesn't search
   the web.
 - **Standing rules.** Tick common rules, like always adding tests or leaving CI files alone, and add your own, one
-  per line. They're added to Claude's instructions for every task.
+  per line. They're added to Claude's instructions for every task in every repo. Rules for a single repo go in
+  that repo's own settings (see [Per-repo settings](#per-repo-settings)).
 - **Repository notes.** Each task asks Claude to read `CLAUDE.md` at the root of the repo first, so it doesn't have
   to look through the whole repo again every time. If the file is missing, Claude writes it, and it fixes the file
   when it's out of date, so the notes build up across tasks and arrive in the same pull request as the change. Edit
@@ -136,6 +139,23 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
   to Claude at the start of the next drive. **Forget past drives** clears them.
 - **Speaking speed and voice** are under In the car. The voice list shows the phone's text-to-speech voices for its
   language, and a sample plays when you pick one.
+
+## Per-repo settings
+
+Settings are split so they don't overlap. The global ones, under Settings, are the same for every repo: the API key
+and token, the model and effort, web search, standing rules, everything in the car, the theme, the daily and monthly
+limits, and sync. The rest depends on the repo, so you set it by tapping the repo under **Repositories**:
+
+- **Merge when checks pass** (on by default).
+- **Fix merge conflicts automatically** and **Fix failing checks automatically** (both on by default).
+- **Release when a PR is merged** (off by default).
+- **Rules for this repo**, one per line, like "Run npm test before pushing" or "Don't touch the generated client".
+  Claude follows them on every task in that repo, on top of your standing rules. They're sent with each new task, so
+  changing them doesn't make a new agent, and tasks already running keep the rules they started with.
+
+Each repo's row shows a short summary of what the app does there on its own. A newly added repo starts with the
+defaults. When you update from a version where the pull request switches were global, every saved repo keeps the
+values you had. Per-repo settings sync with the other settings.
 
 ## Sync across devices
 
@@ -179,8 +199,8 @@ earlier releases.
 
 ## Releasing when a PR is merged
 
-Turn on **Release when a PR is merged** in the app's Settings. The app keeps watching the pull requests it opened
-for a few hours. When one is merged, it publishes a GitHub release on that repo with the next patch
+Tap a repo in the app's Settings and turn on **Release when a PR is merged**. The app keeps watching the pull requests
+it opened in that repo for a few hours. When one is merged, it publishes a GitHub release on that repo with the next patch
 version (for example `v1.2.3` becomes `v1.2.4`, or `v0.1.0` if the repo has no version tags) and generated notes,
 then tells you in the car. Only PRs merged after you turn the toggle on get a release. The GitHub token already
 has the Contents permission this needs.
