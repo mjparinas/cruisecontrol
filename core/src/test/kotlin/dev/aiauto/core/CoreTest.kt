@@ -2,6 +2,7 @@ package dev.aiauto.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -66,6 +67,19 @@ class CoreTest {
         )
         assertEquals(3, tasks.runningCount())
         assertEquals(0, emptyList<Task>().runningCount())
+    }
+
+    @Test fun saysChecksAreRunningUntilTheyFinish() {
+        fun task(status: TaskStatus = TaskStatus.Done, pr: Int? = 5, prState: PrState? = PrState.Open, checks: Checks? = Checks.Pending) =
+            Task("1", RepoRef("a", "b"), "t", "b", status = status, prNumber = pr, prState = prState,
+                checks = checks?.let { ChecksSummary(it) }, createdMillis = 0, updatedMillis = 0)
+        assertTrue(task().checksRunning)
+        assertTrue(task(checks = null).checksRunning)
+        assertFalse(task(checks = Checks.Passing).checksRunning)
+        assertFalse(task(checks = Checks.Failing).checksRunning)
+        assertFalse(task(prState = PrState.Merged).checksRunning)
+        assertFalse(task(pr = null, prState = null).checksRunning)
+        assertFalse(task(status = TaskStatus.Working).checksRunning)
     }
 
     @Test fun makesTitlesAndBranches() {

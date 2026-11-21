@@ -74,7 +74,7 @@ enum class AlertKind {
 
 /** Something the app asked the driver, waiting for a spoken yes or no. */
 @Serializable
-enum class PendingAction { Merge, FixChecks, FixConflicts }
+enum class PendingAction { Merge, FixChecks, FixConflicts, StartOver }
 
 @Serializable
 enum class Speaker { You, Claude, Status }
@@ -134,6 +134,10 @@ data class Task(
 ) {
     /** A pull request exists and hasn't been merged or closed yet. */
     val hasOpenPr: Boolean get() = prNumber != null && (prState ?: PrState.Open) == PrState.Open
+
+    /** Claude finished, but the pull request's checks are still running or haven't been read yet. */
+    val checksRunning: Boolean
+        get() = status == TaskStatus.Done && hasOpenPr && (checks == null || checks.state == Checks.Pending)
 
     /** Mid-turn, or cut off by a lost connection and still resumable. */
     val isActive: Boolean

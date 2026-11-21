@@ -53,18 +53,24 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import dev.aiauto.car.VoiceInput
 import dev.aiauto.core.Dictation
+import dev.aiauto.core.Task
 import dev.aiauto.core.TaskStatus
 
 /** A task's status as a small coloured pill. The colours come from [BadgeHue], whose shades read at 4.5:1 on the pill. */
 @Composable
-fun StatusPill(status: TaskStatus, modifier: Modifier = Modifier, interrupted: Boolean = false) {
-    val (label, color) = if (status == TaskStatus.Failed && interrupted) "Offline" to BadgeHue.Amber.colour() else when (status) {
-        TaskStatus.Starting -> "Starting" to MaterialTheme.colorScheme.onSurfaceVariant
-        TaskStatus.Working -> "Working" to MaterialTheme.colorScheme.primary
-        TaskStatus.NeedsInput -> "Needs you" to BadgeHue.Amber.colour()
-        TaskStatus.Done -> "Done" to BadgeHue.Green.colour()
-        TaskStatus.Failed -> "Stopped" to MaterialTheme.colorScheme.error
-        TaskStatus.Stopped -> "Stopped" to MaterialTheme.colorScheme.onSurfaceVariant
+fun StatusPill(task: Task, modifier: Modifier = Modifier) {
+    val (label, color) = when {
+        task.status == TaskStatus.Failed && task.interrupted -> "Offline" to BadgeHue.Amber.colour()
+        // Claude is done but the pull request's checks aren't, so it isn't done yet.
+        task.checksRunning -> "Checks running" to BadgeHue.Amber.colour()
+        else -> when (task.status) {
+            TaskStatus.Starting -> "Starting" to MaterialTheme.colorScheme.onSurfaceVariant
+            TaskStatus.Working -> "Working" to MaterialTheme.colorScheme.primary
+            TaskStatus.NeedsInput -> "Needs you" to BadgeHue.Amber.colour()
+            TaskStatus.Done -> "Done" to BadgeHue.Green.colour()
+            TaskStatus.Failed -> "Stopped" to MaterialTheme.colorScheme.error
+            TaskStatus.Stopped -> "Stopped" to MaterialTheme.colorScheme.onSurfaceVariant
+        }
     }
     Pill(label, color, modifier, showDot = true)
 }

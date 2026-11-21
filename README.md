@@ -45,10 +45,16 @@ pick a repo if you have more than one, and speak your request. To answer Claude,
 speak. The app uses the car's microphone when Android Auto supports it, and the phone's otherwise. If voice
 doesn't work, you can fall back to replying to the Cruise Control message through Android Auto's messaging flow.
 
+You don't need to look at the screen to know what the microphone is doing: a short rising tone plays when the app
+starts listening and a falling one when it stops, on the car screen and from the phone app's mic button. While
+Claude works on an answer to **Talk**, a soft tone plays after 3 seconds and every 5 seconds after that, up to 6
+times. The tones use the same assistant audio as the microphone, so music ducks for them like it does for speech.
+
 **Projects** shows each repo straight from GitHub: whether its main branch is passing, the last change, and its
 open pull requests with their checks. Tap a pull request to hear its checks or merge it (the app asks first).
 
-When a task's pull request opens, the app follows its checks and tells you when they pass or fail. With
+When a task's pull request opens, the app follows its checks and tells you when they pass or fail. Until they
+finish, the task's status pill on the phone says **Checks running** in amber instead of **Done**. With
 **Merge when checks pass** on (the default), it turns on GitHub's auto-merge if the repo allows it, so GitHub merges
 even with your phone off. Otherwise the app merges once every check is green, as long as it's still running. Failing
 checks, or checks your token can't read, are never merged.
@@ -87,6 +93,9 @@ When you reply to a task, the app handles a few short phrases itself without wai
 - **"Repeat that"** (or "say that again") reads the task's last message aloud again, for when a turn or a passenger
   drowned it out. A question the app asked stays open, so you can still answer it.
 - **"Quiet"** turns on quiet mode, so only results and alerts are read out. Turn it off again in Settings.
+- **"Undo that"** has Claude revert its last change and push, keeping the history.
+- **"Start over"** asks you to confirm. Say **"yes"** and Claude resets the branch to the main branch and does your
+  original request again from scratch, or **"no"** to keep the work. Neither works once the pull request is merged.
 
 Anything longer goes to Claude as usual, so "merge the two settings screens" is still a coding request.
 

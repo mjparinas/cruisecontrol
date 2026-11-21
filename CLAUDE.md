@@ -36,7 +36,7 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the
   Compose phone UI, `car/` is the Car App Library UI (its `VoiceInput` also serves the phone's prompt box when
   Keep listening until Stop is on; `core/Dictation.kt` decides when it listens again, sends or gives up),
-  `notify/` holds notifications and text-to-speech,
+  `notify/` holds notifications, text-to-speech and `TonePlayer` (listening and thinking tones, made by `core/Tones.kt`),
   `data/` holds the stores, encrypted secrets and sync, `widget/` is the home-screen widget. `data/Stores.kt`
   `Settings` keeps every setting in SharedPreferences; `SYNCED_KEYS` lists the ones that sync.
 - `docs/FEATURE_IDEAS.md` lists ideas; `docs/PLAY_STORE_RELEASE.md` is the plan for Google Play; `CHANGELOG.md` has

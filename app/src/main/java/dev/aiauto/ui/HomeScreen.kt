@@ -283,7 +283,7 @@ private fun TaskCard(task: Task, swipes: Set<CardSwipe>, onArchive: () -> Unit, 
                         modifier = Modifier.weight(1f),
                     )
                     Spacer(Modifier.width(8.dp))
-                    StatusPill(task.status, interrupted = task.interrupted)
+                    StatusPill(task)
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(task.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
