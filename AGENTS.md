@@ -170,6 +170,9 @@ Security:
   own chat endpoint.
 - Updates are only accepted from APKs that GitHub serves over HTTPS, and a downloaded APK must be signed with the
   installed app's key before the install prompt opens. Updates come from the mjparinas/cruisecontrol releases.
+- The update check lists the recent releases instead of reading GitHub's latest one, and offers the highest version
+  with an APK. Each release is published before the Release workflow attaches its APK, so the latest one alone
+  often has none.
 - The GitHub token is only sent to api.github.com, and to gist.githubusercontent.com when moving an old sync gist,
   never to wherever a URL in a response points.
 
@@ -238,6 +241,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- PR 78: The update check offers the highest recent release with an APK, not just GitHub's latest release, which
+  often has no APK yet right after a merge.
 - PR 77: The car chat can use OpenAI or Gemini models with their own optional keys. Coding tasks stay on Claude.
 - PR 76: Per-repo settings. The pull request switches moved from global to each repo, and each repo can
   have its own rules for Claude, sent in the first prompt. Global and per-repo settings don't overlap.
