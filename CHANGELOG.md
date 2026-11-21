@@ -4,6 +4,8 @@
 
 - Spoken updates wait while the microphone is listening and are read once it stops, so the car doesn't talk over
   you or hear itself.
+- The car chat uses Claude's prompt caching, so each answer rereads the instructions and earlier turns from the
+  cache instead of paying full price for them again. Its cost now counts cache writes and reads at their own prices.
 
 ## v0.8.0
 

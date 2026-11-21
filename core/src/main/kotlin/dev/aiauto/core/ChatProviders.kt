@@ -2,6 +2,7 @@ package dev.aiauto.core
 
 import com.anthropic.client.AnthropicClient
 import com.anthropic.core.JsonValue
+import com.anthropic.models.messages.CacheControlEphemeral
 import com.anthropic.models.messages.ContentBlockParam
 import com.anthropic.models.messages.Message
 import com.anthropic.models.messages.MessageCreateParams
@@ -39,7 +40,10 @@ enum class ChatProvider(val label: String, val assistantName: String, val keySit
     Gemini("Gemini", "Gemini", "aistudio.google.com", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"),
 }
 
-/** The models the car chat can use, with list prices in US dollars per million tokens. */
+/**
+ * The models the car chat can use, with list prices in US dollars per million tokens. Only Claude requests ask for
+ * prompt caching, so [cacheReadPerMTok] only matters there.
+ */
 enum class ChatModel(
     val provider: ChatProvider,
     val id: String,
@@ -47,6 +51,7 @@ enum class ChatModel(
     val blurb: String,
     val inputPerMTok: Double,
     val outputPerMTok: Double,
+    val cacheReadPerMTok: Double = inputPerMTok,
 ) {
     Opus(ModelChoice.Opus),
     Sonnet(ModelChoice.Sonnet),
@@ -60,10 +65,10 @@ enum class ChatModel(
     ;
 
     constructor(claude: ModelChoice) :
-        this(ChatProvider.Anthropic, claude.id, claude.label, claude.blurb, claude.inputPerMTok, claude.outputPerMTok)
+        this(ChatProvider.Anthropic, claude.id, claude.label, claude.blurb, claude.inputPerMTok, claude.outputPerMTok, claude.cacheReadPerMTok)
 
-    fun costUsd(inputTokens: Long, outputTokens: Long): Double =
-        (inputTokens * inputPerMTok + outputTokens * outputPerMTok) / 1_000_000.0
+    fun costUsd(inputTokens: Long, outputTokens: Long, cacheWriteTokens: Long = 0, cacheReadTokens: Long = 0): Double =
+        promptCostUsd(inputTokens, outputTokens, cacheWriteTokens, cacheReadTokens, inputPerMTok, outputPerMTok, cacheReadPerMTok)
 
     companion object {
         fun of(id: String?): ChatModel = entries.firstOrNull { it.id == id || it.name == id } ?: Opus
@@ -116,16 +121,7 @@ internal class AnthropicConversation(private val client: AnthropicClient) : Chat
     override fun addUser(text: String) { history += MessageParam.ofUser(text) }
 
     override fun send(system: String, tools: List<ChatTool>, chat: ChatProfile): ChatTurn {
-        val params = MessageCreateParams.builder()
-            .model(chat.model.id)
-            .maxTokens(MAX_TOKENS)
-            // Low effort by default keeps replies quick, which matters more than depth while driving.
-            .outputConfig(OutputConfig.builder().effort(effort(chat.effort)).build())
-            .system(system)
-            .apply { tools.forEach { addTool(it.toAnthropic()) } }
-            .messages(history.toList())
-            .build()
-        val message = client.messages().create(params)
+        val message = client.messages().create(params(system, tools, chat, history.toList()))
         history += message.toParam()
         val stop = message.stopReason().orElse(null)
         val calls = if (stop != StopReason.TOOL_USE) emptyList() else message.content().mapNotNull { it.toolUse().orElse(null) }.map { call ->
@@ -152,10 +148,28 @@ internal class AnthropicConversation(private val client: AnthropicClient) : Chat
     override fun close() = client.close()
 
     companion object {
+        fun params(system: String, tools: List<ChatTool>, chat: ChatProfile, history: List<MessageParam>): MessageCreateParams =
+            MessageCreateParams.builder()
+                .model(chat.model.id)
+                .maxTokens(MAX_TOKENS)
+                // Low effort by default keeps replies quick, which matters more than depth while driving.
+                .outputConfig(OutputConfig.builder().effort(effort(chat.effort)).build())
+                // Automatic prompt caching: the breakpoint moves to the last block each turn, so the tools, system
+                // prompt and earlier turns are read from the cache. The 5-minute lifetime fits a drive's back and forth.
+                .cacheControl(CacheControlEphemeral.builder().build())
+                .system(system)
+                .apply { tools.forEach { addTool(it.toAnthropic()) } }
+                .messages(history)
+                .build()
+
         fun costUsd(message: Message, model: ChatModel): Double {
             val usage = message.usage()
-            val input = usage.inputTokens() + usage.cacheCreationInputTokens().orElse(0L) + usage.cacheReadInputTokens().orElse(0L)
-            return model.costUsd(input, usage.outputTokens())
+            return model.costUsd(
+                usage.inputTokens(),
+                usage.outputTokens(),
+                cacheWriteTokens = usage.cacheCreationInputTokens().orElse(0L),
+                cacheReadTokens = usage.cacheReadInputTokens().orElse(0L),
+            )
         }
 
         private fun ChatTool.toAnthropic(): Tool = Tool.builder()
