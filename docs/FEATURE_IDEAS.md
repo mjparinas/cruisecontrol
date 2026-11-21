@@ -41,6 +41,8 @@ commands. See "Voice commands" in the README.
 
 ## Safety and cost
 
+Built: parked mode, with Approve and Deny on the car screen. See "Parked mode" in the README.
+
 - **Parked mode.** Detect when the car is parked (Car App Library's car hardware or driving-state APIs) and allow the
   steps that are currently declined, with an approve or deny button on the car screen.
 - **Spend per task.** Show token usage and estimated cost on each task, plus a monthly cap in Settings that pauses new

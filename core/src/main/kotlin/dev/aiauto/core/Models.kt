@@ -72,6 +72,21 @@ enum class AlertKind {
     Stuck,
 }
 
+/**
+ * A step Claude's safety check flagged for review, held while the car is parked so the driver can approve or deny it
+ * on the car screen. While driving such steps are declined instead.
+ */
+@Serializable
+data class ToolApproval(
+    val toolUseId: String,
+    val toolName: String,
+    /** The command, file or address the step would touch, when known. */
+    val detail: String? = null,
+) {
+    /** What the step does, for the car screen and for reading aloud. */
+    val summary: String get() = if (detail.isNullOrBlank()) "run a ${toolName} step" else "run ${toolName}: ${detail}"
+}
+
 /** Something the app asked the driver, waiting for a spoken yes or no. */
 @Serializable
 enum class PendingAction { Merge, FixChecks, FixConflicts }
@@ -126,6 +141,8 @@ data class Task(
     val conflicts: Boolean = false,
     /** Fixes the app asked Claude for on its own since the driver last spoke, so it can't loop forever. */
     val autoFixes: Int = 0,
+    /** A flagged step waiting for the driver to approve or deny it while parked. */
+    val approval: ToolApproval? = null,
     /**
      * The device that runs this task, when tasks sync between devices. Only that device follows the session and
      * watches the pull request; another device takes it over when you reply or retry from it. Null means this device.

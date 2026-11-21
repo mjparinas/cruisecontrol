@@ -25,7 +25,10 @@ class AiAutoCarAppService : CarAppService() {
     }
 
     override fun onCreateSession(): Session = object : Session() {
-        override fun onCreateScreen(intent: Intent): Screen = MicScreen(carContext)
+        override fun onCreateScreen(intent: Intent): Screen {
+            lifecycle.addObserver(ParkedWatcher(carContext))
+            return MicScreen(carContext)
+        }
     }
 
     private fun trustedDigests(pkg: String): List<String> = runCatching {

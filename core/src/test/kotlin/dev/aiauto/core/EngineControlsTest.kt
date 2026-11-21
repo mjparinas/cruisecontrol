@@ -59,12 +59,24 @@ class EngineControlsTest {
             seenEventIds: MutableSet<String>,
             onConnected: () -> Unit,
             shouldStop: () -> Boolean,
+            canReview: () -> Boolean,
             onUpdate: (AgentUpdate) -> Unit,
         ): Boolean {
             onConnected()
-            (turns.removeFirstOrNull() ?: listOf(AgentUpdate.Said("Done."), AgentUpdate.TurnDone)).forEach { if (!shouldStop()) onUpdate(it) }
+            (turns.removeFirstOrNull() ?: listOf(AgentUpdate.Said("Done."), AgentUpdate.TurnDone)).forEach { update ->
+                if (shouldStop()) return@forEach
+                if (update is AgentUpdate.NeedsApproval) reviewable += canReview()
+                onUpdate(update)
+                if (update is AgentUpdate.NeedsApproval) whileWaiting()
+            }
             return true
         }
+        /** What canReview() said for each flagged step, and the answers sent back. */
+        val reviewable = mutableListOf<Boolean>()
+        val confirmations = mutableListOf<Pair<String, Boolean>>()
+        /** Runs while a flagged step waits, before the turn goes on. */
+        var whileWaiting: () -> Unit = {}
+        override fun confirm(sessionId: String, toolUseId: String, allow: Boolean) { confirmations += toolUseId to allow }
         override fun interrupt(sessionId: String) { interrupted += sessionId }
         override fun archive(sessionId: String) { archived += sessionId }
         override fun setBudget(sessionId: String, maxUsd: Double) { budgets += maxUsd }
@@ -162,6 +174,70 @@ class EngineControlsTest {
         claude.turns += listOf(AgentUpdate.BudgetReached)
         val task = engine().start(repo, "x")
         assertTrue(store.get(task.id)!!.lastMessage!!.text.startsWith("Stopped at today's $3.00 spending limit"))
+    }
+
+    private val flagged = AgentUpdate.NeedsApproval("tool-1", "bash", "rm -rf build")
+
+    @Test fun declinesFlaggedStepsWhileDriving() {
+        claude.turns += listOf(flagged, AgentUpdate.Said("Done another way."), AgentUpdate.TurnDone)
+        val task = engine().start(repo, "clean the build")
+        assertEquals(listOf(false), claude.reviewable)
+        assertEquals(listOf("tool-1" to false), claude.confirmations)
+        assertTrue(store.get(task.id)!!.messages.any { it.text == "Skipped a risky bash step that needs review" })
+        assertNull(store.get(task.id)!!.approval)
+    }
+
+    @Test fun holdsFlaggedStepsForTheDriverWhileParked() {
+        val engine = engine()
+        engine.setParked(true)
+        claude.turns += listOf(flagged, AgentUpdate.Said("Cleaned it."), AgentUpdate.TurnDone)
+        claude.whileWaiting = {
+            val waiting = store.all().single()
+            assertEquals(ToolApproval("tool-1", "bash", "rm -rf build"), waiting.approval)
+            assertTrue(claude.confirmations.isEmpty())
+            assertTrue("Claude wants to run bash: rm -rf build. Approve or deny it on the car screen." in said)
+            engine.answerApproval(waiting.id, allow = true)
+            assertNull(store.get(waiting.id)!!.approval)
+        }
+        val task = engine.start(repo, "clean the build")
+        assertEquals(listOf(true), claude.reviewable)
+        assertEquals(listOf("tool-1" to true), claude.confirmations)
+        assertTrue(store.get(task.id)!!.messages.any { it.text == "Approved. Claude is carrying on." })
+    }
+
+    @Test fun driverCanDenyAFlaggedStep() {
+        val engine = engine()
+        engine.setParked(true)
+        claude.turns += listOf(flagged, AgentUpdate.TurnDone)
+        claude.whileWaiting = { engine.answerApproval(store.all().single().id, allow = false) }
+        val task = engine.start(repo, "clean the build")
+        assertEquals(listOf("tool-1" to false), claude.confirmations)
+        assertTrue(store.get(task.id)!!.messages.any { it.text == "Denied. Claude will find another way." })
+    }
+
+    @Test fun drivingOffDeniesStepsStillWaiting() {
+        val engine = engine()
+        engine.setParked(true)
+        claude.turns += listOf(flagged, AgentUpdate.TurnDone)
+        claude.whileWaiting = {
+            engine.setParked(false)
+            // A late tap on Approve can't let it through once the car is moving.
+            engine.answerApproval(store.all().single().id, allow = true)
+        }
+        val task = engine.start(repo, "clean the build")
+        assertEquals(listOf("tool-1" to false), claude.confirmations)
+        assertTrue(store.get(task.id)!!.messages.any { "because the car is moving" in it.text })
+    }
+
+    @Test fun onlyAZeroSpeedCountsAsStandingStill() {
+        assertTrue(TaskEngine.isStandingStill(0f))
+        assertFalse(TaskEngine.isStandingStill(3.5f))
+        assertFalse(TaskEngine.isStandingStill(-1f))
+        assertFalse(TaskEngine.isStandingStill(null))
+    }
+
+    @Test fun describesAStepWithoutDetail() {
+        assertEquals("run a web_fetch step", ToolApproval("t", "web_fetch").summary)
     }
 
     @Test fun stopInterruptsAndClearArchives() {

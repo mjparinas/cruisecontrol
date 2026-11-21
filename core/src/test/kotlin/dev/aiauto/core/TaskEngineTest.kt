@@ -67,6 +67,7 @@ class TaskEngineTest {
             seenEventIds: MutableSet<String>,
             onConnected: () -> Unit,
             shouldStop: () -> Boolean,
+            canReview: () -> Boolean,
             onUpdate: (AgentUpdate) -> Unit,
         ): Boolean {
             when (val step = followSteps.removeFirstOrNull()) {

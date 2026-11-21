@@ -23,7 +23,10 @@ import dev.aiauto.graph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/** One task's latest updates, with buttons to reply by voice, stop it, hear it, or go to its pull request. */
+/**
+ * One task's latest updates, with buttons to reply by voice, stop it, hear it, or go to its pull request. While the car
+ * is parked, a step Claude's safety check flagged shows here with Approve and Deny.
+ */
 class TaskDetailScreen(carContext: CarContext, private val taskId: String) : Screen(carContext) {
     private val g = carContext.graph
 
@@ -41,9 +44,12 @@ class TaskDetailScreen(carContext: CarContext, private val taskId: String) : Scr
             ?: return MessageTemplate.Builder("This task was cleared.").setTitle("Task").setHeaderAction(Action.BACK).build()
 
         val pane = Pane.Builder()
+        task.approval?.let { step ->
+            pane.addRow(Row.Builder().setTitle("Claude wants to run ${step.toolName}").addText(step.detail ?: "Approve or deny this step").build())
+        }
         val summary = listOfNotNull(SpokenStatus.pullRequest(task), task.costUsd.takeIf { it > 0 }?.let { "Cost ${SpokenStatus.money(it)}" })
         if (summary.isNotEmpty()) pane.addRow(Row.Builder().setTitle(TasksScreen.statusLabel(task)).addText(summary.joinToString(" · ")).build())
-        task.messages.filter { it.speaker != Speaker.You }.takeLast(if (summary.isEmpty()) 4 else 3).forEach { m ->
+        task.messages.filter { it.speaker != Speaker.You }.takeLast(4 - (if (summary.isEmpty()) 0 else 1) - (if (task.approval == null) 0 else 1)).forEach { m ->
             pane.addRow(Row.Builder().setTitle(if (m.speaker == Speaker.Claude) "Claude" else "Status").addText(m.text).build())
         }
         if (task.messages.none { it.speaker != Speaker.You }) {
@@ -56,6 +62,7 @@ class TaskDetailScreen(carContext: CarContext, private val taskId: String) : Scr
         val main = mutableListOf<Action>()
         val strip = mutableListOf<Action>()
         when {
+            task.approval != null -> { main += approve(); main += deny(); strip += stop(); strip += readAloud(task) }
             working -> { main += reply(task, primary = true); main += stop(); strip += readAloud(task) }
             failed -> { main += tryAgain(); main += reply(task, primary = false); strip += readAloud(task); strip += clear() }
             task.hasOpenPr && task.status != TaskStatus.NeedsInput -> { main += pullRequest(task); main += reply(task, primary = false); strip += readAloud(task); strip += clear() }
@@ -86,6 +93,23 @@ class TaskDetailScreen(carContext: CarContext, private val taskId: String) : Scr
                     TaskService.ensureRunning(carContext)
                 },
             )
+        }
+        .build()
+
+    private fun approve() = Action.Builder()
+        .setTitle("Approve")
+        .setBackgroundColor(CarColor.PRIMARY)
+        .setOnClickListener {
+            g.engine.answerApproval(taskId, allow = true)
+            CarToast.makeText(carContext, if (g.engine.isParked) "Approved" else "Denied because the car is moving", CarToast.LENGTH_SHORT).show()
+        }
+        .build()
+
+    private fun deny() = Action.Builder()
+        .setTitle("Deny")
+        .setOnClickListener {
+            g.engine.answerApproval(taskId, allow = false)
+            CarToast.makeText(carContext, "Denied", CarToast.LENGTH_SHORT).show()
         }
         .build()
 

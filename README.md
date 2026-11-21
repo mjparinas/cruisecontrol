@@ -61,6 +61,18 @@ The limit is also set as the session's budget on Anthropic's side, so it holds e
 While you're in the car, the app reads Claude's messages and short progress notes like "Building or testing"
 aloud, ducking your music while it talks. You can turn this off in Settings.
 
+## Parked mode
+
+Claude's safety check sometimes flags a step for review, like deleting files or running an unusual command. While
+you're driving, the app declines these and Claude finds another way. Once the car has stood still for ten seconds, the
+app holds such a step instead and says "Claude wants to run …, approve or deny it on the car screen". Open the task in
+**Tasks** to see the command and tap **Approve** or **Deny**. The task list shows it as "Needs your approval". As soon
+as the car moves again, or Android Auto disconnects, any step still waiting is denied.
+
+The app knows the car is parked from the speed the car reports, so the first time the car screen opens it asks for the
+car speed permission on the phone. Without it, or on a car that doesn't report speed, every flagged step is declined as
+before.
+
 ## Voice commands
 
 When you reply to a task, the app handles a few short phrases itself without waiting for Claude:
@@ -172,4 +184,4 @@ has the Contents permission this needs.
 - The app's own merge-when-green only works while the app is alive, for up to three hours after a pull request
   opens. GitHub's auto-merge has no such limit, but it only waits for checks the repo marks as required.
 - While you're driving, the agent declines any step that its safety check flags for review. You'll hear that it
-  skipped something, and the task continues.
+  skipped something, and the task continues. When parked, you can approve or deny these steps instead (see below).

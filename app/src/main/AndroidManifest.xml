@@ -12,6 +12,9 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Installs new versions downloaded from the app's GitHub releases. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Reads the car's speed, so steps that need review can wait for the driver while the car is parked. -->
+    <uses-permission android:name="com.google.android.gms.permission.CAR_SPEED" />
+    <uses-permission android:name="android.car.permission.CAR_SPEED" />
 
     <!-- Lets the app find a speech recognizer and text-to-speech engine on Android 11+. -->
     <queries>
