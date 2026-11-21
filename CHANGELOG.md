@@ -5,6 +5,8 @@
 - Parked mode: once the car has stood still for ten seconds, a step Claude's safety check flags waits for you to
   approve or deny it on the car's task screen, instead of being skipped. Driving off denies any step still waiting.
   The car screen asks once for the car speed permission it needs.
+- A task whose pull request's checks are still running now says Checks running in amber instead of Done, so it
+  doesn't look finished before the checks are.
 - Listening and thinking tones: a short rising tone when the app starts listening, a falling one when it stops,
   and a soft tone every few seconds while Claude is still working on an answer in the car, so you can keep your
   eyes on the road.
