@@ -1,13 +1,14 @@
 name: Release
 
 # Builds the APK and publishes it as a GitHub release.
-# Start it from the Actions tab (Run workflow, then enter a version like v0.2.0), or push a tag like v0.2.0.
+# Start it from the Actions tab (Run workflow), or push a tag like v0.2.0. From the Actions tab the version is
+# optional: leave it empty to release the next patch version after the latest tag.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version tag to create, like v0.2.0
-        required: true
+        description: Version tag to create, like v0.2.0. Leave empty for the next patch version.
+        required: false
   push:
     tags: ['v*']
 
@@ -25,6 +26,19 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+      - name: Pick version
+        env:
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          if [ -n "$REQUESTED" ]; then
+            VERSION="$REQUESTED"
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            VERSION="$(git ls-remote --tags --refs origin | sed 's|.*refs/tags/||' | .github/scripts/next-version.sh)"
+            echo "No version entered, so releasing $VERSION."
+          else
+            VERSION="$GITHUB_REF_NAME"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
       - name: Load signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -40,14 +54,14 @@ jobs:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-          VERSION_NAME: ${{ inputs.version || github.ref_name }}
+          VERSION_NAME: ${{ env.VERSION }}
           # Release numbers only go up, so each APK counts as an update to the last one.
           VERSION_CODE: ${{ github.run_number }}
         run: ./gradlew :core:test :app:assembleRelease --stacktrace
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.version || github.ref_name }}
+          TAG: ${{ env.VERSION }}
         run: |
           cp app/build/outputs/apk/release/app-release.apk "cruise-control-$TAG.apk"
           # The app's auto-release may have created the release already; then just attach the APK.

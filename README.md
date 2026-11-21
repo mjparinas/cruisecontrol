@@ -143,8 +143,9 @@ Requires JDK 17 and the Android SDK (API 35).
 
 ## Making a release
 
-In the Actions tab, open **Release**, click **Run workflow** and enter the next version, like `v0.5.0`. You can
-also push a tag like that. Either way, the workflow tests the code, builds a release APK and publishes a GitHub
+In the Actions tab, open **Release** and click **Run workflow**. Leave the version empty to release the next patch
+version after the latest tag (for example `v0.7.20` becomes `v0.7.21`), the same way the app's auto-release picks
+it, or enter one like `v0.8.0` to choose it yourself. You can also push a tag like that. Either way, the workflow tests the code, builds a release APK and publishes a GitHub
 release with the APK attached. The version name comes from the tag and the version code from the run number, so
 there's nothing to bump in the code first.
 
