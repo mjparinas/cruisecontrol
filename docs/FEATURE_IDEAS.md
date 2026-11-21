@@ -9,16 +9,20 @@ These started on this list and are now in the app. See the README for how they w
 
 - **Merge by voice**, with a yes or no confirmation, and GitHub auto-merge when checks are still running.
 - **CI results read aloud** after a pull request opens, with an offer to have Claude fix failures.
-- **Quick commands**: "status", "stop", "merge it", "fix it", "yes" and "no" are handled by the app.
+- **Quick commands**: "status", "stop", "merge it", "fix it", "repeat that", "quiet", "undo that",
+  "start over", "yes" and "no" are handled by the app.
 - **Repo by name** in the car chat, matched against saved repos so transcription slips still work.
 - **Saved prompts**, built as task templates on the phone and in the car.
 - **Welcome-back briefing** when the phone connects to the car.
 - **Spend per task** and daily and monthly spending limits.
 - **Resume after lost signal**: tasks cut off by a dropped connection restart when the network comes back.
+- **Queue a car chat request with no signal**: the car chat keeps a question asked offline and answers it when the
+  network returns.
 - **Home screen widget** with running tasks and today's spend.
 - **Other AI providers for the car chat**: OpenAI and Gemini models, each with its own key in Settings.
 - **Every repo available, most recently used first**: the phone and car repo pickers and the car chat offer every
   repo the GitHub token can push to, not only saved ones, with repos you've used most recently at the top.
+- **Listening and thinking tones**: a tone when the microphone opens and closes, and a soft cue while an answer is slow.
 
 ### Coding tasks on other providers
 
@@ -31,10 +35,6 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 
 ### Easier in the car
 
-- **Listening and thinking tones.** Today the only sign that the microphone opened, closed or that Claude is still
-  thinking is text on the car screen. A short tone when `VoiceInput` starts and stops listening, and a soft cue when
-  an answer takes more than a few seconds, would let the driver keep their eyes on the road. Use the same assistant
-  audio attributes as the microphone so the tones duck music like speech does.
 - **Read back a new task before it starts.** A task spoken from Tasks > New task starts as soon as the recognizer
   returns, so a misheard request still costs a session. Saying "Starting: add a dark mode toggle, in aiauto" with a
   few seconds to say "cancel" or tap Cancel would catch transcription slips. The read-back text and the cancel window
@@ -42,9 +42,8 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 - **Hold spoken updates while the microphone is open.** `ListenScreen` and `MicScreen` stop the speaker when they
   start listening, but a task message or progress note that arrives mid-sentence is read out straight away, talks over
   the driver and can end up in the transcript. `Speaker` could queue new speech while listening and play it after.
-- **"Repeat that" and "quiet".** Two more quick commands in `VoiceCommand`, also for the car chat. "Repeat that"
-  replays the last thing the app said, for when a turn or a passenger drowned it out. "Quiet" turns on quiet mode
-  for the rest of the drive, so only results and alerts are read out, without a trip to Settings.
+- **"Repeat that" and "quiet" in the car chat.** Task replies already handle both. The car chat could too: "repeat
+  that" replaying its last answer, and "quiet" turning quiet mode on only for the rest of the drive.
 - **More than six rows in car lists.** `PickRepoScreen` now lists every repo last used first, but still shows only
   the first six, so an older repo can't be picked in the car. Asking the host for its real list size with
   `ConstraintManager.getContentLimit` instead of a fixed six (also in `TasksScreen` and `TemplatesScreen`) would
@@ -81,10 +80,6 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 - **Google Assistant shortcut.** An App Actions capability (`shortcuts.xml` with a custom intent) so "Hey Google, ask
   Cruise Control to add dark mode to aiauto" starts a task with no taps at all. **Listen when opened** gets close
   today, but still needs the app to open and hear the request a second time.
-- **Queue a car chat request with no signal.** Coding tasks already resume after a dropped connection, but the car
-  chat fails if there's no signal when you speak. Keeping the spoken request on the phone and sending it when the
-  network returns, with "I'll send that when we're back online", would stop requests from being lost in tunnels and
-  dead zones.
 
 ### Ask, don't change
 

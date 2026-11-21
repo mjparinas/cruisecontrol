@@ -34,7 +34,8 @@ interface AssistantActions {
 /**
  * A spoken conversation for the car's mic button. Each [ask] takes what the driver said and returns the answer,
  * ready to be read aloud. Claude answers by default; Settings can pick an OpenAI or Gemini model instead. Whichever
- * answers can also start a coding task or reply to one through [AssistantActions]. Blocking: call it off the main thread.
+ * answers can also start a coding task or reply to one through [AssistantActions]. A question asked with no signal is
+ * kept and answered by [sendQueued] once the phone is back online. Blocking: call it off the main thread.
  */
 class Assistant(
     private val apiKey: (ChatProvider) -> String?,
@@ -55,15 +56,55 @@ class Assistant(
     private var conversation: ChatConversation? = null
     /** The provider and key [conversation] was made for. A new model provider or key starts a new one. */
     private var conversationFor: Pair<ChatProvider, String>? = null
+    /** Questions asked with no signal, oldest first, with when they were asked. */
+    private val queued = ArrayDeque<Pair<String, Long>>()
+    /** True once a tool ran in the current turn, so a lost connection can't make the turn run twice. */
+    private var acted = false
 
     @Synchronized
     fun ask(spoken: String): String {
+        val (reply, offline) = attempt(spoken)
+        if (!offline) return reply
+        if (queued.size >= MAX_QUEUED) return "There's no signal, and I'm already holding $MAX_QUEUED questions. Try again once we're back online."
+        queued.addLast(spoken to clock())
+        return QUEUED
+    }
+
+    /** True while questions asked with no signal are waiting for [sendQueued]. */
+    @Synchronized
+    fun hasQueued(): Boolean = queued.isNotEmpty()
+
+    /**
+     * Asks the questions kept while there was no signal, oldest first, and returns each answer ready to be read
+     * aloud. Call it when the network comes back. Questions older than [QUEUE_MAX_AGE_MILLIS] are dropped, since
+     * the driver has likely moved on. If the connection drops again, the rest stay queued for next time.
+     */
+    @Synchronized
+    fun sendQueued(): List<String> {
+        val answers = mutableListOf<String>()
+        while (queued.isNotEmpty()) {
+            val (spoken, askedMillis) = queued.first()
+            if (clock() - askedMillis > QUEUE_MAX_AGE_MILLIS) {
+                queued.removeFirst()
+                continue
+            }
+            val (reply, offline) = attempt(spoken)
+            if (offline) break
+            queued.removeFirst()
+            answers += "You asked: ${spoken.trim().trimEnd('.', '?', '!')}. $reply"
+        }
+        return answers
+    }
+
+    /** One turn. The flag is true when it failed for want of a connection before anything was done, so it can be retried. */
+    private fun attempt(spoken: String): Pair<String, Boolean> {
         val chat = profile()
         val provider = chat.model.provider
-        val key = apiKey(provider) ?: return "Add your ${provider.label} API key in the app on your phone first."
-        if (!canSpend()) return "You've reached your daily or monthly spending limit, so I can't answer right now. You can raise it in Settings on your phone."
+        val key = apiKey(provider) ?: return "Add your ${provider.label} API key in the app on your phone first." to false
+        if (!canSpend()) return "You've reached your daily or monthly spending limit, so I can't answer right now. You can raise it in Settings on your phone." to false
         var talk: ChatConversation? = null
         var start = 0
+        acted = false
         return try {
             talk = conversationFor(provider, key)
             start = talk.size
@@ -71,11 +112,11 @@ class Assistant(
             talk.addUser(spoken)
             converse(talk, chat).also { reply ->
                 runCatching { memory().remember(ChatExchange(spoken, reply, clock())) }
-            }
+            } to false
         } catch (e: Throwable) {
             // Drop the half-finished turn so the next question starts from a clean history.
             talk?.rollback(start)
-            Failures.describe(e)
+            Failures.describe(e) to (!acted && Failures.isOffline(e))
         }
     }
 
@@ -108,6 +149,7 @@ class Assistant(
         fun arg(name: String) = call.args[name]?.trim().orEmpty()
         fun number(name: String): Int? = arg(name).let { it.toIntOrNull() ?: it.filter { c -> c.isDigit() }.toIntOrNull() }
         fun flag(name: String): Boolean = arg(name).equals("true", ignoreCase = true)
+        acted = true
         val (text, error) = runCatching {
             when (call.name) {
                 START_TASK -> actions.startTask(arg("repo"), arg("request"))
@@ -145,6 +187,11 @@ class Assistant(
     companion object {
         private const val MAX_TOOL_ROUNDS = 4
         private const val MAX_HISTORY = 30
+        /** Questions kept with no signal at most, so a long dead zone can't pile up a stack of answers. */
+        const val MAX_QUEUED = 5
+        /** How long a question asked with no signal stays worth answering. */
+        const val QUEUE_MAX_AGE_MILLIS = 30 * 60_000L
+        const val QUEUED = "There's no signal right now. I'll send that when we're back online."
         private const val START_TASK = "start_coding_task"
         private const val REPLY_TO_TASK = "reply_to_task"
         private const val ADD_REPO = "add_repo"

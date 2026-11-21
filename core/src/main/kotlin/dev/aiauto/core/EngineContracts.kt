@@ -23,6 +23,8 @@ interface EngineConfig {
 
     /** Quiet mode: only announce each turn's result, failures and pull requests, not every step. */
     fun quietMode(): Boolean = false
+    /** Turns quiet mode on or off, for the spoken "quiet" command. */
+    fun setQuietMode(on: Boolean) {}
 
     /** The most Claude may spend per day across all tasks, in US dollars. Null means no limit. */
     fun dailyLimitUsd(): Double? = null
