@@ -1,5 +1,7 @@
 package dev.aiauto.core
 
+import com.anthropic.core.JsonValue
+import com.anthropic.models.messages.MessageParam
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -12,6 +14,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class ChatProvidersTest {
     private val requests = mutableListOf<Request>()
@@ -69,6 +72,28 @@ class ChatProvidersTest {
             val chat = ChatModel.of(claude.id)
             assertEquals(ChatProvider.Anthropic, chat.provider)
             assertEquals(claude.costUsd(1000, 2000), chat.costUsd(1000, 2000))
+            assertEquals(claude.costUsd(1000, 2000, 300, 4000), chat.costUsd(1000, 2000, 300, 4000))
         }
+    }
+
+    @Test fun claudeChatRequestsTurnOnAutomaticPromptCaching() {
+        val params = AnthropicConversation.params("Be brief.", emptyList(), ChatProfile(), listOf(MessageParam.ofUser("Hi")))
+        val cache = params.cacheControl().orElseThrow()
+        assertEquals(JsonValue.from("ephemeral"), cache._type())
+        // No TTL means the default 5-minute lifetime, which costs 1.25 times input to write instead of 2.
+        assertTrue(cache.ttl().isEmpty)
+    }
+
+    @Test fun cacheWritesCostMoreThanInputAndReadsCostLess() {
+        // One million tokens of each kind, so the cost is the price per million.
+        val m = 1_000_000L
+        assertEquals(4.0, ChatModel.Opus.costUsd(m, 0), 1e-9)
+        assertEquals(5.0, ChatModel.Opus.costUsd(0, 0, cacheWriteTokens = m), 1e-9)
+        assertEquals(0.20, ChatModel.Opus.costUsd(0, 0, cacheReadTokens = m), 1e-9)
+        assertEquals(2.50, ChatModel.Sonnet.costUsd(0, 0, cacheWriteTokens = m), 1e-9)
+        assertEquals(0.10, ChatModel.Sonnet.costUsd(0, 0, cacheReadTokens = m), 1e-9)
+        assertEquals(0.125, ChatModel.Haiku.costUsd(0, 0, cacheWriteTokens = m), 1e-9)
+        assertEquals(0.01, ChatModel.Haiku.costUsd(0, 0, cacheReadTokens = m), 1e-9)
+        assertEquals(4.0 + 5.0 + 0.20 + 20.0, ChatModel.Opus.costUsd(m, m, m, m), 1e-9)
     }
 }

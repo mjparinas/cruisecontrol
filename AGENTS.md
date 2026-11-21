@@ -167,6 +167,10 @@ Claude:
   provider's format by `core/src/main/kotlin/dev/aiauto/core/ChatProviders.kt`, which keeps each conversation in
   that provider's own message format so tool calls, OpenAI's encrypted reasoning and Gemini's thought signatures go
   back exactly as they came. OpenAI requests are sent with store off.
+- Claude car chat requests turn on automatic prompt caching (a top-level `cache_control` with the default 5-minute
+  lifetime), so tools, system prompt and earlier turns are read from the cache on each turn. A drive's back and
+  forth is well inside five minutes, so the 1-hour lifetime, which costs twice input to write, isn't worth it.
+  Cache writes are priced at 1.25 times input and reads at each model's cache hit price (`ModelChoice`).
 - Streams are reconnected by the engine, and past events are listed after reconnecting so nothing is reported
   twice and turns that ended offline are caught up. Tasks cut off by a lost connection retry every 30 seconds for up
   to two hours.
@@ -261,6 +265,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- PR 98: The Claude car chat uses automatic prompt caching with the 5-minute lifetime, and its cost counts cache
+  writes and reads at their own prices instead of the base input price.
 - The phone app is voice first: the prompt box with its text field and Send button is gone from the New task screen
   and the task chat, replaced by a floating microphone at the bottom right that follows Keep listening until Stop.
   Google's speech dialog is no longer used, so the microphone can always turn into a Stop button.

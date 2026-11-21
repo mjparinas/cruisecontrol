@@ -29,7 +29,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     the per-repo status view.
   - `Assistant.kt` is the spoken car chat, including the queue of questions asked with no signal, which
     `Graph.watchNetwork` sends when the phone is back online. `ChatProviders.kt` has the car chat models and talks to Claude, OpenAI
-    (Responses API) or Gemini (OpenAI-compatible endpoint); tests fake `ChatHttp`. `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
+    (Responses API) or Gemini (OpenAI-compatible endpoint); tests fake `ChatHttp`. Claude chat requests use
+    automatic prompt caching, and `ModelChoice` holds each model's cache hit price. `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
     replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `Briefing.kt` is the drive briefing.
   - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases
     (the highest recent release with an APK) and picks release-on-merge tags.
