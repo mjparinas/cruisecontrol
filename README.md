@@ -2,7 +2,8 @@
 
 Talk to Claude from Android Auto. Pick one of your GitHub repos, say what you want changed, and Claude does the
 work in the cloud. It makes the change on a new branch, runs the tests, and opens a pull request. Updates come back
-as messages that the car reads aloud.
+as messages that the car reads aloud. Every task starts by having Claude read the repo's `README.md`, `CLAUDE.md` and
+`AGENTS.md` (whichever exist), so it follows the project's own notes and conventions.
 
 ## How it works
 

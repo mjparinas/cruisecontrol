@@ -385,11 +385,17 @@ class ClaudeAgents(apiKey: String) : AgentClient {
         const val REPO_PATH = "/workspace/repo"
         private val ASK = Optional.of(BetaManagedAgentsAgentEvaluatedPermission.ASK)
 
-        /** The first message of a task: the user's spoken request plus the branch rules. */
+        /**
+         * The first message of a task: the user's spoken request plus the branch rules. It's sent with every new
+         * task, unlike the system prompt, which agents saved before a change keep using.
+         */
         fun firstPrompt(task: Task, request: String): String = """
             Repository: ${task.repo.fullName}, cloned at $REPO_PATH.
             Work on a new branch named `${task.branch}` created from `${task.repo.defaultBranch}`.
             Commit your changes and push the branch to origin. Don't open a pull request; the app does that.
+
+            Before anything else, read README.md, CLAUDE.md and AGENTS.md at the repository root, whichever exist,
+            and follow what they say about the project, how to build and test it, and its conventions.
 
             Request (spoken while driving, so it may contain transcription mistakes):
             $request
