@@ -55,8 +55,9 @@ time it does this. After three automatic fixes on a task it goes back to asking 
 either switch off, the app asks first, and you can say yes or "fix it".
 
 You can **Stop** a working task, **Clear** one, or clear every finished task at once. On the phone's task list,
-swipe a card right to archive it (with undo) or left to clear it (the app asks first). Each task shows what it has
-cost so far, and a **daily limit** (default $20, set in Settings) stops Claude when the day's total reaches it.
+swipe a card right to archive it (with undo) or left to clear it (the app asks first). On the Archived tab, swipe a
+card left to clear it for good, again after the app asks. Each task shows what it has cost so far, and a **daily
+limit** (default $20, set in Settings) stops Claude when the day's total reaches it.
 An optional **monthly limit** (off until you set it in Settings) adds up every day's spend in the calendar month
 and stops Claude when that reaches it, so a run of busy days can't add up past it. Both limits apply at once:
 whichever is reached first stops Claude and the car chat. The tighter of the two is also set as the session's

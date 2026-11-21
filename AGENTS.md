@@ -81,6 +81,7 @@ Tasks, repos and sync:
 - One task is one Managed Agents session on one repo. Tasks that need a reply are listed first, and new tasks start
   on the last-used repo.
 - On the phone, swiping a task card right archives it with undo, and swiping left clears it after asking (PR 65).
+  On the Archived tab, swiping left clears an archived task after asking; there's no right swipe there.
   Archived tasks are hidden from the car and the voice assistant.
 - Repos are added from the list of repos the token can push to, several at once, by typing owner/name, or by saying
   the name to the car assistant. Removing a repo needs a confirmation, leaves running tasks alone and changes nothing
@@ -215,8 +216,9 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
-- PR 71: An optional monthly spending limit, off by default, on top of the daily one. Both apply at once and the
+- PR 73: An optional monthly spending limit, off by default, on top of the daily one. Both apply at once and the
   monthly total and limit live alongside the daily ones; the limit syncs, the total stays per device.
+- After PR 70: Archived task cards can be cleared by swiping left, after asking.
 - PR 69: Every dependency moved to its latest stable release, including Gradle 9, Android Gradle Plugin 9,
   compileSdk 37.2, OkHttp 5 and Car App 1.7. targetSdk stays 35 and setup-gradle stays on v5.
 - PR 68: Added this file and `AgentsDocTest` to keep a checked record of decisions, imported from `CLAUDE.md`.
