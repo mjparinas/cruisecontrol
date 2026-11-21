@@ -85,10 +85,14 @@ fun TaskScreen(
     var confirmMerge by remember { mutableStateOf(false) }
     if (confirmMerge) task.prNumber?.let { ConfirmMergeDialog(it, task.checks, onConfirm = onMerge, onDismiss = { confirmMerge = false }) }
     val list = rememberLazyListState()
+    // Jump straight to the latest message when the task opens; only animate for messages that arrive while it's open.
     // The pull request card and cost header sit above the messages, so scroll to the list's real last item.
+    var opened by remember(task.id) { mutableStateOf(false) }
     LaunchedEffect(task.messages.size) {
-        val above = (if (task.prUrl != null) 1 else 0) + (if (task.costUsd > 0) 1 else 0)
-        if (task.messages.isNotEmpty()) list.animateScrollToItem(above + task.messages.size - 1)
+        if (task.messages.isEmpty()) return@LaunchedEffect
+        val last = (if (task.prUrl != null) 1 else 0) + (if (task.costUsd > 0) 1 else 0) + task.messages.size - 1
+        if (opened) list.animateScrollToItem(last) else list.scrollToItem(last)
+        opened = true
     }
 
     Scaffold(

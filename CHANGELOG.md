@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Opening a task with a long conversation jumps straight to the latest message instead of scrolling down to it.
+  New messages that arrive while it's open still scroll smoothly.
 - Spoken updates wait while the microphone is listening and are read once it stops, so the car doesn't talk over
   you or hear itself.
 - The car chat uses Claude's prompt caching, so each answer rereads the instructions and earlier turns from the
