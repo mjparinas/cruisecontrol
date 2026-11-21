@@ -256,6 +256,8 @@ Newest first. Earlier work (before PR 13) isn't in the history; add older decisi
 
 - PR 92: A search box at the top of Settings filters the page as you type. Pull request and repo-rule words find
   the Repositories section, since those settings live behind each repo.
+- PR 90: A task isn't shown as Done while its open pull request's checks are running or not yet read. Its status
+  pill says Checks running in amber, the colour already used for pending checks (`Task.checksRunning`).
 - PR 89: Listening and thinking tones, so the driver can tell the microphone opened or closed, or that Claude is
   still answering, without looking at the screen.
 - Car chat questions asked with no signal are queued in `Assistant` and answered when the network comes back,

@@ -4,6 +4,8 @@
 
 - A search box at the top of Settings shows only the settings that match what you type, by name, section or a
   related word like "colour" or "money". Searching for a pull request switch finds your repos, where those live now.
+- A task whose pull request's checks are still running now says Checks running in amber instead of Done, so it
+  doesn't look finished before the checks are.
 - Listening and thinking tones: a short rising tone when the app starts listening, a falling one when it stops,
   and a soft tone every few seconds while Claude is still working on an answer in the car, so you can keep your
   eyes on the road.
