@@ -1,23 +1,67 @@
-# Cruise Control (aiauto)
+# Notes for Claude
 
-Android Auto app that sends spoken coding requests to Claude Managed Agents sessions and opens GitHub pull requests.
+Read this first. It saves exploring the whole repository on every task. Keep it short and fix it when it's wrong.
+
+The product, engineering and development decisions behind the app live in AGENTS.md, imported here. Read it
+before changing anything, and update it in the same pull request when a change affects a decision.
+
+@AGENTS.md
+
+## What this is
+
+Cruise Control: an Android and Android Auto app that sends spoken coding requests to Claude Managed Agents sessions,
+reads the updates aloud, opens the pull request and follows its checks. The README describes every feature.
 
 ## Layout
 
-- `core/`: plain Kotlin, all the logic and its tests. `TaskEngine.kt` runs tasks; `VoiceCommand.kt` parses short
-  spoken replies (status, stop, merge, fix, undo, start over, yes, no) that `TaskEngine.prompt` handles without
-  Claude; `PendingAction` in `Models.kt` holds a yes-or-no question waiting on the driver. `VoiceControls.kt` and
-  `Assistant.kt` are the car chat side. Tests live in `core/src/test/kotlin/dev/aiauto/core` with in-file fakes.
-- `app/`: Android app (Compose phone UI, Car App Library UI, notifications).
-- `README.md` documents user-facing features (see "Voice commands"); `CHANGELOG.md` has an Unreleased section;
-  `docs/FEATURE_IDEAS.md` tracks ideas and which are built.
+- `core/` is plain Kotlin (JVM 17) with all the logic and almost every unit test. Package `dev.aiauto.core`.
+  - `TaskEngine.kt` runs tasks: one session per task, prompts, the event stream, reconnects, and the daily and
+    monthly spending limits through `SpendingLimit.kt`.
+  - `ClaudeAgents.kt` is the Managed Agents client. Its companion holds `SYSTEM_PROMPT` (baked into the agent)
+    and `firstPrompt` (sent with each task, which starts by asking Claude to read README.md, CLAUDE.md and
+    AGENTS.md). The agent is only remade when `AgentProfile` changes, so new per-task instructions belong in
+    `firstPrompt`.
+  - `AgentProfile.kt` has the model, effort and standing rules picked in Settings (global). `RepoSettings.kt` has
+    the per-repo settings: pull request switches and repo rules, read through `EngineConfig.repoSettings(repo)`.
+    `Models.kt` has `Task`, `RepoRef`, `AgentSetup` and friends.
+  - `GitHub.kt` is the REST client; `PullRequests.kt` follows checks, merges and auto-fixes; `Projects.kt` is
+    the per-repo status view.
+  - `Assistant.kt` is the spoken car chat. `ChatProviders.kt` has the car chat models and talks to Claude, OpenAI
+    (Responses API) or Gemini (OpenAI-compatible endpoint); tests fake `ChatHttp`. `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
+    replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `Briefing.kt` is the drive briefing.
+  - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases
+    (the highest recent release with an APK) and picks release-on-merge tags.
+- `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the
+  Compose phone UI, `car/` is the Car App Library UI (its `VoiceInput` also serves the phone's prompt box when
+  Keep listening until Stop is on; `core/Dictation.kt` decides when it listens again, sends or gives up),
+  `notify/` holds notifications and text-to-speech,
+  `data/` holds the stores, encrypted secrets and sync, `widget/` is the home-screen widget. `data/Stores.kt`
+  `Settings` keeps every setting in SharedPreferences; `SYNCED_KEYS` lists the ones that sync.
+- `docs/FEATURE_IDEAS.md` lists ideas; `docs/PLAY_STORE_RELEASE.md` is the plan for Google Play; `CHANGELOG.md` has
+  release notes.
 
 ## Build and test
 
-- `./gradlew :core:test` runs the tests (JDK 17+, needs network the first time; `--offline` fails without a cache).
-- `./gradlew :core:test :app:assembleDebug` is what CI runs; the app build needs the Android SDK (API 35).
+- `./gradlew :core:test` runs the core unit tests and needs only a JDK. The few app tests need the Android SDK.
+- The agent sandbox starts without an Android SDK (see below to install one). The first run downloads from Maven
+  Central, which sometimes answers 429 Too Many Requests; just run it again.
+- `./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug` is what CI runs (needs the Android SDK,
+  API 37.2). Lint only reports. Without an SDK, install the command-line tools from dl.google.com, run
+  sdkmanager for `platforms;android-37.2` and set `ANDROID_HOME`. Maven Central may answer 429; just rerun.
+- CI skips pushes that only change Markdown files, except AGENTS.md: `AgentsDocTest` checks it against the code.
+
+## Releasing
+
+- Cutting a release means moving CHANGELOG's Unreleased notes (plus any merged features they missed) into a version
+  entry and pointing the README's release example at it; `ChangelogTest` checks both. After the pull request merges,
+  the owner runs the Release workflow with that version. The agent can't push tags.
+- Release when a PR is merged is on for this repo, so every merge publishes a patch tag. Check the real latest
+  version with `git ls-remote --tags origin`. The local `main` branch can be stale: branch from `origin/main`.
 
 ## Conventions
 
-- Spoken strings are plain sentences. Canadian spelling in docs and commits.
-- Keep changes small; update README, CHANGELOG and tests with each feature.
+- Tests live in `core/src/test/kotlin/dev/aiauto/core`, one file per area, using kotlin.test with fakes for
+  `AgentClient`, `EngineConfig` and `TaskStore`. Logic that needs testing goes in `core`, not `app`.
+- Short KDoc on public things, written as plain sentences. Comments explain why.
+- App text, messages and commits use Canadian spelling and plain, speakable sentences.
+- Update the README when a user-visible behaviour changes.

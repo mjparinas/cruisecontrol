@@ -3,10 +3,13 @@ package dev.aiauto.data
 import android.content.Context
 import dev.aiauto.core.AgentProfile
 import dev.aiauto.core.AgentSetup
+import dev.aiauto.core.ChatModel
 import dev.aiauto.core.ChatProfile
 import dev.aiauto.core.EffortChoice
-import dev.aiauto.core.ModelChoice
+import dev.aiauto.core.RepoChange
 import dev.aiauto.core.RepoRef
+import dev.aiauto.core.RepoSettings
+import dev.aiauto.core.SyncMerge
 import dev.aiauto.core.Task
 import dev.aiauto.core.TaskStore
 import dev.aiauto.core.TaskTemplate
@@ -14,6 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import java.io.File
 
@@ -47,7 +52,19 @@ private class JsonListFile<T>(private val file: File, private val serializer: KS
 
 class FileTaskStore(context: Context) : TaskStore {
     private val list = JsonListFile(File(context.filesDir, "tasks.json"), Task.serializer())
+    /** Ids of tasks cleared here or on another device, so sync doesn't bring them back. */
+    private val removed = JsonListFile(File(context.filesDir, "removed_tasks.json"), kotlinx.serialization.serializer<String>())
     val tasks: StateFlow<List<Task>> = list.flow
+
+    /** Cleared task ids, oldest first. */
+    fun removedIds(): List<String> = removed.flow.value
+
+    /** Remembers ids cleared on another device, so this one keeps passing them on. */
+    @Synchronized
+    fun rememberRemoved(ids: List<String>) {
+        val merged = (removed.flow.value + ids).distinct().takeLast(dev.aiauto.core.SyncMerge.REMOVED_KEPT)
+        if (merged != removed.flow.value) removed.set(merged)
+    }
 
     override fun get(id: String): Task? = list.flow.value.firstOrNull { it.id == id }
     override fun all(): List<Task> = list.flow.value
@@ -59,15 +76,44 @@ class FileTaskStore(context: Context) : TaskStore {
     }
 
     @Synchronized
-    override fun remove(id: String) = list.set(list.flow.value.filter { it.id != id })
+    override fun remove(id: String) {
+        list.set(list.flow.value.filter { it.id != id })
+        rememberRemoved(listOf(id))
+    }
 }
 
 class RepoStore(context: Context) {
     private val list = JsonListFile(File(context.filesDir, "repos.json"), RepoRef.serializer())
+    private val changes = JsonListFile(File(context.filesDir, "repo_changes.json"), RepoChange.serializer())
     val repos: StateFlow<List<RepoRef>> = list.flow
 
+    /** When each repo was last added and removed here or on another device, for sync. */
+    fun changes(): List<RepoChange> = changes.flow.value
+
     @Synchronized
-    fun add(repo: RepoRef) = list.set(list.flow.value.filter { it.fullName != repo.fullName } + repo)
+    fun add(repo: RepoRef) {
+        list.set(list.flow.value.filter { it.fullName != repo.fullName } + repo)
+        note(RepoChange(repo.fullName, addedMillis = System.currentTimeMillis()))
+    }
+
+    @Synchronized
+    fun remove(repo: RepoRef) {
+        list.set(list.flow.value.filter { !it.fullName.equals(repo.fullName, ignoreCase = true) })
+        note(RepoChange(repo.fullName, removedMillis = System.currentTimeMillis()))
+    }
+
+    /** Takes the repos a sync round merged, keeping anything added or removed here while the round ran. */
+    @Synchronized
+    fun applySynced(repos: List<RepoRef>, synced: List<RepoChange>) {
+        val (merged, mergedChanges) = SyncMerge.mergeRepos(list.flow.value, changes.flow.value, repos, synced)
+        if (merged != list.flow.value) list.set(merged)
+        if (mergedChanges != changes.flow.value) changes.set(mergedChanges)
+    }
+
+    private fun note(change: RepoChange) {
+        val (_, merged) = SyncMerge.mergeRepos(emptyList(), changes.flow.value, emptyList(), listOf(change))
+        changes.set(merged)
+    }
 
     @Synchronized
 
@@ -77,20 +123,29 @@ class RepoStore(context: Context) {
 /** Past car-chat exchanges, newest last, so the next drive can pick up where this one left off. */
 class FileChatMemory(context: Context) : dev.aiauto.core.ChatMemory {
     private val list = JsonListFile(File(context.filesDir, "chat_memory.json"), dev.aiauto.core.ChatExchange.serializer())
+    private val prefs = context.getSharedPreferences("chat_memory", Context.MODE_PRIVATE)
 
     override fun recent() = list.flow.value
+
+    /** When the memory was last cleared, here or on another device. Sync keeps older exchanges from coming back. */
+    val forgottenMillis: Long get() = prefs.getLong("forgotten", 0L)
 
     @Synchronized
     override fun remember(exchange: dev.aiauto.core.ChatExchange) =
         list.set((list.flow.value + exchange).takeLast(dev.aiauto.core.ChatMemory.KEEP))
 
     @Synchronized
-    override fun forget() = list.set(emptyList())
+    override fun forget() {
+        prefs.edit().putLong("forgotten", System.currentTimeMillis()).apply()
+        list.set(emptyList())
+    }
 
-    /** Replaces everything with [exchanges], for sync. */
+    /** Replaces everything with [exchanges], for sync, after a clear made on another device at [forgottenAt]. */
     @Synchronized
-    fun replaceAll(exchanges: List<dev.aiauto.core.ChatExchange>) {
-        if (exchanges != list.flow.value) list.set(exchanges)
+    fun replaceAll(exchanges: List<dev.aiauto.core.ChatExchange>, forgottenAt: Long) {
+        if (forgottenAt > forgottenMillis) prefs.edit().putLong("forgotten", forgottenAt).apply()
+        val kept = exchanges.filter { it.timeMillis > forgottenMillis }
+        if (kept != list.flow.value) list.set(kept)
     }
 }
 
@@ -211,6 +266,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("listen_on_open", true)
         set(value) = prefs.edit().putBoolean("listen_on_open", value).apply()
 
+    /** Keep listening through pauses, in the car and from the phone's mic button, until Stop, instead of sending at the first pause. */
+    var listenUntilStop: Boolean
+        get() = prefs.getBoolean("listen_until_stop", false)
+        set(value) = prefs.edit().putBoolean("listen_until_stop", value).apply()
+
     /** Read a summary of what happened since the last drive when the phone connects to the car. */
     var briefingOnConnect: Boolean
         get() = prefs.getBoolean("briefing", true)
@@ -231,40 +291,72 @@ class Settings(context: Context) {
         get() = if (prefs.contains("daily_limit")) prefs.getFloat("daily_limit", 0f).toDouble().takeIf { it > 0 } else DEFAULT_DAILY_LIMIT
         set(value) = prefs.edit().putFloat("daily_limit", (value ?: 0.0).toFloat()).apply()
 
-    /** Merge a task's pull request once its checks pass. */
-    var autoMerge: Boolean
-        get() = prefs.getBoolean("auto_merge", true)
-        set(value) = prefs.edit().putBoolean("auto_merge", value).apply()
+    /** Monthly spending cap in US dollars, or null for none. Applies on top of the daily limit; off by default. */
+    var monthlyLimitUsd: Double?
+        get() = prefs.getFloat("monthly_limit", 0f).toDouble().takeIf { it > 0 }
+        set(value) = prefs.edit().putFloat("monthly_limit", (value ?: 0.0).toFloat()).apply()
 
-    /** Send failing checks on a task's pull request back to Claude without asking. */
-    var autoFixChecks: Boolean
-        get() = prefs.getBoolean("auto_fix_checks", true)
-        set(value) = prefs.edit().putBoolean("auto_fix_checks", value).apply()
+    /** Each repo's own settings, keyed by full name. Repos missing here use [RepoSettings]' defaults. */
+    val repoSettings: Map<String, RepoSettings>
+        get() = prefs.getString("repo_settings", null)
+            ?.let { runCatching { json.decodeFromString(repoSettingsSerializer, it) }.getOrNull() } ?: emptyMap()
 
-    /** Have Claude resolve merge conflicts on a task's pull request without asking. */
-    var autoFixConflicts: Boolean
-        get() = prefs.getBoolean("auto_fix_conflicts", true)
-        set(value) = prefs.edit().putBoolean("auto_fix_conflicts", value).apply()
+    fun repoSettings(repo: RepoRef): RepoSettings = RepoSettings.of(repoSettings, repo)
 
-    /** When auto-release was switched on, or null when it's off. */
-    var autoReleaseSince: Long?
-        get() = prefs.getLong("auto_release_since", 0L).takeIf { it > 0 }
-        set(value) = prefs.edit().apply {
-            if (value == null) remove("auto_release_since") else putLong("auto_release_since", value)
-        }.apply()
+    @Synchronized
+    fun setRepoSettings(repo: RepoRef, settings: RepoSettings) {
+        val others = repoSettings.filterKeys { !it.equals(repo.fullName, ignoreCase = true) }
+        prefs.edit().putString("repo_settings", json.encodeToString(repoSettingsSerializer, others + (repo.fullName to settings))).apply()
+    }
+
+    /**
+     * The pull request switches used to be global. Copies them onto every saved repo that has no settings of its
+     * own, once, so nothing changes for repos added before per-repo settings.
+     */
+    @Synchronized
+    fun moveGlobalRepoSettings(repos: List<RepoRef>) {
+        if (LEGACY_REPO_KEYS.none { prefs.contains(it) }) return
+        val legacy = RepoSettings(
+            autoMerge = prefs.getBoolean("auto_merge", true),
+            autoFixChecks = prefs.getBoolean("auto_fix_checks", true),
+            autoFixConflicts = prefs.getBoolean("auto_fix_conflicts", true),
+            autoReleaseSince = prefs.getLong("auto_release_since", 0L).takeIf { it > 0 },
+        )
+        val seeded = RepoSettings.seed(repoSettings, repos, legacy)
+        prefs.edit()
+            .putString("repo_settings", json.encodeToString(repoSettingsSerializer, seeded))
+            .apply { LEGACY_REPO_KEYS.forEach { remove(it) } }
+            .apply()
+    }
 
     /** What Claude has cost today, by the phone's local date. Resets at midnight. */
     @get:Synchronized
     val spentTodayUsd: Double
         get() = if (prefs.getString("spend_day", null) == today()) prefs.getFloat("spend_usd", 0f).toDouble() else 0.0
 
+    /** What Claude has cost this calendar month, by the phone's local date: every day's spend added up. */
+    @get:Synchronized
+    val spentThisMonthUsd: Double
+        get() = when (prefs.getString("spend_month", null)) {
+            thisMonth() -> prefs.getFloat("spend_month_usd", 0f).toDouble()
+            // Builds before the monthly total only kept today's, so the month starts from that.
+            null -> spentTodayUsd
+            else -> 0.0
+        }
+
     @Synchronized
     fun addSpend(usd: Double) {
-        val total = spentTodayUsd + usd
-        prefs.edit().putString("spend_day", today()).putFloat("spend_usd", total.toFloat()).apply()
+        val day = spentTodayUsd + usd
+        val month = spentThisMonthUsd + usd
+        prefs.edit()
+            .putString("spend_day", today()).putFloat("spend_usd", day.toFloat())
+            .putString("spend_month", thisMonth()).putFloat("spend_month_usd", month.toFloat())
+            .apply()
     }
 
     private fun today() = java.time.LocalDate.now().toString()
+
+    private fun thisMonth() = java.time.YearMonth.now().toString()
 
     /**
      * Builds before this fix read the API's cents as dollars, so saved costs are 100 times too high.
@@ -287,7 +379,7 @@ class Settings(context: Context) {
     /** Model and effort for the spoken chat in the car. */
     var chatProfile: ChatProfile
         get() = ChatProfile(
-            model = ModelChoice.of(prefs.getString("chat_model", null)),
+            model = ChatModel.of(prefs.getString("chat_model", null)),
             effort = EffortChoice.of(prefs.getString("chat_effort", null), EffortChoice.Low),
         )
         set(value) = prefs.edit().putString("chat_model", value.model.id).putString("chat_effort", value.effort.name).apply()
@@ -316,9 +408,14 @@ class Settings(context: Context) {
          * drive times (counted per device), the agent setup (tied to each device's key), and sync itself.
          */
         val SYNCED_KEYS = setOf(
-            "read_aloud", "theme_mode", "accent", "quiet_mode", "daily_limit", "auto_merge", "auto_fix_checks",
-            "auto_fix_conflicts", "auto_release_since", "agent_profile", "chat_model", "chat_effort", "speech_rate",
-            "listen_on_open", "briefing", "remember_chats",
+            "read_aloud", "theme_mode", "accent", "quiet_mode", "daily_limit", "monthly_limit", "repo_settings",
+            "agent_profile", "chat_model", "chat_effort", "speech_rate", "listen_on_open", "listen_until_stop", "briefing",
+            "remember_chats",
         )
+
+        /** The global pull request switches from before per-repo settings, moved onto each repo by [moveGlobalRepoSettings]. */
+        private val LEGACY_REPO_KEYS = listOf("auto_merge", "auto_fix_checks", "auto_fix_conflicts", "auto_release_since")
+
+        private val repoSettingsSerializer = MapSerializer(String.serializer(), RepoSettings.serializer())
     }
 }

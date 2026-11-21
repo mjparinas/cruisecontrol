@@ -21,7 +21,7 @@ data class TaskTemplate(
             ),
             TaskTemplate(
                 "fix-lint", "Fix lint",
-                "Run the project's linters and formatters and fix every warning and error they report, without changing behavior. " +
+                "Run the project's linters and formatters and fix every warning and error they report, without changing behaviour. " +
                     "Run the tests afterwards.",
             ),
             TaskTemplate(

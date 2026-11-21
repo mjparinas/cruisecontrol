@@ -2,6 +2,8 @@ package dev.aiauto.update
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -110,14 +112,42 @@ class Updater(private val context: Context, private val scope: CoroutineScope) {
         val apk = File(dir, "aiauto-${update.tag}.apk")
         http.newCall(Request.Builder().url(update.apkUrl).build()).execute().use { response ->
             if (!response.isSuccessful) throw IllegalStateException("The download failed (HTTP ${response.code}).")
-            val body = response.body ?: throw IllegalStateException("The download was empty.")
-            apk.outputStream().use { out -> body.byteStream().copyTo(out) }
+            apk.outputStream().use { out -> response.body.byteStream().copyTo(out) }
         }
         if (update.apkSize > 0 && apk.length() != update.apkSize) {
             apk.delete()
             throw IllegalStateException("The download was cut off. Try again.")
         }
+        if (!signedLikeThisApp(apk)) {
+            apk.delete()
+            throw IllegalStateException("The download isn't signed with this app's key, so it wasn't installed.")
+        }
         return apk
+    }
+
+    /**
+     * True unless the APK is plainly a different app or signed with a different key. Android's installer checks the
+     * key too, but stopping here keeps a tampered download from ever reaching the install prompt. When the signature
+     * can't be read on this phone, the installer's own check decides.
+     */
+    private fun signedLikeThisApp(apk: File): Boolean = runCatching {
+        val pm = context.packageManager
+        val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else @Suppress("DEPRECATION") PackageManager.GET_SIGNATURES
+        val archive = pm.getPackageArchiveInfo(apk.path, flags) ?: return@runCatching true
+        if (archive.packageName != context.packageName) return@runCatching false
+        val theirs = signers(archive)
+        val ours = signers(pm.getPackageInfo(context.packageName, flags))
+        theirs.isEmpty() || ours.isEmpty() || theirs.any { it in ours }
+    }.getOrDefault(true)
+
+    private fun signers(info: PackageInfo): Set<String> {
+        val certs = if (Build.VERSION.SDK_INT >= 28) {
+            val signing = info.signingInfo ?: return emptySet()
+            if (signing.hasMultipleSigners()) signing.apkContentsSigners else signing.signingCertificateHistory
+        } else {
+            @Suppress("DEPRECATION") info.signatures
+        }
+        return certs.orEmpty().map { it.toCharsString() }.toSet()
     }
 
     private fun openInstaller(apk: File) {
