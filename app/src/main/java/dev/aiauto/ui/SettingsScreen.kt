@@ -75,6 +75,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import dev.aiauto.core.RepoRef
 import dev.aiauto.core.SpokenStatus
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import dev.aiauto.core.SettingsSearch
 
 data class SettingsState(
     val hasAnthropicKey: Boolean,
@@ -142,6 +149,8 @@ fun SettingsScreen(
     onSyncNow: () -> Unit = {},
 ) {
     var dialog by remember { mutableStateOf<SettingsDialog?>(null) }
+    var query by rememberSaveable { mutableStateOf("") }
+    val search = SettingsSearch(query)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -153,121 +162,144 @@ fun SettingsScreen(
             )
         },
     ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .consumeWindowInsets(padding)
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 24.dp),
-        ) {
-            // Up top, so the result of a dialog's Save is in view without scrolling.
-            state.message?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
-                )
-            }
+        CompositionLocalProvider(LocalSettingsSearch provides search) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .consumeWindowInsets(padding)
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+            ) {
+                SettingsSearchField(query) { query = it }
+                if (search.nothingFound) Note("No settings match \"${query.trim()}\".")
 
-            SectionHeader("Accounts")
-            SettingsCard {
-                SettingRow(
-                    Icons.Rounded.Key, BadgeHue.Amber, "Claude API key",
-                    if (state.hasAnthropicKey) "Saved" else "Not set. Create one at platform.claude.com.",
-                    enabled = !state.busy,
-                ) { dialog = SettingsDialog.AnthropicKey }
-                SettingRow(
-                    Icons.Rounded.Code, BadgeHue.Violet, "GitHub token",
-                    if (state.hasGithubToken) "Saved" else "Not set",
-                    enabled = !state.busy,
-                ) { dialog = SettingsDialog.GithubToken }
-            }
+                // Up top, so the result of a dialog's Save is in view without scrolling.
+                state.message?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
+                    )
+                }
 
-            SectionHeader("Repositories")
-            SettingsCard {
-                state.repos.forEach { repo -> SettingRow(Icons.Rounded.FolderOpen, BadgeHue.Blue, repo.fullName) }
-                SettingRow(
-                    Icons.Rounded.Add, BadgeHue.Green, "Add repositories",
-                    if (state.hasGithubToken) "Pick from your GitHub account" else "Save a GitHub token first",
-                    enabled = !state.busy && state.hasGithubToken,
-                ) { dialog = SettingsDialog.PickRepos }
-            }
+                SearchableSection("Accounts") {
+                    SectionHeader("Accounts")
+                    SettingsCard {
+                        SettingRow(
+                            Icons.Rounded.Key, BadgeHue.Amber, "Claude API key",
+                            if (state.hasAnthropicKey) "Saved" else "Not set. Create one at platform.claude.com.",
+                            enabled = !state.busy,
+                        ) { dialog = SettingsDialog.AnthropicKey }
+                        SettingRow(
+                            Icons.Rounded.Code, BadgeHue.Violet, "GitHub token",
+                            if (state.hasGithubToken) "Saved" else "Not set",
+                            enabled = !state.busy,
+                        ) { dialog = SettingsDialog.GithubToken }
+                    }
+                }
 
-            SectionHeader("In the car")
-            SettingsCard {
-                SwitchRow(
-                    Icons.AutoMirrored.Rounded.VolumeUp, BadgeHue.Teal, "Read updates aloud",
-                    "Speaks each update through the car while Android Auto is connected.",
-                    state.readAloud, onReadAloud,
-                )
-                SwitchRow(
-                    Icons.Rounded.NotificationsPaused, BadgeHue.Blue, "Quiet mode",
-                    "Only tells you the result of each request, not every step along the way.",
-                    state.quietMode, onQuietMode,
-                )
-                VoiceRows(state.speechRate, state.voiceName, voices, onSpeechRate, onVoice, onPreviewVoice)
-                CarStartRows(
-                    state.listenOnOpen, state.briefing, state.rememberChats,
-                    onListenOnOpen, onBriefing, onRememberChats, onForgetChats,
-                )
-            }
+                SearchableSection("Repositories") {
+                    SectionHeader("Repositories")
+                    SettingsCard {
+                        state.repos.forEach { repo -> SettingRow(Icons.Rounded.FolderOpen, BadgeHue.Blue, repo.fullName) }
+                        SettingRow(
+                            Icons.Rounded.Add, BadgeHue.Green, "Add repositories",
+                            if (state.hasGithubToken) "Pick from your GitHub account" else "Save a GitHub token first",
+                            enabled = !state.busy && state.hasGithubToken,
+                        ) { dialog = SettingsDialog.PickRepos }
+                    }
+                }
 
-            ClaudeSettingsSection(state.agentProfile, state.chatProfile, onAgentProfile, onChatProfile)
+                SearchableSection("In the car") {
+                    SectionHeader("In the car")
+                    SettingsCard {
+                        SwitchRow(
+                            Icons.AutoMirrored.Rounded.VolumeUp, BadgeHue.Teal, "Read updates aloud",
+                            "Speaks each update through the car while Android Auto is connected.",
+                            state.readAloud, onReadAloud,
+                        )
+                        SwitchRow(
+                            Icons.Rounded.NotificationsPaused, BadgeHue.Blue, "Quiet mode",
+                            "Only tells you the result of each request, not every step along the way.",
+                            state.quietMode, onQuietMode,
+                        )
+                        VoiceRows(state.speechRate, state.voiceName, voices, onSpeechRate, onVoice, onPreviewVoice)
+                        CarStartRows(
+                            state.listenOnOpen, state.briefing, state.rememberChats,
+                            onListenOnOpen, onBriefing, onRememberChats, onForgetChats,
+                        )
+                    }
+                }
 
-            SectionHeader("Pull requests")
-            SettingsCard {
-                SwitchRow(
-                    Icons.Rounded.DoneAll, BadgeHue.Green, "Merge when checks pass",
-                    "Turns on GitHub auto-merge when the repo allows it. Otherwise the app merges once every check is green. Failing checks are never merged.",
-                    state.autoMerge, onAutoMerge,
-                )
-                SwitchRow(
-                    Icons.Rounded.Sync, BadgeHue.Violet, "Fix merge conflicts automatically",
-                    "When a pull request conflicts with the main branch, Claude merges it in, resolves the conflicts and pushes, without asking first.",
-                    state.autoFixConflicts, onAutoFixConflicts,
-                )
-                SwitchRow(
-                    Icons.Rounded.Build, BadgeHue.Red, "Fix failing checks automatically",
-                    "When tests, the build or any other CI check fails, Claude fixes it and pushes, without asking first. Up to three tries per task before it asks you.",
-                    state.autoFixChecks, onAutoFixChecks,
-                )
-                SwitchRow(
-                    Icons.Rounded.NewReleases, BadgeHue.Amber, "Release when a PR is merged",
-                    "When a pull request from this app is merged, publishes a GitHub release with the next patch version, like v1.2.3 to v1.2.4.",
-                    state.autoRelease, onAutoRelease,
-                )
-            }
+                SearchableSection("Claude") {
+                    ClaudeSettingsSection(state.agentProfile, state.chatProfile, onAgentProfile, onChatProfile)
+                }
 
-            SectionHeader("Appearance")
-            SettingsCard {
-                SettingRow(Icons.Rounded.DarkMode, BadgeHue.Violet, "Theme", state.themeMode.label) { dialog = SettingsDialog.Theme }
-                AccentRow(state.accent, onAccent)
-            }
+                SearchableSection("Pull requests") {
+                    SectionHeader("Pull requests")
+                    SettingsCard {
+                        SwitchRow(
+                            Icons.Rounded.DoneAll, BadgeHue.Green, "Merge when checks pass",
+                            "Turns on GitHub auto-merge when the repo allows it. Otherwise the app merges once every check is green. Failing checks are never merged.",
+                            state.autoMerge, onAutoMerge,
+                        )
+                        SwitchRow(
+                            Icons.Rounded.Sync, BadgeHue.Violet, "Fix merge conflicts automatically",
+                            "When a pull request conflicts with the main branch, Claude merges it in, resolves the conflicts and pushes, without asking first.",
+                            state.autoFixConflicts, onAutoFixConflicts,
+                        )
+                        SwitchRow(
+                            Icons.Rounded.Build, BadgeHue.Red, "Fix failing checks automatically",
+                            "When tests, the build or any other CI check fails, Claude fixes it and pushes, without asking first. Up to three tries per task before it asks you.",
+                            state.autoFixChecks, onAutoFixChecks,
+                        )
+                        SwitchRow(
+                            Icons.Rounded.NewReleases, BadgeHue.Amber, "Release when a PR is merged",
+                            "When a pull request from this app is merged, publishes a GitHub release with the next patch version, like v1.2.3 to v1.2.4.",
+                            state.autoRelease, onAutoRelease,
+                        )
+                    }
+                }
 
-            SectionHeader("Spending")
-            SettingsCard {
-                SettingRow(
-                    Icons.Rounded.Savings, BadgeHue.Green, "Daily limit",
-                    "Spent today: ${SpokenStatus.money(state.spentTodayUsd)}" +
-                        (state.dailyLimitUsd?.let { " of ${SpokenStatus.money(it)}" } ?: ", no limit"),
-                ) { dialog = SettingsDialog.DailyLimit }
-            }
-            Note("Claude stops when today's total reaches the limit, counted at list price from what each session reports.")
+                SearchableSection("Appearance") {
+                    SectionHeader("Appearance")
+                    SettingsCard {
+                        SettingRow(Icons.Rounded.DarkMode, BadgeHue.Violet, "Theme", state.themeMode.label) { dialog = SettingsDialog.Theme }
+                        AccentRow(state.accent, onAccent)
+                    }
+                }
 
-            SyncSection(state.syncEnabled, state.syncStatus, state.busy, onSyncEnabled, onSyncNow)
+                SearchableSection("Spending") {
+                    SectionHeader("Spending")
+                    SettingsCard {
+                        SettingRow(
+                            Icons.Rounded.Savings, BadgeHue.Green, "Daily limit",
+                            "Spent today: ${SpokenStatus.money(state.spentTodayUsd)}" +
+                                (state.dailyLimitUsd?.let { " of ${SpokenStatus.money(it)}" } ?: ", no limit"),
+                        ) { dialog = SettingsDialog.DailyLimit }
+                    }
+                    Note("Claude stops when today's total reaches the limit, counted at list price from what each session reports.")
+                }
 
-            SectionHeader("About")
-            SettingsCard {
-                SettingRow(Icons.Rounded.Info, BadgeHue.Blue, "Cruise Control", "Version ${state.version}")
-                SettingRow(
-                    Icons.Rounded.SystemUpdate, BadgeHue.Teal, "Check for updates",
-                    "Looks for a newer release on GitHub",
-                    enabled = !state.busy,
-                    onClick = onCheckUpdate,
-                )
+                SearchableSection("Sync") {
+                    SyncSection(state.syncEnabled, state.syncStatus, state.busy, onSyncEnabled, onSyncNow)
+                }
+
+                SearchableSection("About") {
+                    SectionHeader("About")
+                    SettingsCard {
+                        SettingRow(Icons.Rounded.Info, BadgeHue.Blue, "Cruise Control", "Version ${state.version}")
+                        SettingRow(
+                            Icons.Rounded.SystemUpdate, BadgeHue.Teal, "Check for updates",
+                            "Looks for a newer release on GitHub",
+                            enabled = !state.busy,
+                            onClick = onCheckUpdate,
+                        )
+                    }
+                }
             }
         }
     }
@@ -323,11 +355,41 @@ fun SettingsScreen(
     }
 }
 
+/** Shows a section only when the search matches it, and tells its rows which section they're in. */
+@Composable
+private fun SearchableSection(name: String, content: @Composable () -> Unit) {
+    if (!LocalSettingsSearch.current.showsSection(name)) return
+    CompositionLocalProvider(LocalSettingsSection provides name) { content() }
+}
+
+/** The search box at the top of Settings: a pill on the card colour, like the reply box, with a clear button once something is typed. */
+@Composable
+private fun SettingsSearchField(query: String, onQuery: (String) -> Unit) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQuery,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        placeholder = { Text("Search settings") },
+        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+        trailingIcon = {
+            if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Rounded.Close, contentDescription = "Clear search") }
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(28.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedBorderColor = Color.Transparent,
+        ),
+    )
+}
+
 private enum class SettingsDialog { AnthropicKey, GithubToken, PickRepos, AddRepo, DailyLimit, Theme }
 
 /** Accent colour: a row of round swatches, the chosen one ticked. Each shrinks a little on a narrow phone rather than being cut off. */
 @Composable
 private fun AccentRow(selected: Accent, onPick: (Accent) -> Unit) {
+    if (!LocalSettingsSearch.current.showsRow(LocalSettingsSection.current, "Accent color")) return
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
