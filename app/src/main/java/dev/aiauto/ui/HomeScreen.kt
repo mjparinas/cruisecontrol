@@ -73,6 +73,7 @@ import dev.aiauto.core.SpokenStatus
 import dev.aiauto.core.Task
 import dev.aiauto.core.TaskStatus
 import dev.aiauto.core.needsYouFirst
+import dev.aiauto.core.runningCount
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,6 +97,7 @@ fun HomeScreen(
     val showArchived = tab == 1
     val (archived, active) = tasks.partition { it.archived }
     val shown = if (showArchived) archived else active.needsYouFirst()
+    val running = tasks.runningCount()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val archive: (Task) -> Unit = { task ->
@@ -132,7 +134,7 @@ fun HomeScreen(
         Column(Modifier.fillMaxSize().padding(padding)) {
             // A two-way pill switch, as Tuned's segmented choices, rather than tabs with an underline.
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                listOf("Active", if (archived.isEmpty()) "Archived" else "Archived (${archived.size})").forEachIndexed { i, label ->
+                listOf(if (running == 0) "Active" else "Active ($running)", if (archived.isEmpty()) "Archived" else "Archived (${archived.size})").forEachIndexed { i, label ->
                     SegmentedButton(
                         selected = tab == i,
                         onClick = { tab = i },
@@ -281,7 +283,7 @@ private fun TaskCard(task: Task, swipes: Set<CardSwipe>, onArchive: () -> Unit, 
                         modifier = Modifier.weight(1f),
                     )
                     Spacer(Modifier.width(8.dp))
-                    StatusPill(task.status, interrupted = task.interrupted)
+                    StatusPill(task)
                 }
                 Spacer(Modifier.height(4.dp))
                 Text(task.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)

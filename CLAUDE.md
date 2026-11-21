@@ -23,7 +23,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     `firstPrompt`.
   - `AgentProfile.kt` has the model, effort and standing rules picked in Settings (global). `RepoSettings.kt` has
     the per-repo settings: pull request switches and repo rules, read through `EngineConfig.repoSettings(repo)`.
-    `Models.kt` has `Task`, `RepoRef`, `AgentSetup` and friends.
+    `Models.kt` has `Task`, `RepoRef`, `AgentSetup` and friends, plus list helpers like `needsYouFirst` and
+    `runningCount` (the number on the phone's Active tab).
   - `GitHub.kt` is the REST client; `PullRequests.kt` follows checks, merges and auto-fixes; `Projects.kt` is
     the per-repo status view.
   - `Assistant.kt` is the spoken car chat, including the queue of questions asked with no signal, which
@@ -35,9 +36,10 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the
   Compose phone UI, `car/` is the Car App Library UI (its `VoiceInput` also serves the phone's prompt box when
   Keep listening until Stop is on; `core/Dictation.kt` decides when it listens again, sends or gives up),
-  `notify/` holds notifications and text-to-speech (`Speaker` holds new speech while `VoiceInput` listens, using
-  `core/SpeechHold.kt`),
-  `data/` holds the stores, encrypted secrets and sync, `widget/` is the home-screen widget. `data/Stores.kt`
+  `notify/` holds notifications, text-to-speech (`Speaker` holds new speech while `VoiceInput` listens, using
+  `core/SpeechHold.kt`) and `TonePlayer` (listening and thinking tones, made by `core/Tones.kt`),
+  `data/` holds the stores (including `AvailableRepoStore`, the cached repos the token can push to that
+  `Graph.repoChoices()` merges with saved repos for the pickers), encrypted secrets and sync, `widget/` is the home-screen widget. `data/Stores.kt`
   `Settings` keeps every setting in SharedPreferences; `SYNCED_KEYS` lists the ones that sync.
 - `docs/FEATURE_IDEAS.md` lists ideas; `docs/PLAY_STORE_RELEASE.md` is the plan for Google Play; `CHANGELOG.md` has
   release notes.
@@ -56,7 +58,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 
 - Cutting a release means moving CHANGELOG's Unreleased notes (plus any merged features they missed) into a version
   entry and pointing the README's release example at it; `ChangelogTest` checks both. After the pull request merges,
-  the owner runs the Release workflow with that version. The agent can't push tags.
+  the owner runs the Release workflow with that version. The agent can't push tags. If the newest changelog
+  version still has no tag (v0.8.0 didn't as of v0.7.20), fold the Unreleased notes into it instead of adding a new one.
 - Release when a PR is merged is on for this repo, so every merge publishes a patch tag. Check the real latest
   version with `git ls-remote --tags origin`. The local `main` branch can be stale: branch from `origin/main`.
 

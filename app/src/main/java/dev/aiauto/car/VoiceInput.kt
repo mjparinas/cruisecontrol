@@ -23,6 +23,7 @@ import androidx.car.app.media.CarAudioRecord
 import androidx.car.app.versioning.CarAppApiLevels
 import androidx.core.content.ContextCompat
 import dev.aiauto.core.Dictation
+import dev.aiauto.core.Tone
 import dev.aiauto.graph
 
 /**
@@ -32,6 +33,7 @@ import dev.aiauto.graph
  * are joined until [finish] is called. Errors before then, which the recognizer often gives while restarting or after
  * a stretch of silence, restart it too instead of ending or sending. On the phone, the caller asks for the microphone permission first.
  * Spoken updates are held from the start of listening until it ends, and read afterwards.
+ * A rising tone plays when listening starts and a falling one when it ends, once per go rather than on every restart.
  */
 class VoiceInput(private val context: Context) {
     private val carContext = context as? CarContext
@@ -50,6 +52,7 @@ class VoiceInput(private val context: Context) {
     private var dictation: Dictation? = null
     private var holdingSpeech = false
     private val main = Handler(Looper.getMainLooper())
+    private val tones = context.graph.tones
 
     fun listen(onText: (String) -> Unit, onError: (String) -> Unit, untilStopped: Boolean = false) {
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
@@ -80,6 +83,7 @@ class VoiceInput(private val context: Context) {
     }
 
     fun cancel() {
+        if (dictation != null) tones.play(Tone.ListenStop)
         dictation = null
         release()
         holdSpeech(false)
@@ -102,9 +106,10 @@ class VoiceInput(private val context: Context) {
     }
 
     private fun start(untilStopped: Boolean, onText: (String) -> Unit, onError: (String) -> Unit) {
-        cancel()
+        release()
         dictation = Dictation(untilStopped)
         holdSpeech(true)
+        tones.play(Tone.ListenStart)
         val useCarMic = Build.VERSION.SDK_INT >= 33 && (carContext?.carAppApiLevel ?: 0) >= CarAppApiLevels.LEVEL_5
         recognize(useCarMic, onText, onError)
     }
@@ -185,6 +190,7 @@ class VoiceInput(private val context: Context) {
         }
         dictation = null
         holdSpeech(false)
+        tones.play(Tone.ListenStop)
         when (step) {
             Dictation.Next.Send -> onText(d.text)
             Dictation.Next.NothingHeard -> onError("I didn't catch that.")

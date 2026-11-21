@@ -49,11 +49,15 @@ Driving safety comes first:
   send, both on the car screen and from the phone app's mic button, which then listens in the app instead of
   opening Google's speech dialog. Until Stop, recognizer errors restart listening too (up to 5 in a row), since
   it often fails after silence or while restarting, and an error must never send.
+- `VoiceInput` plays a rising tone when a go at listening starts and a falling one when it ends, not on each
+  restart until Stop. The car chat plays a soft cue 3 seconds into a slow answer and every 5 seconds after, at most
+  6 times. Tones use the assistant audio attributes, like the microphone, so music ducks. Their shape and timing
+  live in `core/src/main/kotlin/dev/aiauto/core/Tones.kt` so they are tested; there is no switch to turn them off.
 - Nothing is read aloud while the microphone is listening, so the car never talks over the driver or hears itself.
   `Speaker` holds new speech (up to 5 lines, oldest dropped) from when `VoiceInput` starts until it ends, across
   restarts, and then reads it. `core/src/main/kotlin/dev/aiauto/core/SpeechHold.kt` holds the logic.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
-- Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet) are handled by the app without starting a Claude turn.
+- Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet, undo that, start over) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
 - A merge the driver asks for always asks for confirmation first, and the car assistant only merges on a yes in a
   later turn. The app only merges on its own when Merge when checks pass is on. Failing checks, conflicting pull
@@ -109,6 +113,10 @@ Tasks, repos and sync:
 - Repos are added from the list of repos the token can push to, several at once, by typing owner/name, or by saying
   the name to the car assistant. Removing a repo needs a confirmation, leaves running tasks alone and changes nothing
   on GitHub.
+- A new task can start in any repo the token can push to, not only saved ones (PR 83). The phone and car pickers and
+  the car chat use `RepoRef.choices`: repos with tasks first, newest task first, then saved repos, then the rest in
+  GitHub's most recently pushed order. The token's list is cached on the device so the car picker opens without
+  waiting on GitHub; it isn't synced, and saved repos still decide what Projects shows and what syncs.
 - Sync across devices is opt-in and lives in a private repo named cruise-control-sync on the token owner's account.
   It never holds the API keys, GitHub token, voice, spending total or agent setup. Sync refuses to write to a public
   repo. It replaced a secret gist (PR 58) because anyone with a gist's link can read it.
@@ -251,9 +259,17 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- PR 84: Spoken updates wait while the microphone is listening and are read once it stops.
+- v0.8.0 was still untagged after PR 79, so everything merged since went into its changelog entry instead of a new
+  version, and `ChangelogTest` now also checks that every version entry has notes.
+- PR 83: Every repo the token can push to is offered for new tasks, most recently used first, in the phone and car
+  pickers and the car chat. Saving a repo is no longer needed to start a task there.
+- PR 90: A task isn't shown as Done while its open pull request's checks are running or not yet read. Its status
+  pill says Checks running in amber, the colour already used for pending checks (`Task.checksRunning`).
+- PR 89: Listening and thinking tones, so the driver can tell the microphone opened or closed, or that Claude is
+  still answering, without looking at the screen.
 - Car chat questions asked with no signal are queued in `Assistant` and answered when the network comes back,
   instead of failing.
-- PR 84: Spoken updates wait while the microphone is listening and are read once it stops.
 - PR 82: Every task reads the repo's README.md, CLAUDE.md and AGENTS.md before anything else, asked for in the
   first prompt.
 - PR 81: Keep listening until Stop restarts on recognizer errors instead of stopping or sending, so silence at
