@@ -109,9 +109,6 @@ the `AgentClient` interface, with the same budget and token protections, rather 
   home screen.
 - **Task history search.** Search past requests and pull requests across repos, including archived tasks, from the
   phone's task list.
-- **Check the spoken text before it's sent.** On the phone, the mic button in the prompt box sends what the recognizer
-  heard right away. Putting it in the box first, so you can fix a misheard word and tap Send, suits the phone, where
-  you can look. The car keeps sending straight away.
 - **Setup checklist.** Setup has six steps across three apps, and a missed one shows up later as a silent failure. A
   checklist in Settings could tick off what the app can check itself (API key works, token can push to each repo and
   read checks, notifications and microphone allowed, battery optimization off) and link to the fix for each one.

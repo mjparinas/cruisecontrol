@@ -97,9 +97,16 @@ class DictationTest {
     }
 
     @Test
-    fun spokenWordsFollowWhatWasTyped() {
-        assertEquals("add dark mode", Dictation.afterTyped("", "add dark mode"))
-        assertEquals("add dark mode", Dictation.afterTyped("  ", " add dark mode "))
-        assertEquals("in the settings add dark mode", Dictation.afterTyped("in the settings ", "add dark mode"))
+    fun theHintSaysHowListeningEnds() {
+        assertEquals("Listening. Tap Stop when you're done.", Dictation.listeningHint(untilStopped = true))
+        assertEquals("Listening. It sends when you stop talking.", Dictation.listeningHint(untilStopped = false))
+    }
+
+    @Test
+    fun stopBeforeAPauseSendsWhatWasHeardWhenNotListeningUntilStopped() {
+        val d = Dictation(untilStopped = false)
+        d.stop()
+        assertEquals(Dictation.Next.Send, d.pause("add dark mode"))
+        assertEquals("add dark mode", d.text)
     }
 }
