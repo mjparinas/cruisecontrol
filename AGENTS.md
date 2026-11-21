@@ -191,7 +191,8 @@ Security:
 - Releases come from the Release workflow (`.github/workflows/release.yml`), started from the Actions tab or by
   pushing a tag like v0.8.0. The version name comes from the tag and the version code from the run number, so
   nothing is bumped in code. Releases are signed with the key in the repo secrets. `CHANGELOG.md` gets an entry per
-  release.
+  release, newest first, and the README's release example names the newest one (`ChangelogTest` checks both).
+  Release when a PR is merged is on for this repo, so merges publish patch tags between hand-cut minor releases.
 - Feature ideas live in `docs/FEATURE_IDEAS.md`. The Play Store release plan lives in `docs/PLAY_STORE_RELEASE.md`.
 
 ## Pinned versions
