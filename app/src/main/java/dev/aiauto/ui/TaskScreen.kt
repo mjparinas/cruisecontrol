@@ -77,6 +77,7 @@ fun TaskScreen(
     onArchive: () -> Unit,
     onUnarchive: () -> Unit,
     onMerge: () -> Unit,
+    listenUntilStop: Boolean = false,
     onSend: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -142,7 +143,7 @@ fun TaskScreen(
                     LinearProgressIndicator(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary)
                 }
                 if (task.status == TaskStatus.Failed) StoppedBanner(task, onRetry)
-                PromptBar(placeholder = "Ask for a change…", onSend = onSend)
+                PromptBar(placeholder = "Ask for a change…", listenUntilStop = listenUntilStop, onSend = onSend)
             }
         },
     ) { padding ->

@@ -123,8 +123,9 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
   talking. Android Auto doesn't let other apps take over the voice button itself.
 - **Keep listening until Stop** (off by default): pauses don't end what you're saying. The car screen keeps listening
   through them and joins your words until you tap **Stop**, which sends them. It works on **Talk**, **New task** and
-  **Reply**. With it on, saying nothing no longer ends the conversation; tap **Stop** instead. The phone's own mic
-  button still uses Google's speech dialog, which stops at the first pause.
+  **Reply**. With it on, saying nothing no longer ends the conversation; tap **Stop** instead. The mic button in the
+  phone app's prompt box follows it too: instead of Google's speech dialog, which sends at the first pause, the app
+  listens itself and the mic turns into a Stop button that sends what you said, after anything you typed.
 - **Briefing when you get in** (on by default): when the phone connects to the car, Claude reads what happened
   since your last drive, up to a day back: merged pull requests, finished and failed tasks, questions waiting for
   you and what you've spent today. If the car screen is open it reads it there, then listens.
@@ -188,6 +189,8 @@ has the Contents permission this needs.
 - Google Play doesn't accept general AI or productivity apps for Android Auto. The full car UI is for personal
   installs and Play's internal and closed testing tracks. [docs/PLAY_STORE_RELEASE.md](docs/PLAY_STORE_RELEASE.md)
   has the plan for releasing on Play: the car build on the testing tracks and a phone-only build in production.
+  It also covers four honest ways to go further: open the closed track to everyone through a Google Group, keep the
+  production app hands-free over Bluetooth, add real person-to-person messaging, or wait for new car categories.
 - Costs are list prices as each session reports them, so they can differ a little from your invoice. The daily
   total is counted on this phone and resets at local midnight.
 - The app's own merge-when-green only works while the app is alive, for up to three hours after a pull request

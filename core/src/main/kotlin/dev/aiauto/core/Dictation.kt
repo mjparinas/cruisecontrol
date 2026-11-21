@@ -31,4 +31,9 @@ class Dictation(private val untilStopped: Boolean) {
 
     /** Voice input broke. Sends what was already heard rather than dropping it. */
     fun broke(): Next = if (parts.isEmpty()) Next.Failed else Next.Send
+
+    companion object {
+        /** What was said, added after anything already typed in the phone's prompt box, as one request. */
+        fun afterTyped(typed: String, spoken: String): String = "${typed.trim()} ${spoken.trim()}".trim()
+    }
 }
