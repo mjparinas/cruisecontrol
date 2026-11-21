@@ -383,22 +383,35 @@ class ClaudeAgents(apiKey: String) : AgentClient {
 
     companion object {
         const val REPO_PATH = "/workspace/repo"
+        /** Notes on the repository that Claude reads at the start of each task and keeps up to date. */
+        const val NOTES_FILE = "CLAUDE.md"
         private val ASK = Optional.of(BetaManagedAgentsAgentEvaluatedPermission.ASK)
 
         /**
-         * The first message of a task: the user's spoken request plus the branch rules. It's sent with every new
-         * task, unlike the system prompt, which agents saved before a change keep using.
+         * The first message of a task: the user's spoken request plus the branch rules and [repoRules], the rules
+         * set for this repo in Settings. It's sent with every task, not baked into the agent, so agents made before
+         * a change here pick it up too, and each repo's rules reach only that repo's tasks.
          */
-        fun firstPrompt(task: Task, request: String): String = """
+        fun firstPrompt(task: Task, request: String, repoRules: List<String> = emptyList()): String {
+            val rules = if (repoRules.isEmpty()) "" else
+                "\n\nRules from the user for this repository, to follow on every task in it unless the request says otherwise:\n" +
+                    repoRules.joinToString("\n") { "- $it" }
+            return instructions(task) + rules + "\n\nRequest (spoken while driving, so it may contain transcription mistakes):\n" + request
+        }
+
+        private fun instructions(task: Task): String = """
             Repository: ${task.repo.fullName}, cloned at $REPO_PATH.
             Work on a new branch named `${task.branch}` created from `${task.repo.defaultBranch}`.
             Commit your changes and push the branch to origin. Don't open a pull request; the app does that.
 
-            Before anything else, read README.md, CLAUDE.md and AGENTS.md at the repository root, whichever exist,
+            Before anything else, read README.md, $NOTES_FILE and AGENTS.md at the repository root, whichever exist,
             and follow what they say about the project, how to build and test it, and its conventions.
 
-            Request (spoken while driving, so it may contain transcription mistakes):
-            $request
+            Repository notes: if `$NOTES_FILE` exists at the repository root, read it first. It holds what earlier
+            tasks learned about this repository, so rely on it instead of exploring the whole repository again,
+            and only look further for what the request needs. If it's missing, create it. If it's wrong or your
+            change makes it out of date, fix it. Keep it short: what the project is, where things live, how to
+            build and test it, and its conventions. Commit it with your change.
         """.trimIndent()
 
         val SYSTEM_PROMPT = """
@@ -415,6 +428,8 @@ class ClaudeAgents(apiKey: String) : AgentClient {
             How to talk:
             - Everything you write is read aloud. Write plain sentences: no markdown, no code blocks,
               no file paths unless they matter, no lists.
+            - Use Canadian spelling, such as colour, centre, cancelled and organize, in your messages,
+              commit messages and pull request text.
             - Send at most a short sentence when you start a major step.
             - End every turn with one or two sentences that say what you changed and whether tests passed.
         """.trimIndent()

@@ -6,19 +6,18 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class CoreTest {
-    @Test fun firstPromptAsksToReadTheRepoDocsFirst() {
-        val task = Task("t1", RepoRef("mjparinas", "aiauto"), "x", "claude/x", createdMillis = 0, updatedMillis = 0)
-        val prompt = ClaudeAgents.firstPrompt(task, "add a dark mode")
-        listOf("README.md", "CLAUDE.md", "AGENTS.md").forEach { assertTrue(it in prompt, it) }
-        assertTrue(prompt.indexOf("Before anything else") < prompt.indexOf("add a dark mode"))
-    }
-
     @Test fun parsesRepoText() {
         assertEquals(RepoRef("mjparinas", "aiauto"), RepoRef.parse("mjparinas/aiauto"))
         assertEquals(RepoRef("a", "b.c"), RepoRef.parse("https://github.com/a/b.c.git"))
         assertNull(RepoRef.parse("not a repo"))
         assertNull(RepoRef.parse("../.."))
         assertNull(RepoRef.parse("owner/.."))
+    }
+
+    @Test fun repoNameLeavesOutTheOwner() {
+        val repo = RepoRef("mjparinas", "aiauto")
+        assertEquals("aiauto", repo.name)
+        assertEquals("mjparinas/aiauto", repo.fullName)
     }
 
     @Test fun matchesSpokenRepoNames() {

@@ -2,7 +2,7 @@ package dev.aiauto.core
 
 /**
  * Short replies the app handles itself instead of sending to Claude, so common actions
- * work instantly and don't cost a turn. Anything longer or unrecognised goes to Claude.
+ * work instantly and don't cost a turn. Anything longer or unrecognized goes to Claude.
  */
 enum class VoiceCommand {
     Stop, Status, Merge, FixBuild, Yes, No;
