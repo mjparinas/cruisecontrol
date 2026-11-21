@@ -19,6 +19,33 @@ These started on this list and are now in the app. See the README for how they w
 
 ## Still missing
 
+### Easier in the car
+
+- **Listening and thinking tones.** Today the only sign that the microphone opened, closed or that Claude is still
+  thinking is text on the car screen. A short tone when `VoiceInput` starts and stops listening, and a soft cue when
+  an answer takes more than a few seconds, would let the driver keep their eyes on the road. Use the same assistant
+  audio attributes as the microphone so the tones duck music like speech does.
+- **Read back a new task before it starts.** A task spoken from Tasks > New task starts as soon as the recognizer
+  returns, so a misheard request still costs a session. Saying "Starting: add a dark mode toggle, in aiauto" with a
+  few seconds to say "cancel" or tap Cancel would catch transcription slips. The read-back text and the cancel window
+  belong in `core` so they can be tested.
+- **Hold spoken updates while the microphone is open.** `ListenScreen` and `MicScreen` stop the speaker when they
+  start listening, but a task message or progress note that arrives mid-sentence is read out straight away, talks over
+  the driver and can end up in the transcript. `Speaker` could queue new speech while listening and play it after.
+- **"Repeat that" and "quiet".** Two more quick commands in `VoiceCommand`, also for the car chat. "Repeat that"
+  replays the last thing the app said, for when a turn or a passenger drowned it out. "Quiet" turns on quiet mode
+  for the rest of the drive, so only results and alerts are read out, without a trip to Settings.
+- **Every repo reachable in the car, last used first.** `PickRepoScreen` lists the first six saved repos in the order
+  they were added, so a seventh can't be picked in the car at all. Sorting by last used, and asking the host for its
+  real list size with `ConstraintManager.getContentLimit` instead of a fixed six (also in `TasksScreen` and
+  `TemplatesScreen`), would fix both.
+- **Hand-off when you park.** When the phone disconnects from the car, post one phone notification that sums up what
+  is still going: "2 tasks still running, PR 12 is ready to review". Tapping it opens the task list, so nothing
+  started on the drive is forgotten once you're out of the car.
+- **Steering-wheel button (experiment).** A media session would let the wheel's play or next button start Talk or
+  replay the last update. It also makes Android Auto treat the app as a media app, with its own audio screen, so
+  try it behind a setting before relying on it.
+
 ### Close the loop by voice
 
 - **Failing log tail in "fix it".** Today "fix it" sends Claude only the names of the failing checks, so Claude has to
@@ -77,3 +104,19 @@ These started on this list and are now in the app. See the README for how they w
   home screen.
 - **Task history search.** Search past requests and pull requests across repos, including archived tasks, from the
   phone's task list.
+- **Check the spoken text before it's sent.** On the phone, the mic button in the prompt box sends what the recognizer
+  heard right away. Putting it in the box first, so you can fix a misheard word and tap Send, suits the phone, where
+  you can look. The car keeps sending straight away.
+- **Setup checklist.** Setup has six steps across three apps, and a missed one shows up later as a silent failure. A
+  checklist in Settings could tick off what the app can check itself (API key works, token can push to each repo and
+  read checks, notifications and microphone allowed, battery optimization off) and link to the fix for each one.
+  Android Auto's Unknown sources can't be read, so that step stays a tip.
+- **Share to Cruise Control.** Accept text and links from other apps' Share menu, such as a GitHub issue, a crash
+  message or a Slack thread, and open New task with it filled in. It needs an `ACTION_SEND` intent filter on
+  `MainActivity`.
+- **Launcher shortcuts and a quick settings tile.** Long-pressing the app icon could offer New task, Talk to Claude
+  and the last-used repo. A quick settings tile could start a task or switch read aloud on and off. Both are small
+  and work on any phone, unlike the Google Assistant shortcut.
+- **Buttons on the result notification.** When a task's pull request opens or its checks pass, the notification
+  only offers Reply. Adding Open pull request and, when checks are green, Merge (with the same confirmation as in the
+  app) would save opening the app for the most common next step.
