@@ -35,6 +35,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 ## Build and test
 
 - `./gradlew :core:test` runs the core unit tests and needs only a JDK. The few app tests need the Android SDK.
+- The agent sandbox has no Android SDK, so only `:core:test` runs there. Its first run downloads from Maven Central,
+  which sometimes answers 429 Too Many Requests; just run it again.
 - `./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug` is what CI runs (needs the Android SDK,
   API 37.2). Lint only reports. Without an SDK, install the command-line tools from dl.google.com, run
   sdkmanager for `platforms;android-37.2` and set `ANDROID_HOME`. Maven Central may answer 429; just rerun.
