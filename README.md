@@ -57,8 +57,9 @@ either switch off, the app asks first, and you can say yes or "fix it".
 These switches, and **Release when a PR is merged**, are set for each repo: see [Per-repo settings](#per-repo-settings).
 
 You can **Stop** a working task, **Clear** one, or clear every finished task at once. On the phone's task list,
-swipe a card right to archive it (with undo) or left to clear it (the app asks first). Each task shows what it has
-cost so far, and a **daily limit** (default $20, set in Settings) stops Claude when the day's total reaches it.
+swipe a card right to archive it (with undo) or left to clear it (the app asks first). On the Archived tab, swipe a
+card left to clear it for good, again after the app asks. Each task shows what it has cost so far, and a **daily
+limit** (default $20, set in Settings) stops Claude when the day's total reaches it.
 The limit is also set as the session's budget on Anthropic's side, so it holds even if the phone loses signal.
 
 While you're in the car, the app reads Claude's messages and short progress notes like "Building or testing"
@@ -125,8 +126,9 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
   talking. Android Auto doesn't let other apps take over the voice button itself.
 - **Keep listening until Stop** (off by default): pauses don't end what you're saying. The car screen keeps listening
   through them and joins your words until you tap **Stop**, which sends them. It works on **Talk**, **New task** and
-  **Reply**. With it on, saying nothing no longer ends the conversation; tap **Stop** instead. The phone's own mic
-  button still uses Google's speech dialog, which stops at the first pause.
+  **Reply**. With it on, saying nothing no longer ends the conversation; tap **Stop** instead. The mic button in the
+  phone app's prompt box follows it too: instead of Google's speech dialog, which sends at the first pause, the app
+  listens itself and the mic turns into a Stop button that sends what you said, after anything you typed.
 - **Briefing when you get in** (on by default): when the phone connects to the car, Claude reads what happened
   since your last drive, up to a day back: merged pull requests, finished and failed tasks, questions waiting for
   you and what you've spent today. If the car screen is open it reads it there, then listens.

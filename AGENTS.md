@@ -40,7 +40,9 @@ Driving safety comes first:
   review them while driving. The driver hears that a step was skipped and the task carries on.
 - Voice input sends as soon as the driver stops talking on the app's own car screen. The car screen opens on one big
   Talk button and starts listening when it opens. Android Auto's messaging view always asks for Send, which apps
-  can't turn off, so the app explains how to avoid it.
+  can't turn off, so the app explains how to avoid it. Keep listening until Stop (off by default) makes pauses not
+  send, both on the car screen and from the phone app's mic button, which then listens in the app instead of
+  opening Google's speech dialog.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
 - Short replies (status, stop, merge it, fix it, yes, no) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
@@ -85,6 +87,7 @@ Tasks, repos and sync:
 - One task is one Managed Agents session on one repo. Tasks that need a reply are listed first, and new tasks start
   on the last-used repo.
 - On the phone, swiping a task card right archives it with undo, and swiping left clears it after asking (PR 65).
+  On the Archived tab, swiping left clears an archived task after asking; there's no right swipe there.
   Archived tasks are hidden from the car and the voice assistant.
 - Repos are added from the list of repos the token can push to, several at once, by typing owner/name, or by saying
   the name to the car assistant. Removing a repo needs a confirmation, leaves running tasks alone and changes nothing
@@ -220,8 +223,11 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
-- Per-repo settings (the PR after 70): the pull request switches moved from global to each repo, and each repo can
+- PR 76: Per-repo settings. The pull request switches moved from global to each repo, and each repo can
   have its own rules for Claude, sent in the first prompt. Global and per-repo settings don't overlap.
+- PR 74: The phone app's mic button follows Keep listening until Stop too, listening in the app with the same
+  `VoiceInput` as the car and a Stop button, instead of Google's speech dialog.
+- PR 71: Archived task cards can be cleared by swiping left, after asking.
 - PR 69: Every dependency moved to its latest stable release, including Gradle 9, Android Gradle Plugin 9,
   compileSdk 37.2, OkHttp 5 and Car App 1.7. targetSdk stays 35 and setup-gradle stays on v5.
 - PR 68: Added this file and `AgentsDocTest` to keep a checked record of decisions, imported from `CLAUDE.md`.

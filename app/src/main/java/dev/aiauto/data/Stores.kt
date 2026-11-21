@@ -266,7 +266,7 @@ class Settings(context: Context) {
         get() = prefs.getBoolean("listen_on_open", true)
         set(value) = prefs.edit().putBoolean("listen_on_open", value).apply()
 
-    /** Keep listening through pauses in the car until the driver taps Stop, instead of sending at the first pause. */
+    /** Keep listening through pauses, in the car and from the phone's mic button, until Stop, instead of sending at the first pause. */
     var listenUntilStop: Boolean
         get() = prefs.getBoolean("listen_until_stop", false)
         set(value) = prefs.edit().putBoolean("listen_until_stop", value).apply()

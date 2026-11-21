@@ -53,4 +53,11 @@ class DictationTest {
         assertEquals(Dictation.Next.Send, d.broke())
         assertEquals("fix the login bug", d.text)
     }
+
+    @Test
+    fun spokenWordsFollowWhatWasTyped() {
+        assertEquals("add dark mode", Dictation.afterTyped("", "add dark mode"))
+        assertEquals("add dark mode", Dictation.afterTyped("  ", " add dark mode "))
+        assertEquals("in the settings add dark mode", Dictation.afterTyped("in the settings ", "add dark mode"))
+    }
 }

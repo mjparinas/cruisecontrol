@@ -1,6 +1,7 @@
 package dev.aiauto.car
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
@@ -22,12 +23,14 @@ import androidx.core.content.ContextCompat
 import dev.aiauto.core.Dictation
 
 /**
- * Speech to text started from the car screen. Uses the car's microphone when the host supports it
- * (car API 5 and Android 13+), and the phone's microphone otherwise. With untilStopped, pauses don't end it:
- * listening restarts after each one and the words are joined until [finish] is called.
+ * Speech to text started from the car screen, or from the phone's prompt box with "Keep listening until Stop" on.
+ * In the car it uses the car's microphone when the host supports it (car API 5 and Android 13+), and the phone's
+ * microphone otherwise. With untilStopped, pauses don't end it: listening restarts after each one and the words
+ * are joined until [finish] is called. On the phone, the caller asks for the microphone permission first.
  */
-class VoiceInput(private val carContext: CarContext) {
-    private val audio = carContext.getSystemService(AudioManager::class.java)
+class VoiceInput(private val context: Context) {
+    private val carContext = context as? CarContext
+    private val audio = context.getSystemService(AudioManager::class.java)
     private val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
         .setAudioAttributes(
             AudioAttributes.Builder()
@@ -42,17 +45,20 @@ class VoiceInput(private val carContext: CarContext) {
     private var dictation: Dictation? = null
 
     fun listen(onText: (String) -> Unit, onError: (String) -> Unit, untilStopped: Boolean = false) {
-        if (!SpeechRecognizer.isRecognitionAvailable(carContext)) {
+        if (!SpeechRecognizer.isRecognitionAvailable(context)) {
             onError("Speech recognition isn't available on this phone.")
             return
         }
-        if (ContextCompat.checkSelfPermission(carContext, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+        val car = carContext
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             start(untilStopped, onText, onError)
+        } else if (car == null) {
+            onError(MIC_PERMISSION)
         } else {
             runCatching {
-                carContext.requestPermissions(listOf(Manifest.permission.RECORD_AUDIO)) { granted, _ ->
+                car.requestPermissions(listOf(Manifest.permission.RECORD_AUDIO)) { granted, _ ->
                     if (Manifest.permission.RECORD_AUDIO in granted) start(untilStopped, onText, onError)
-                    else onError("Allow microphone access to talk to Claude.")
+                    else onError(MIC_PERMISSION)
                 }
             }.onFailure { onError("Open Cruise Control on your phone once to allow the microphone.") }
         }
@@ -83,7 +89,7 @@ class VoiceInput(private val carContext: CarContext) {
     private fun start(untilStopped: Boolean, onText: (String) -> Unit, onError: (String) -> Unit) {
         cancel()
         dictation = Dictation(untilStopped)
-        val useCarMic = Build.VERSION.SDK_INT >= 33 && carContext.carAppApiLevel >= CarAppApiLevels.LEVEL_5
+        val useCarMic = Build.VERSION.SDK_INT >= 33 && (carContext?.carAppApiLevel ?: 0) >= CarAppApiLevels.LEVEL_5
         recognize(useCarMic, onText, onError)
     }
 
@@ -101,7 +107,7 @@ class VoiceInput(private val carContext: CarContext) {
         }
 
         var heardSpeech = false
-        val r = runCatching { SpeechRecognizer.createSpeechRecognizer(carContext) }.getOrElse {
+        val r = runCatching { SpeechRecognizer.createSpeechRecognizer(context) }.getOrElse {
             release()
             next(dictation?.broke(), useCarMic, onText, onError)
             return
@@ -167,7 +173,7 @@ class VoiceInput(private val carContext: CarContext) {
     private fun addCarMicrophone(intent: Intent) {
         val (readSide, writeSide) = ParcelFileDescriptor.createPipe()
         carAudioFd = readSide
-        val record = CarAudioRecord.create(carContext)
+        val record = CarAudioRecord.create(checkNotNull(carContext))
         recording = true
         record.startRecording()
         Thread {
@@ -190,7 +196,8 @@ class VoiceInput(private val carContext: CarContext) {
             .putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE, CarAudioRecord.AUDIO_CONTENT_SAMPLING_RATE)
     }
 
-    private companion object {
-        const val MAX_LISTEN_MS = 20_000L
+    companion object {
+        private const val MAX_LISTEN_MS = 20_000L
+        const val MIC_PERMISSION = "Allow microphone access to talk to Claude."
     }
 }

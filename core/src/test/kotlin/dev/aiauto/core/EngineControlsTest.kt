@@ -199,6 +199,15 @@ class EngineControlsTest {
         assertFalse(store.get("t")!!.archived)
     }
 
+    @Test fun clearRemovesAnArchivedTask() {
+        val engine = engine()
+        store.put(Task("t", repo, "x", "b", sessionId = "s", status = TaskStatus.Done, archived = true, createdMillis = 0, updatedMillis = 0))
+        engine.clear("t")
+        assertNull(store.get("t"))
+        assertEquals(listOf("s"), claude.archived)
+        assertTrue(claude.interrupted.isEmpty())
+    }
+
     @Test fun stopDoesNothingToAFinishedTask() {
         val engine = engine()
         store.put(Task("t", repo, "x", "b", sessionId = "s", status = TaskStatus.Done, createdMillis = 0, updatedMillis = 0))
