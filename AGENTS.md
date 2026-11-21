@@ -49,8 +49,12 @@ Driving safety comes first:
   send, both on the car screen and from the phone app's mic button, which then listens in the app instead of
   opening Google's speech dialog. Until Stop, recognizer errors restart listening too (up to 5 in a row), since
   it often fails after silence or while restarting, and an error must never send.
+- `VoiceInput` plays a rising tone when a go at listening starts and a falling one when it ends, not on each
+  restart until Stop. The car chat plays a soft cue 3 seconds into a slow answer and every 5 seconds after, at most
+  6 times. Tones use the assistant audio attributes, like the microphone, so music ducks. Their shape and timing
+  live in `core/src/main/kotlin/dev/aiauto/core/Tones.kt` so they are tested; there is no switch to turn them off.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
-- Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet) are handled by the app without starting a Claude turn.
+- Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet, undo that, start over) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
 - A merge the driver asks for always asks for confirmation first, and the car assistant only merges on a yes in a
   later turn. The app only merges on its own when Merge when checks pass is on. Failing checks, conflicting pull
@@ -115,6 +119,9 @@ Tasks, repos and sync:
   retry it from another device. The newer side wins for tasks and settings, and removals sync through tombstones.
   Per-repo settings sync as one setting with the rest.
 - The car chat remembers the last 20 exchanges across drives, with a switch to turn it off and a Forget button.
+- A car chat question asked with no signal is kept on the phone (up to 5, for 30 minutes) and answered aloud when
+  the network returns. Only connection failures are queued, and never a turn that already ran a tool, so nothing
+  such as a task start can happen twice. The queue lives in memory, not on disk, since it only matters on a drive.
 - A briefing of what happened since the last drive (up to a day back) is read when the phone connects to the car.
 
 Look and accessibility:
@@ -249,6 +256,10 @@ Newest first. Earlier work (before PR 13) isn't in the history; add older decisi
 
 - PR 92: A search box at the top of Settings filters the page as you type. Pull request and repo-rule words find
   the Repositories section, since those settings live behind each repo.
+- PR 89: Listening and thinking tones, so the driver can tell the microphone opened or closed, or that Claude is
+  still answering, without looking at the screen.
+- Car chat questions asked with no signal are queued in `Assistant` and answered when the network comes back,
+  instead of failing.
 - PR 82: Every task reads the repo's README.md, CLAUDE.md and AGENTS.md before anything else, asked for in the
   first prompt.
 - PR 81: Keep listening until Stop restarts on recognizer errors instead of stopping or sending, so silence at

@@ -8,6 +8,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -144,5 +145,91 @@ class AssistantTest {
         assertEquals("Hi.", assistant.ask("second"))
         val input = http.sent[1].second["input"]!!.jsonArray
         assertEquals(listOf("second"), input.map { it.jsonObject["content"]!!.jsonPrimitive.content })
+    }
+
+    /** Fails with no connection while [offline] is true, and otherwise answers with the question it was asked. */
+    private class SignalHttp : ChatHttp {
+        var offline = true
+        override fun post(provider: ChatProvider, key: String, body: JsonObject): JsonObject {
+            if (offline) throw java.net.UnknownHostException("api.openai.com")
+            val asked = body["input"]!!.jsonArray.last().jsonObject["content"]!!.jsonPrimitive.content
+            return Json.parseToJsonElement(
+                """{"output": [{"type": "message", "content": [{"type": "output_text", "text": "Answer to $asked."}]}], "usage": {}}""",
+            ).jsonObject
+        }
+    }
+
+    private fun offlineAssistant(http: ChatHttp, now: () -> Long = { 0L }) = Assistant(
+        apiKey = { "key-${it.name}" },
+        actions = actions,
+        profile = { ChatProfile(ChatModel.GptLuna) },
+        clock = now,
+        clientFactory = { fail("Claude isn't the chosen model") },
+        http = http,
+    )
+
+    @Test
+    fun aQuestionWithNoSignalIsQueuedAndAnsweredWhenBackOnline() {
+        val http = SignalHttp()
+        val assistant = offlineAssistant(http)
+
+        assertEquals(Assistant.QUEUED, assistant.ask("What's running?"))
+        assertEquals(Assistant.QUEUED, assistant.ask("Any failed checks"))
+        assertTrue(assistant.hasQueued())
+        assertEquals(emptyList(), assistant.sendQueued(), "still offline, so nothing is sent")
+        assertTrue(assistant.hasQueued())
+
+        http.offline = false
+        assertEquals(
+            listOf("You asked: What's running. Answer to What's running?.", "You asked: Any failed checks. Answer to Any failed checks."),
+            assistant.sendQueued(),
+        )
+        assertFalse(assistant.hasQueued())
+        assertEquals(emptyList(), assistant.sendQueued())
+    }
+
+    @Test
+    fun otherFailuresAreNotQueued() {
+        val http = FakeHttp()
+        http.failWith = ChatApiException(ChatProvider.OpenAI, 500, "down")
+        val assistant = assistant(ChatModel.GptLuna, http)
+
+        assertEquals("OpenAI's servers had a problem. Try again in a minute.", assistant.ask("hello"))
+        assertFalse(assistant.hasQueued())
+    }
+
+    @Test
+    fun aTurnThatAlreadyStartedATaskIsNotQueued() {
+        var calls = 0
+        val http = ChatHttp { _, _, _ ->
+            if (calls++ > 0) throw java.io.IOException("connection reset")
+            Json.parseToJsonElement(
+                """{"output": [{"type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "start_coding_task",
+                    "arguments": "{\"repo\": \"me/app\", \"request\": \"Add dark mode\"}"}], "usage": {}}""",
+            ).jsonObject
+        }
+        val assistant = offlineAssistant(http)
+
+        assertEquals("Lost the connection.", assistant.ask("Add dark mode to app"))
+        assertFalse(assistant.hasQueued(), "sending it again would start the task twice")
+        assertEquals(listOf("me/app" to "Add dark mode"), started)
+    }
+
+    @Test
+    fun oldQueuedQuestionsAreDroppedAndTheQueueIsCapped() {
+        val http = SignalHttp()
+        var now = 0L
+        val assistant = offlineAssistant(http) { now }
+
+        assertEquals(Assistant.QUEUED, assistant.ask("old one"))
+        now = Assistant.QUEUE_MAX_AGE_MILLIS
+        repeat(Assistant.MAX_QUEUED - 1) { assertEquals(Assistant.QUEUED, assistant.ask("new $it")) }
+        assertTrue("already holding" in assistant.ask("one too many"))
+
+        now += 1
+        http.offline = false
+        val answers = assistant.sendQueued()
+        assertEquals(Assistant.MAX_QUEUED - 1, answers.size)
+        assertTrue(answers.none { "old one" in it })
     }
 }

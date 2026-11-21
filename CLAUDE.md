@@ -26,7 +26,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     `Models.kt` has `Task`, `RepoRef`, `AgentSetup` and friends.
   - `GitHub.kt` is the REST client; `PullRequests.kt` follows checks, merges and auto-fixes; `Projects.kt` is
     the per-repo status view.
-  - `Assistant.kt` is the spoken car chat. `ChatProviders.kt` has the car chat models and talks to Claude, OpenAI
+  - `Assistant.kt` is the spoken car chat, including the queue of questions asked with no signal, which
+    `Graph.watchNetwork` sends when the phone is back online. `ChatProviders.kt` has the car chat models and talks to Claude, OpenAI
     (Responses API) or Gemini (OpenAI-compatible endpoint); tests fake `ChatHttp`. `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
     replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `Briefing.kt` is the drive briefing.
   - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases
@@ -34,7 +35,7 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the
   Compose phone UI, `car/` is the Car App Library UI (its `VoiceInput` also serves the phone's prompt box when
   Keep listening until Stop is on; `core/Dictation.kt` decides when it listens again, sends or gives up),
-  `notify/` holds notifications and text-to-speech,
+  `notify/` holds notifications, text-to-speech and `TonePlayer` (listening and thinking tones, made by `core/Tones.kt`),
   `data/` holds the stores, encrypted secrets and sync, `widget/` is the home-screen widget. `data/Stores.kt`
   `Settings` keeps every setting in SharedPreferences; `SYNCED_KEYS` lists the ones that sync.
 - Settings screen: `ui/SettingsScreen.kt` and `ui/SettingsSections.kt`, built from rows in `ui/Design.kt`. Each section

@@ -28,6 +28,10 @@ through the car speakers, then listens for your reply, which is sent as soon as 
 the conversation. Claude can also start a coding task in one of your saved repos or answer a running task when you
 ask it to. You can also add a repo by voice: say something like "add my repo aiauto" and Claude finds it among the
 repos your GitHub token can push to and saves it. **New chat** starts the conversation over. Each answer counts toward the daily and monthly spending limits.
+If there's no signal when you ask, in a tunnel or a dead zone, Claude says it'll send your question when you're back
+online. The phone keeps up to 5 such questions, and as soon as the network returns it asks them in order and reads
+each answer aloud, starting with what you asked. Questions older than 30 minutes are dropped, and a question is never
+sent twice if it had already started or answered a task before the connection dropped.
 
 If the car only shows Cruise Control's messaging view ("No new messages during this drive"), Android Auto is hiding the
 app screen, usually because **Unknown sources** is off (see setup below). You can still talk to Claude there: each
@@ -40,6 +44,11 @@ Voice input also works inside tasks: open **Tasks**, then tap **Talk to Claude**
 pick a repo if you have more than one, and speak your request. To answer Claude, open a task and tap **Reply**, then
 speak. The app uses the car's microphone when Android Auto supports it, and the phone's otherwise. If voice
 doesn't work, you can fall back to replying to the Cruise Control message through Android Auto's messaging flow.
+
+You don't need to look at the screen to know what the microphone is doing: a short rising tone plays when the app
+starts listening and a falling one when it stops, on the car screen and from the phone app's mic button. While
+Claude works on an answer to **Talk**, a soft tone plays after 3 seconds and every 5 seconds after that, up to 6
+times. The tones use the same assistant audio as the microphone, so music ducks for them like it does for speech.
 
 **Projects** shows each repo straight from GitHub: whether its main branch is passing, the last change, and its
 open pull requests with their checks. Tap a pull request to hear its checks or merge it (the app asks first).
@@ -82,6 +91,9 @@ When you reply to a task, the app handles a few short phrases itself without wai
 - **"Repeat that"** (or "say that again") reads the task's last message aloud again, for when a turn or a passenger
   drowned it out. A question the app asked stays open, so you can still answer it.
 - **"Quiet"** turns on quiet mode, so only results and alerts are read out. Turn it off again in Settings.
+- **"Undo that"** has Claude revert its last change and push, keeping the history.
+- **"Start over"** asks you to confirm. Say **"yes"** and Claude resets the branch to the main branch and does your
+  original request again from scratch, or **"no"** to keep the work. Neither works once the pull request is merged.
 
 Anything longer goes to Claude as usual, so "merge the two settings screens" is still a coding request.
 
