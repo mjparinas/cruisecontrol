@@ -79,7 +79,13 @@ fun TaskScreen(
     var confirmMerge by remember { mutableStateOf(false) }
     if (confirmMerge) task.prNumber?.let { ConfirmMergeDialog(it, task.checks, onConfirm = onMerge, onDismiss = { confirmMerge = false }) }
     val list = rememberLazyListState()
-    LaunchedEffect(task.messages.size) { if (task.messages.isNotEmpty()) list.animateScrollToItem(task.messages.size - 1) }
+    // Jump straight to the latest message when the task opens; only animate for messages that arrive while it's open.
+    var opened by remember(task.id) { mutableStateOf(false) }
+    LaunchedEffect(task.messages.size) {
+        if (task.messages.isEmpty()) return@LaunchedEffect
+        if (opened) list.animateScrollToItem(task.messages.size - 1) else list.scrollToItem(task.messages.size - 1)
+        opened = true
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
