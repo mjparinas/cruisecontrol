@@ -47,6 +47,21 @@ class CoreTest {
         assertEquals(listOf("2", "4", "1", "3"), tasks.needsYouFirst().map { it.id })
     }
 
+    @Test fun countsRunningTasks() {
+        fun task(id: String, status: TaskStatus, interrupted: Boolean = false, archived: Boolean = false) =
+            Task(id, RepoRef("a", "b"), id, id, status = status, interrupted = interrupted, archived = archived, createdMillis = 0, updatedMillis = 0)
+        val tasks = listOf(
+            task("1", TaskStatus.Working),
+            task("2", TaskStatus.Starting),
+            task("3", TaskStatus.Failed, interrupted = true),
+            task("4", TaskStatus.NeedsInput),
+            task("5", TaskStatus.Done),
+            task("6", TaskStatus.Working, archived = true),
+        )
+        assertEquals(3, tasks.runningCount())
+        assertEquals(0, emptyList<Task>().runningCount())
+    }
+
     @Test fun makesTitlesAndBranches() {
         assertEquals("Add a dark mode toggle to settings", TaskEngine.titleFrom("add a dark mode toggle to settings"))
         assertEquals("add-a-dark-mode-toggle", TaskEngine.slug("Add a dark-mode toggle, to settings!"))
