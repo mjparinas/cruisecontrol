@@ -89,8 +89,8 @@ class TaskEngine(
 
     /**
      * Adds a follow-up prompt to an existing task. Short spoken commands ("status", "stop", "merge it",
-     * "fix it", "repeat that", "quiet") and yes or no answers to the app's own questions are handled here; the rest
-     * goes to Claude.
+     * "fix it", "repeat that", "quiet", "undo that", "start over") and yes or no answers to the app's own questions
+     * are handled here; the rest goes to Claude.
      */
     fun prompt(taskId: String, text: String) {
         val task = store.get(taskId) ?: return
@@ -105,6 +105,20 @@ class TaskEngine(
                 command == VoiceCommand.FixBuild && conflicting -> send(taskId, text, fixConflictsPrompt(task))
             command == VoiceCommand.Yes && pending == PendingAction.FixChecks ||
                 command == VoiceCommand.FixBuild && checksFailing -> send(taskId, text, fixChecksPrompt(task))
+            command == VoiceCommand.Yes && pending == PendingAction.StartOver -> send(taskId, text, startOverPrompt(task))
+            (command == VoiceCommand.Undo || command == VoiceCommand.StartOver) && task.prState == PrState.Merged -> {
+                journal.append(taskId, Speaker.You, text)
+                journal.status(taskId, "Pull request ${task.prNumber} is already merged. Start a new task to change it.")
+            }
+            command == VoiceCommand.Undo && task.sessionId == null -> {
+                journal.append(taskId, Speaker.You, text)
+                journal.status(taskId, "There's nothing to undo yet.")
+            }
+            command == VoiceCommand.Undo -> send(taskId, text, UNDO_PROMPT)
+            command == VoiceCommand.StartOver -> {
+                journal.append(taskId, Speaker.You, text)
+                ask(taskId, PendingAction.StartOver, "Say yes to throw away the work on ${task.branch} and start the request over from ${task.repo.defaultBranch}.")
+            }
             command == VoiceCommand.Yes && pending == PendingAction.Merge -> {
                 journal.append(taskId, Speaker.You, text)
                 scope.launch(dispatcher) { runCatching { mergeNow(taskId) } }
@@ -605,6 +619,19 @@ class TaskEngine(
             val base = task.repo.defaultBranch
             return "Pull request ${task.prNumber} has merge conflicts with $base. Fetch the latest $base and merge it into your branch." +
                 " Resolve every conflict so both sides' changes still work, run the build and tests, commit, and push to the same branch."
+        }
+
+        /** Sent when the driver says "undo that". A revert keeps the history, so nothing is lost if they change their mind. */
+        const val UNDO_PROMPT = "Undo your last change. If you committed it, revert that commit with git revert, run the build and tests," +
+            " and push to the same branch. If it isn't committed yet, discard it instead. Then say in one sentence what you undid."
+
+        /** Sent once the driver confirms "start over": the branch goes back to its base and the first request is done again. */
+        fun startOverPrompt(task: Task): String {
+            val base = task.repo.defaultBranch
+            val request = task.messages.firstOrNull { it.speaker == Speaker.You }?.text.orEmpty()
+            return "Start over. Throw away all your work on ${task.branch}: fetch the latest $base, reset the branch to it," +
+                " and push with --force-with-lease. Then do the original request again from scratch, ignoring the approaches" +
+                " you tried before:\n\n$request"
         }
 
         fun titleFrom(request: String): String {

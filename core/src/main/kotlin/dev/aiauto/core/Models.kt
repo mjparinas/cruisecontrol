@@ -89,7 +89,7 @@ data class ToolApproval(
 
 /** Something the app asked the driver, waiting for a spoken yes or no. */
 @Serializable
-enum class PendingAction { Merge, FixChecks, FixConflicts }
+enum class PendingAction { Merge, FixChecks, FixConflicts, StartOver }
 
 @Serializable
 enum class Speaker { You, Claude, Status }

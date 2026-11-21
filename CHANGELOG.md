@@ -5,6 +5,9 @@
 - Parked mode: once the car has stood still for ten seconds, a step Claude's safety check flags waits for you to
   approve or deny it on the car's task screen, instead of being skipped. Driving off denies any step still waiting.
   The car screen asks once for the car speed permission it needs.
+- Listening and thinking tones: a short rising tone when the app starts listening, a falling one when it stops,
+  and a soft tone every few seconds while Claude is still working on an answer in the car, so you can keep your
+  eyes on the road.
 - The car chat no longer loses what you said when there's no signal. It tells you it'll send the question once
   you're back online, then answers it out loud as soon as the network returns, for up to 5 questions asked in the
   last 30 minutes.
@@ -17,6 +20,8 @@
   start listening again, and only Stop sends.
 - Task card swipes are swapped: swipe left to archive, with undo, and right to clear after the app asks. On the
   Archived tab, swipe right to clear a task for good.
+- Two more quick voice commands on a task: "undo that" has Claude revert its last change, and "start over" asks
+  for a yes, then has Claude reset the branch and redo the original request from scratch.
 
 ## v0.8.0
 
