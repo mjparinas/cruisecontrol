@@ -26,6 +26,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.RadioButton
@@ -60,15 +61,14 @@ fun NewTaskScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { ScreenTopBar("New task", onBack) },
-        bottomBar = {
-            Column(Modifier.bottomBarInsets()) {
-                PromptBar(placeholder = "What should Claude do?", enabled = selected != null, listenUntilStop = listenUntilStop) { text ->
-                    selected?.let { onStart(it, text) }
-                }
+        floatingActionButton = {
+            MicButton(enabled = selected != null, listenUntilStop = listenUntilStop, disabledReason = "Add a repo in Settings first.") { text ->
+                selected?.let { onStart(it, text) }
             }
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
+        // The bottom padding keeps the last card clear of the floating microphone.
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 136.dp)) {
             SectionHeader("Repository")
             SettingsCard {
                 repos.forEach { repo -> RepoChoice(repo, selected = repo == selected) { selected = repo } }
@@ -91,7 +91,8 @@ fun NewTaskScreen(
 
             SectionHeader("How it works")
             SettingsCard {
-                SettingRow(Icons.Rounded.AccountTree, BadgeHue.Violet, "Works on a new branch", "Describe the change in a sentence or two.")
+                SettingRow(Icons.Rounded.Mic, BadgeHue.Red, "Tap the microphone", "Say the change in a sentence or two. It starts the task when you're done.")
+                SettingRow(Icons.Rounded.AccountTree, BadgeHue.Violet, "Works on a new branch", "Claude makes the change on its own branch.")
                 SettingRow(Icons.Rounded.Science, BadgeHue.Teal, "Runs the tests it finds", "Before it opens the pull request.")
                 SettingRow(Icons.Rounded.Visibility, BadgeHue.Green, "Opens a pull request", "For you to review. Updates arrive as messages you can hear in the car.")
             }

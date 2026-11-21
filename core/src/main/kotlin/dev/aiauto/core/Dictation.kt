@@ -53,7 +53,8 @@ class Dictation(private val untilStopped: Boolean) {
         /** Errors in a row, with no pause heard between them, that end listening until Stop. */
         const val MAX_FAILURES = 5
 
-        /** What was said, added after anything already typed in the phone's prompt box, as one request. */
-        fun afterTyped(typed: String, spoken: String): String = "${typed.trim()} ${spoken.trim()}".trim()
+        /** What the phone shows by its floating microphone while listening, which depends on how listening ends. */
+        fun listeningHint(untilStopped: Boolean): String =
+            if (untilStopped) "Listening. Tap Stop when you're done." else "Listening. It sends when you stop talking."
     }
 }
