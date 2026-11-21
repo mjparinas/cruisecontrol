@@ -56,6 +56,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 - `./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug` is what CI runs (needs the Android SDK,
   API 37.2). Lint only reports. Without an SDK, install the command-line tools from dl.google.com, run
   sdkmanager for `platforms;android-37.2` and set `ANDROID_HOME`. Maven Central may answer 429; just rerun.
+- The Release workflow keeps a release made on merge a draft until its APK is attached; `ReleaseWorkflowTest` checks
+  the order of those steps.
 - `.github/scripts/next-version-test.sh` tests the Release workflow's version picker and runs in CI before Gradle.
 - CI skips pushes that only change Markdown files, except AGENTS.md: `AgentsDocTest` checks it against the code.
 

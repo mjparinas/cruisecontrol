@@ -198,8 +198,9 @@ Security:
 - Updates are only accepted from APKs that GitHub serves over HTTPS, and a downloaded APK must be signed with the
   installed app's key before the install prompt opens. Updates come from the mjparinas/cruisecontrol releases.
 - The update check lists the recent releases instead of reading GitHub's latest one, and offers the highest version
-  with an APK. Each release is published before the Release workflow attaches its APK, so the latest one alone
-  often has none.
+  with an APK. The app's release on merge publishes each release before the Release workflow attaches its APK, so
+  the workflow turns it back into a draft while it builds and publishes it once the APK is attached
+  (`ReleaseWorkflowTest` checks this). A failed build leaves the release a draft.
 - The GitHub token is only sent to api.github.com, and to gist.githubusercontent.com when moving an old sync gist,
   never to wherever a URL in a response points.
 
@@ -271,6 +272,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- A release without an APK is no use, so the Release workflow drafts a release the app published on merge until its
+  APK is attached, instead of leaving it public while the APK builds.
 - PR 100: The Release workflow's version is optional. Left empty, it releases the next patch after the latest tag,
   using a shell script that mirrors `Versions.nextPatch` and is tested in the Build workflow.
 - PR 98: The Claude car chat uses automatic prompt caching with the 5-minute lifetime, and its cost counts cache
