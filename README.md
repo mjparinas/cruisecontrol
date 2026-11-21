@@ -28,6 +28,10 @@ through the car speakers, then listens for your reply, which is sent as soon as 
 the conversation. Claude can also start a coding task in one of your saved repos or answer a running task when you
 ask it to. You can also add a repo by voice: say something like "add my repo aiauto" and Claude finds it among the
 repos your GitHub token can push to and saves it. **New chat** starts the conversation over. Each answer counts toward the daily and monthly spending limits.
+If there's no signal when you ask, in a tunnel or a dead zone, Claude says it'll send your question when you're back
+online. The phone keeps up to 5 such questions, and as soon as the network returns it asks them in order and reads
+each answer aloud, starting with what you asked. Questions older than 30 minutes are dropped, and a question is never
+sent twice if it had already started or answered a task before the connection dropped.
 
 If the car only shows Cruise Control's messaging view ("No new messages during this drive"), Android Auto is hiding the
 app screen, usually because **Unknown sources** is off (see setup below). You can still talk to Claude there: each

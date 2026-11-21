@@ -25,6 +25,12 @@ object Failures {
         else -> e.cause?.takeIf { it !== e }?.let(::isTransient) ?: false
     }
 
+    /** True when the request never got an answer because the phone couldn't reach the server, as in a tunnel. */
+    fun isOffline(e: Throwable): Boolean = when (e) {
+        is AnthropicIoException, is IOException -> true
+        else -> e.cause?.takeIf { it !== e }?.let(::isOffline) ?: false
+    }
+
     /** True when the error means the saved agent or environment no longer exists for this API key. */
     fun isMissing(e: Throwable): Boolean = e is NotFoundException
 

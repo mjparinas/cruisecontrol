@@ -26,6 +26,7 @@ import dev.aiauto.notify.TonePlayer
 import android.util.Log
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -228,7 +229,10 @@ class Graph(context: Context) {
         }
     }
 
-    /** Resumes tasks that stopped because the connection dropped, as soon as the phone is back online. */
+    /**
+     * Resumes tasks that stopped because the connection dropped, and answers car chat questions asked with no
+     * signal, as soon as the phone is back online.
+     */
     fun watchNetwork(context: Context) {
         val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return
         runCatching {
@@ -241,9 +245,19 @@ class Graph(context: Context) {
                     } catch (e: Throwable) {
                         Log.w("AiAuto", "Couldn't resume tasks after the network came back", e)
                     }
+                    scope.launch(Dispatchers.IO) { sendQueuedChat() }
                 }
             })
         }.onFailure { Log.w("AiAuto", "Couldn't watch the network", it) }
+    }
+
+    /** Answers the car chat questions kept while there was no signal, in the chat conversation and out loud in the car. */
+    private fun sendQueuedChat() {
+        if (!assistant.hasQueued()) return
+        assistant.sendQueued().forEach { answer ->
+            notifier.postChat(fromClaude = answer)
+            if (speaker.inCar) speaker.speak(answer)
+        }
     }
 
     val isConfigured: Boolean get() = secrets.anthropicKey != null && secrets.githubToken != null
