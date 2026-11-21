@@ -1,6 +1,6 @@
 name: Release
 
-# Builds the APK and publishes it as a GitHub release.
+# Builds the APK and publishes it as a GitHub release. A release is only public once its APK is attached.
 # Start it from the Actions tab (Run workflow), or push a tag like v0.2.0. From the Actions tab the version is
 # optional: leave it empty to release the next patch version after the latest tag.
 on:
@@ -39,6 +39,16 @@ jobs:
             VERSION="$GITHUB_REF_NAME"
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+      # The app's release on merge publishes the release before this build has an APK, and a release without an
+      # APK is no use, so it goes back to a draft until the APK is attached. A failed build leaves it a draft.
+      - name: Hide the release until its APK is attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$VERSION" > /dev/null 2>&1 &&
+            [ "$(gh release view "$VERSION" --json assets --jq '[.assets[].name | select(endswith(".apk"))] | length')" = 0 ]; then
+            gh release edit "$VERSION" --draft=true
+          fi
       - name: Load signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -67,6 +77,7 @@ jobs:
           # The app's auto-release may have created the release already; then just attach the APK.
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release upload "$TAG" "cruise-control-$TAG.apk" --clobber
+            gh release edit "$TAG" --draft=false
           else
             gh release create "$TAG" "cruise-control-$TAG.apk" --title "Cruise Control $TAG" --target "$GITHUB_SHA" --generate-notes
           fi

@@ -247,7 +247,9 @@ earlier releases.
 Tap a repo in the app's Settings and turn on **Release when a PR is merged**. The app keeps watching the pull requests
 it opened in that repo for a few hours. When one is merged, it publishes a GitHub release on that repo with the next patch
 version (for example `v1.2.3` becomes `v1.2.4`, or `v0.1.0` if the repo has no version tags) and generated notes,
-then tells you in the car. Only PRs merged after you turn the toggle on get a release. The GitHub token already
+then tells you in the car. Only PRs merged after you turn the toggle on get a release. In this repo, the Release
+workflow turns that release back into a draft while it builds the APK and publishes it once the APK is attached, so
+a release is never left public without one. The GitHub token already
 has the Contents permission this needs.
 
 ## Limits worth knowing

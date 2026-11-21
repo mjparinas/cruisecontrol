@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A release made when a pull request merges stays a draft until the Release workflow attaches its APK, so no public
+  release is ever missing the APK. If the build fails, the release stays a draft.
 - The Release workflow no longer insists on a version. Leave it empty and it releases the next patch version after
   the latest tag, the same way the app's release on merge does.
 - Opening a task with a long conversation jumps straight to the latest message instead of scrolling down to it.
