@@ -81,6 +81,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   That ref can be stale, so check for real conflicts with `git merge-tree --write-tree --name-only origin/main <branch>`.
   Push each merge straight to that pull request's own branch. When main added a setting, also add it to the
   branch's code that lists settings (such as `SettingsSearch.CATALOGUE`), not just the conflicting lines.
+  A pull request whose work already landed through another one (PR 93 landed as PR 103) merges to no diff;
+  push the merge anyway and say it can be closed.
 
 ## Conventions
 
