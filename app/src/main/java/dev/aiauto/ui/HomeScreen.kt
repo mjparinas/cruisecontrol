@@ -106,7 +106,7 @@ fun HomeScreen(
             if (result == SnackbarResult.ActionPerformed) onUnarchive(task)
         }
     }
-    // Clearing can't be undone, so a left swipe asks first.
+    // Clearing can't be undone, so a right swipe asks first.
     var clearing by remember { mutableStateOf<Task?>(null) }
     clearing?.let { task -> ConfirmClearDialog(onConfirm = { onClear(task) }, onDismiss = { clearing = null }) }
     Scaffold(
@@ -151,7 +151,7 @@ fun HomeScreen(
                 shown.isNotEmpty() -> TaskList(shown, spentToday, dailyLimit, onOpen, onArchive = archive, onClear = { task -> clearing = task })
                 showArchived -> EmptyState(
                     Icons.Rounded.Archive, BadgeHue.Blue, "No archived chats",
-                    "Swipe a task card right, or archive it from its chat, to keep it here out of the main list.",
+                    "Swipe a task card left, or archive it from its chat, to keep it here out of the main list.",
                 )
                 hasRepos -> EmptyState(
                     Icons.Rounded.DirectionsCar, BadgeHue.Accent, "Nothing running yet",
@@ -193,7 +193,7 @@ private fun TaskList(
     }
 }
 
-/** What swiping a task card does: right archives it, left clears it. */
+/** What swiping a task card does: left archives it, right clears it. */
 internal enum class CardSwipe { Archive, Clear }
 
 /** The swipes a card offers. An archived card can only be cleared, since it's already archived. */
@@ -202,12 +202,12 @@ internal fun cardSwipes(archived: Boolean): Set<CardSwipe> =
 
 @OptIn(ExperimentalMaterial3Api::class)
 internal fun cardSwipe(value: SwipeToDismissBoxValue): CardSwipe? = when (value) {
-    SwipeToDismissBoxValue.StartToEnd -> CardSwipe.Archive
-    SwipeToDismissBoxValue.EndToStart -> CardSwipe.Clear
+    SwipeToDismissBoxValue.StartToEnd -> CardSwipe.Clear
+    SwipeToDismissBoxValue.EndToStart -> CardSwipe.Archive
     SwipeToDismissBoxValue.Settled -> null
 }
 
-/** Swiping the card right archives it; swiping left asks to clear it, so the card springs back until you confirm. */
+/** Swiping the card left archives it; swiping right asks to clear it, so the card springs back until you confirm. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeActions(swipes: Set<CardSwipe>, onArchive: () -> Unit, onClear: () -> Unit, content: @Composable () -> Unit) {
@@ -222,8 +222,8 @@ private fun SwipeActions(swipes: Set<CardSwipe>, onArchive: () -> Unit, onClear:
     )
     SwipeToDismissBox(
         state = state,
-        enableDismissFromStartToEnd = CardSwipe.Archive in swipes,
-        enableDismissFromEndToStart = CardSwipe.Clear in swipes,
+        enableDismissFromStartToEnd = CardSwipe.Clear in swipes,
+        enableDismissFromEndToStart = CardSwipe.Archive in swipes,
         backgroundContent = {
             val clear = cardSwipe(state.dismissDirection) == CardSwipe.Clear
             val tint = if (clear) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
@@ -233,7 +233,7 @@ private fun SwipeActions(swipes: Set<CardSwipe>, onArchive: () -> Unit, onClear:
                     .clip(CardShape)
                     .background(tint.copy(alpha = 0.15f))
                     .padding(horizontal = 24.dp),
-                contentAlignment = if (clear) Alignment.CenterEnd else Alignment.CenterStart,
+                contentAlignment = if (clear) Alignment.CenterStart else Alignment.CenterEnd,
             ) {
                 // Decorative: the card itself offers its swipe actions to screen readers.
                 Icon(if (clear) Icons.Rounded.Delete else Icons.Rounded.Archive, contentDescription = null, tint = tint)

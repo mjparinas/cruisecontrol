@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Task card swipes are swapped: swipe left to archive, with undo, and right to clear after the app asks. On the
+  Archived tab, swipe right to clear a task for good.
+
 ## v0.8.0
 
 - Per-repo settings: tap a repo in Settings for its own Merge when checks pass, Fix merge conflicts automatically,
