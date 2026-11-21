@@ -27,11 +27,12 @@ import dev.aiauto.core.Tone
 import dev.aiauto.graph
 
 /**
- * Speech to text started from the car screen, or from the phone's prompt box with "Keep listening until Stop" on.
+ * Speech to text started from the car screen, or from the phone's floating microphone.
  * In the car it uses the car's microphone when the host supports it (car API 5 and Android 13+), and the phone's
  * microphone otherwise. With untilStopped, pauses don't end it: listening restarts after each one and the words
  * are joined until [finish] is called. Errors before then, which the recognizer often gives while restarting or after
  * a stretch of silence, restart it too instead of ending or sending. On the phone, the caller asks for the microphone permission first.
+ * Spoken updates are held from the start of listening until it ends, and read afterwards.
  * A rising tone plays when listening starts and a falling one when it ends, once per go rather than on every restart.
  */
 class VoiceInput(private val context: Context) {
@@ -49,6 +50,7 @@ class VoiceInput(private val context: Context) {
     private var carAudioFd: ParcelFileDescriptor? = null
     @Volatile private var recording = false
     private var dictation: Dictation? = null
+    private var holdingSpeech = false
     private val main = Handler(Looper.getMainLooper())
     private val tones = context.graph.tones
 
@@ -84,6 +86,14 @@ class VoiceInput(private val context: Context) {
         if (dictation != null) tones.play(Tone.ListenStop)
         dictation = null
         release()
+        holdSpeech(false)
+    }
+
+    /** Holds spoken updates for a whole go, across restarts after pauses and the switch to the phone's microphone. */
+    private fun holdSpeech(on: Boolean) {
+        if (holdingSpeech == on) return
+        holdingSpeech = on
+        if (on) context.graph.speaker.holdForMicrophone() else context.graph.speaker.releaseMicrophone()
     }
 
     private fun release() {
@@ -98,6 +108,7 @@ class VoiceInput(private val context: Context) {
     private fun start(untilStopped: Boolean, onText: (String) -> Unit, onError: (String) -> Unit) {
         release()
         dictation = Dictation(untilStopped)
+        holdSpeech(true)
         tones.play(Tone.ListenStart)
         val useCarMic = Build.VERSION.SDK_INT >= 33 && (carContext?.carAppApiLevel ?: 0) >= CarAppApiLevels.LEVEL_5
         recognize(useCarMic, onText, onError)
@@ -178,6 +189,7 @@ class VoiceInput(private val context: Context) {
             return
         }
         dictation = null
+        holdSpeech(false)
         tones.play(Tone.ListenStop)
         when (step) {
             Dictation.Next.Send -> onText(d.text)

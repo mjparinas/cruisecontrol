@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Spoken updates wait while the microphone is listening and are read once it stops, so the car doesn't talk over
+  you or hear itself.
+
 ## v0.8.0
 
 - The phone app is voice first. The New task screen and each task's chat drop the text box for a floating microphone
