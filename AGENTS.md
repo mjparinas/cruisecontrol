@@ -13,7 +13,7 @@ The code is the source of truth. This file must always describe the repository a
 - If you find this file disagrees with the code, fix this file in your change (or the code, if the code is the
   mistake) and say so in the pull request. Never leave the two out of step.
 - Commit messages and old pull requests can be wrong about the final state (for example, PR 52 describes OkHttp 5,
-  but OkHttp stayed on 4.12.0). Check the code, not the history.
+  but OkHttp stayed on 4.12.0 until PR 69). Check the code, not the history.
 - `AgentsDocTest` in `core/src/test/kotlin/dev/aiauto/core/AgentsDocTest.kt` fails the build when the versions and
   numbers below drift from the build files and code, or when a path named here no longer exists. CI runs it on
   every push and pull request, including ones that only touch this file.
@@ -154,10 +154,10 @@ Security:
   the pull request themselves; the app does.
 - Every change adds or updates tests and runs them. Keep each change small and focused, match the existing style,
   and update the README and docs the change affects, including this file.
-- Build and test with JDK 17 and the Android SDK (API 35):
+- Build and test with JDK 17 and the Android SDK (API 37.2):
   `./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug`. The Build workflow
   (`.github/workflows/build.yml`) runs that on every push and pull request, cancels superseded runs, uploads the
-  debug APK, then runs Android Lint.
+  debug APK, then runs Android Lint and prints its text report in the log.
 - Android Lint only reports for now (`abortOnError = false` in `app/build.gradle.kts`) until the issues it found in
   existing code are fixed.
 - Releases come from the Release workflow (`.github/workflows/release.yml`), started from the Actions tab or by
@@ -171,23 +171,26 @@ Security:
 Each line is checked against the build files by `AgentsDocTest`. When you change a version, change it here too and
 say why if the reason below no longer holds.
 
-- Gradle wrapper: 8.14.8
-- Android Gradle Plugin: 8.7.3
+- Gradle wrapper: 9.9.2
+- Android Gradle Plugin: 9.5.2
 - Kotlin: 2.4.21
 - JDK: 17
-- compileSdk: 35
+- compileSdk: 37.2
 - targetSdk: 35
 - minSdk: 26
 - anthropic-java: 3.12.0
-- OkHttp: 4.12.0
+- OkHttp: 5.5.1
 - kotlinx-serialization-json: 1.13.0
 - kotlinx-coroutines: 1.11.0
-- Compose BOM: 2024.12.01
-- Car App Library: 1.4.0
+- Compose BOM: 2026.11.01
+- Car App Library: 1.7.0
 
-Why these stop where they do (PR 52): Android Gradle Plugin 9 and Gradle 9 are a bigger migration and are left for
-a separate change. Newer AndroidX, Compose BOM and Car App Library releases need compileSdk 36, which needs a newer
-Android Gradle Plugin. OkHttp 5's Android artifact also needs a newer compileSdk than 35, so OkHttp stays on 4.12.0.
+Why these are where they are (PR 69): everything was moved to its latest stable release. Android Gradle Plugin 9 has
+Kotlin built in, so the app has no kotlin-android plugin and names kotlin-test-junit for its unit tests. Compose
+needs compileSdk 37.2. targetSdk stays on 35 so the app's runtime behaviour doesn't change; raising it is a separate
+decision. CI uses setup-gradle v5, not v6, because v6 puts its caching under Gradle's proprietary Terms of Use, which
+upgrading accepts; that's the owner's call. Car App 1.7 deprecates the title and header setters the car screens use;
+they still work, and moving to `Header` is left for a separate change.
 
 ## Numbers the code depends on
 
@@ -210,6 +213,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- PR 69: Every dependency moved to its latest stable release, including Gradle 9, Android Gradle Plugin 9,
+  compileSdk 37.2, OkHttp 5 and Car App 1.7. targetSdk stays 35 and setup-gradle stays on v5.
 - PR 68: Added this file and `AgentsDocTest` to keep a checked record of decisions, imported from `CLAUDE.md`.
   The Build workflow now also runs when this file changes.
 - PR 66: Each task reads and maintains `CLAUDE.md` repository notes, asked for in the first prompt.
@@ -225,7 +230,7 @@ Newest first. Earlier work (before PR 13) isn't in the history; add older decisi
 - PR 55: AA contrast for accents and status colours, and TalkBack labels.
 - PR 54: Canadian spelling in app text and in what Claude writes.
 - PR 53: Android Lint added to CI, report-only for now.
-- PR 52: Dependency upgrades, stopping short of Android Gradle Plugin 9, compileSdk 36 and OkHttp 5.
+- PR 52: Dependency upgrades, stopping short of Android Gradle Plugin 9, compileSdk 36 and OkHttp 5 (done in PR 69).
 - PR 51: The real GitHub client and the project view are tested against canned HTTP responses.
 - PR 50: Sync of repos, tasks, settings and car chat memory across devices.
 - PR 49: Task templates on the phone and in the car.

@@ -51,7 +51,7 @@ class UpdateSource(
         val body = http.newCall(request).execute().use { response ->
             if (response.code == 404) return null // no releases yet
             if (!response.isSuccessful) throw GitHubException(response.code, "GitHub: HTTP ${response.code}")
-            response.body?.string().orEmpty()
+            response.body.string()
         }
         return parse(body, currentVersion)
     }

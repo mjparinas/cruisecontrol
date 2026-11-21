@@ -150,7 +150,7 @@ A repo removed on one device is removed on the others too, unless one of them ad
 
 ## Building locally
 
-Requires JDK 17 and the Android SDK (API 35).
+Requires JDK 17 and the Android SDK (API 37.2).
 
 ```
 ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug

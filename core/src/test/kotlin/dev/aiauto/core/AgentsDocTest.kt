@@ -69,7 +69,7 @@ class AgentsDocTest {
                 "Android Gradle Plugin" to find(rootBuild, """id\("com\.android\.application"\) version "([^"]+)"""", "the Android Gradle Plugin"),
                 "Kotlin" to kotlinVersions.single(),
                 "JDK" to jdk,
-                "compileSdk" to find(appBuild, """compileSdk = (\d+)""", "compileSdk"),
+                "compileSdk" to find(appBuild, """release\((\d+)\)""", "compileSdk") + "." + find(appBuild, """minorApiLevel = (\d+)""", "the compileSdk minor level"),
                 "targetSdk" to find(appBuild, """targetSdk = (\d+)""", "targetSdk"),
                 "minSdk" to find(appBuild, """minSdk = (\d+)""", "minSdk"),
                 "anthropic-java" to dependency("com.anthropic:anthropic-java"),
