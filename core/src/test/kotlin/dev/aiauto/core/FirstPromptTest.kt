@@ -14,6 +14,12 @@ class FirstPromptTest {
         assertTrue("Commit it with your change." in prompt)
     }
 
+    @Test fun asksClaudeToReadTheReadmeNotesAndAgentsFileBeforeAnythingElse() {
+        val prompt = ClaudeAgents.firstPrompt(task, "add a toggle")
+        assertTrue("read README.md, CLAUDE.md and AGENTS.md at the repository root, whichever exist" in prompt)
+        assertTrue(prompt.indexOf("Before anything else") < prompt.indexOf("Repository notes:"))
+    }
+
     @Test fun notesComeBeforeTheRequest() {
         val prompt = ClaudeAgents.firstPrompt(task, "add a toggle")
         assertTrue(prompt.startsWith("Repository: mjparinas/aiauto, cloned at /workspace/repo."))

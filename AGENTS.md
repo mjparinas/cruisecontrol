@@ -69,7 +69,8 @@ Claude and cost:
 - Changing the model, effort, web search or standing rules makes a new agent for the next task. Running tasks keep
   the agent they started with.
 - Every task asks Claude to read `CLAUDE.md` at the repo root first instead of exploring the whole repo again, and
-  to create it or fix it when it's missing or out of date, in the same pull request (PR 66).
+  to create it or fix it when it's missing or out of date, in the same pull request (PR 66). Before anything else it
+  also reads `README.md` and `AGENTS.md` when the repo has them, so it follows the project's own docs (PR 82).
 - The car chat can use an OpenAI model (through the Responses API) or a Gemini model (through Google's
   OpenAI-compatible endpoint) when the owner adds that provider's key; each key is optional. Coding tasks stay on
   Claude because they need Managed Agents, which has no equivalent elsewhere. The other providers' chat costs count
@@ -244,6 +245,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- PR 82: Every task reads the repo's README.md, CLAUDE.md and AGENTS.md before anything else, asked for in the
+  first prompt.
 - PR 81: Keep listening until Stop restarts on recognizer errors instead of stopping or sending, so silence at
   the start or a hiccup between pauses no longer ends it.
 - PR 80: Swipe directions on task cards swapped: swipe left archives, swipe right clears after asking, on both tabs.

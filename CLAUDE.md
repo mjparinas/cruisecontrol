@@ -18,8 +18,9 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   - `TaskEngine.kt` runs tasks: one session per task, prompts, the event stream, reconnects, and the daily and
     monthly spending limits through `SpendingLimit.kt`.
   - `ClaudeAgents.kt` is the Managed Agents client. Its companion holds `SYSTEM_PROMPT` (baked into the agent)
-    and `firstPrompt` (sent with each task). The agent is only remade when `AgentProfile` changes, so new
-    per-task instructions belong in `firstPrompt`.
+    and `firstPrompt` (sent with each task, which starts by asking Claude to read README.md, CLAUDE.md and
+    AGENTS.md). The agent is only remade when `AgentProfile` changes, so new per-task instructions belong in
+    `firstPrompt`.
   - `AgentProfile.kt` has the model, effort and standing rules picked in Settings (global). `RepoSettings.kt` has
     the per-repo settings: pull request switches and repo rules, read through `EngineConfig.repoSettings(repo)`.
     `Models.kt` has `Task`, `RepoRef`, `AgentSetup` and friends.

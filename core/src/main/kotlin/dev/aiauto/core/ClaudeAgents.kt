@@ -404,6 +404,9 @@ class ClaudeAgents(apiKey: String) : AgentClient {
             Work on a new branch named `${task.branch}` created from `${task.repo.defaultBranch}`.
             Commit your changes and push the branch to origin. Don't open a pull request; the app does that.
 
+            Before anything else, read README.md, $NOTES_FILE and AGENTS.md at the repository root, whichever exist,
+            and follow what they say about the project, how to build and test it, and its conventions.
+
             Repository notes: if `$NOTES_FILE` exists at the repository root, read it first. It holds what earlier
             tasks learned about this repository, so rely on it instead of exploring the whole repository again,
             and only look further for what the request needs. If it's missing, create it. If it's wrong or your
