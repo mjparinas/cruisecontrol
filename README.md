@@ -54,7 +54,8 @@ failing checks automatically** does the same for failing tests, builds or any ot
 time it does this. After three automatic fixes on a task it goes back to asking you, so it can't loop forever. With
 either switch off, the app asks first, and you can say yes or "fix it".
 
-You can **Stop** a working task, **Clear** one, or clear every finished task at once. Each task shows what it has
+You can **Stop** a working task, **Clear** one, or clear every finished task at once. On the phone's task list,
+swipe a card right to archive it (with undo) or left to clear it (the app asks first). Each task shows what it has
 cost so far, and a **daily limit** (default $20, set in Settings) stops Claude when the day's total reaches it.
 The limit is also set as the session's budget on Anthropic's side, so it holds even if the phone loses signal.
 
@@ -144,7 +145,7 @@ A repo removed on one device is removed on the others too, unless one of them ad
 Requires JDK 17 and the Android SDK (API 35).
 
 ```
-./gradlew :core:test :app:assembleDebug
+./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug
 ```
 
 ## Making a release

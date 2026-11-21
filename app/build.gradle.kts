@@ -90,4 +90,6 @@ dependencies {
 
     implementation("androidx.car.app:app:1.4.0")
     implementation("androidx.car.app:app-projected:1.4.0")
+
+    testImplementation(kotlin("test"))
 }
