@@ -50,7 +50,7 @@ Driving safety comes first:
   opening Google's speech dialog. Until Stop, recognizer errors restart listening too (up to 5 in a row), since
   it often fails after silence or while restarting, and an error must never send.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
-- Short replies (status, stop, merge it, fix it, yes, no) are handled by the app without starting a Claude turn.
+- Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
 - A merge the driver asks for always asks for confirmation first, and the car assistant only merges on a yes in a
   later turn. The app only merges on its own when Merge when checks pass is on. Failing checks, conflicting pull

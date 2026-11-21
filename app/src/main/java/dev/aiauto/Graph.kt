@@ -54,6 +54,7 @@ class Graph(context: Context) {
             override fun agentProfile() = settings.agentProfile
             override fun deviceId() = settings.deviceId
             override fun quietMode() = settings.quietMode
+            override fun setQuietMode(on: Boolean) { settings.quietMode = on }
             override fun dailyLimitUsd() = settings.dailyLimitUsd
             override fun spentTodayUsd() = settings.spentTodayUsd
             override fun monthlyLimitUsd() = settings.monthlyLimitUsd

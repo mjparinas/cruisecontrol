@@ -5,7 +5,7 @@ package dev.aiauto.core
  * work instantly and don't cost a turn. Anything longer or unrecognized goes to Claude.
  */
 enum class VoiceCommand {
-    Stop, Status, Merge, FixBuild, Yes, No;
+    Stop, Status, Merge, FixBuild, Yes, No, Repeat, Quiet;
 
     companion object {
         private val fillers = setOf("please", "now", "it", "that", "the", "pr", "pull", "request", "ok", "okay", "go", "ahead", "and", "just", "claude", "hey")
@@ -17,6 +17,8 @@ enum class VoiceCommand {
             FixBuild to setOf("fix", "fix build", "fix tests", "fix ci", "fix failure"),
             Yes to setOf("yes", "yeah", "yep", "sure", "confirm", "do", "do this"),
             No to setOf("no", "nope", "don't", "dont", "never mind", "nevermind", "not now"),
+            Repeat to setOf("repeat", "say again", "what did you say", "come again", "pardon", "sorry what"),
+            Quiet to setOf("quiet", "quiet mode", "be quiet", "quieter", "shush", "less talking"),
         )
 
         /** Returns the command [text] asks for, or null when it should go to Claude. */
