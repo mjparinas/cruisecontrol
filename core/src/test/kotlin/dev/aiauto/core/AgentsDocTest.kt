@@ -45,8 +45,8 @@ class AgentsDocTest {
         ).forEach { assertTrue("\n## $it\n" in doc, "AGENTS.md is missing the '$it' section") }
     }
 
-    @Test fun claudeMdPointsToAgentsMd() {
-        assertTrue(read("CLAUDE.md").lines().first().trim() == "@AGENTS.md", "CLAUDE.md should start by importing AGENTS.md")
+    @Test fun claudeMdImportsAgentsMd() {
+        assertTrue(read(ClaudeAgents.NOTES_FILE).lines().any { it.trim() == "@AGENTS.md" }, "CLAUDE.md should import AGENTS.md")
     }
 
     @Test fun pinnedVersionsMatchTheBuild() {
@@ -98,6 +98,7 @@ class AgentsDocTest {
                 "Synced messages per task" to SyncMerge.MESSAGES_PER_TASK.toString(),
                 "Sync repo" to RepoSync.REPO,
                 "Update source" to UpdateSource.APP_REPO,
+                "Repository notes file" to ClaudeAgents.NOTES_FILE,
             ),
         )
     }

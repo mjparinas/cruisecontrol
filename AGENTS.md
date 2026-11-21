@@ -17,7 +17,8 @@ The code is the source of truth. This file must always describe the repository a
 - `AgentsDocTest` in `core/src/test/kotlin/dev/aiauto/core/AgentsDocTest.kt` fails the build when the versions and
   numbers below drift from the build files and code, or when a path named here no longer exists. CI runs it on
   every push and pull request, including ones that only touch this file.
-- `CLAUDE.md` only points here, so Claude agents load these rules too. Put new rules in this file, not there.
+- `CLAUDE.md` holds short repository notes (layout, build, conventions) that every task reads first, and imports
+  this file so Claude agents load these rules too. Decisions and the reasons for them go here, not there.
 
 ## Product decisions
 
@@ -53,6 +54,8 @@ Claude and cost:
   back quickly. Both can be changed in Settings, along with web search and standing rules.
 - Changing the model, effort, web search or standing rules makes a new agent for the next task. Running tasks keep
   the agent they started with.
+- Every task asks Claude to read `CLAUDE.md` at the repo root first instead of exploring the whole repo again, and
+  to create it or fix it when it's missing or out of date, in the same pull request (PR 66).
 - Web search is off by default and only applies to coding tasks. With it on, tasks run in an environment with open
   internet access; otherwise the sandbox only reaches package registries.
 - A daily spending limit (default $20) stops Claude when the day's total reaches it, and is also set as each
@@ -117,6 +120,8 @@ Claude:
   for claude.ai projects, so these sessions don't appear in the Claude app.
 - The repo is mounted in the session at /workspace/repo with the user's GitHub token, which Anthropic's proxy adds
   to git requests so code in the sandbox never sees it. The agent pushes a branch; the app opens the pull request.
+- Instructions every task needs go in `ClaudeAgents.firstPrompt`, sent with each task, rather than the system
+  prompt baked into the agent, so agents already saved on a phone pick them up without being remade.
 - The car chat uses the Messages API directly with a small set of tools (start a task, reply to a task, add a repo,
   get status, stop a task, merge a pull request).
 - Streams are reconnected by the engine, and past events are listed after reconnecting so nothing is reported
@@ -150,8 +155,9 @@ Security:
 - Every change adds or updates tests and runs them. Keep each change small and focused, match the existing style,
   and update the README and docs the change affects, including this file.
 - Build and test with JDK 17 and the Android SDK (API 35):
-  `./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug`. The Build workflow (`.github/workflows/build.yml`) runs that on every push and pull request, cancels superseded
-  runs, uploads the debug APK, then runs Android Lint.
+  `./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug`. The Build workflow
+  (`.github/workflows/build.yml`) runs that on every push and pull request, cancels superseded runs, uploads the
+  debug APK, then runs Android Lint.
 - Android Lint only reports for now (`abortOnError = false` in `app/build.gradle.kts`) until the issues it found in
   existing code are fixed.
 - Releases come from the Release workflow (`.github/workflows/release.yml`), started from the Actions tab or by
@@ -198,13 +204,16 @@ Each line is checked against the code by `AgentsDocTest`.
 - Synced messages per task: 60
 - Sync repo: cruise-control-sync
 - Update source: mjparinas/cruisecontrol
+- Repository notes file: CLAUDE.md
 
 ## Decision log
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
-- Latest: Added this file, `CLAUDE.md` and `AgentsDocTest` to keep a checked record of decisions. The Build
-  workflow now also runs when this file changes. Replace "Latest" with the PR number in the next change.
+- PR 68: Added this file and `AgentsDocTest` to keep a checked record of decisions, imported from `CLAUDE.md`.
+  The Build workflow now also runs when this file changes.
+- PR 66: Each task reads and maintains `CLAUDE.md` repository notes, asked for in the first prompt.
+- PR 64: Feature ideas brought up to date with what's built and what's still missing.
 - PR 65: Swipe right archives a task card, swipe left clears it after asking. App unit tests run in CI.
 - PR 62: Saved repos can be removed in Settings, and removals sync across devices.
 - PR 61, 63: Direct tests for the web search switch and the daily spending limit.
