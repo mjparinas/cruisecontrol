@@ -46,6 +46,9 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   `data/` holds the stores (including `AvailableRepoStore`, the cached repos the token can push to that
   `Graph.repoChoices()` merges with saved repos for the pickers), encrypted secrets and sync, `widget/` is the home-screen widget. `data/Stores.kt`
   `Settings` keeps every setting in SharedPreferences; `SYNCED_KEYS` lists the ones that sync.
+- Settings screen: `ui/SettingsScreen.kt` and `ui/SettingsSections.kt`, built from rows in `ui/Design.kt`. Each section
+  is wrapped in `SearchableSection(name)`; when you add or rename a setting row, update `SettingsSearch.CATALOGUE`
+  in `core/SettingsSearch.kt` to match its title.
 - `docs/FEATURE_IDEAS.md` lists ideas; `docs/PLAY_STORE_RELEASE.md` is the plan for Google Play; `CHANGELOG.md` has
   release notes.
 

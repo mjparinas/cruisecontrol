@@ -15,6 +15,8 @@
   you or hear itself.
 - The car chat uses Claude's prompt caching, so each answer rereads the instructions and earlier turns from the
   cache instead of paying full price for them again. Its cost now counts cache writes and reads at their own prices.
+- A search box at the top of Settings shows only the settings that match what you type, by name, section or a
+  related word like "colour" or "money". Searching for a pull request switch finds your repos, where those live now.
 - An experimental Steering-wheel buttons switch in Settings, under In the car and off by default. While the car
   screen is open, the wheel's play or pause button starts Talk, and next or previous repeats the last update.
 

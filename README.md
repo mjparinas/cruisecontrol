@@ -159,6 +159,9 @@ task and says "Starting on aiauto: add dark mode" (read aloud in the car, shown 
 
 ## Claude and voice settings
 
+Type in the **Search settings** box at the top of Settings to show only the settings that match, by name, section or
+a related word like "colour" or "money". Clear it to see everything again.
+
 - **Model and effort.** Settings > Claude picks the model (Opus 5.5, Sonnet 5.5 or Haiku 5.5) and effort for coding
   tasks, and separately for the spoken car chat, which defaults to low effort so answers come back quickly.
 - **OpenAI and Gemini for the car chat.** Add an **OpenAI API key** (from platform.openai.com) or a **Gemini API

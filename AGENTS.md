@@ -77,6 +77,8 @@ Claude and cost:
   everything in the car, theme, daily and monthly limits, and sync. Per repo (`RepoSettings`, set by tapping a repo): merge when
   checks pass, the two automatic fixes, release on merge, and rules for that repo. A repo without saved settings uses
   the defaults; updating from global switches copies the old values onto every saved repo once.
+- The search box at the top of Settings filters sections and rows by name, section or related words listed in
+  `SettingsSearch.CATALOGUE` (core). Rows the catalogue doesn't list, like each saved repo, show with their section.
 - A repo's rules go in `ClaudeAgents.firstPrompt`, not the agent, so changing them never makes a new agent and they
   only reach that repo's tasks. Standing rules stay global and in the agent.
 - Changing the model, effort, web search or standing rules makes a new agent for the next task. Running tasks keep
@@ -279,6 +281,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- PR 92: A search box at the top of Settings filters the page as you type. Pull request and repo-rule words find
+  the Repositories section, since those settings live behind each repo.
 - A release without an APK is no use, so the Release workflow drafts a release the app published on merge until its
   APK is attached, instead of leaving it public while the APK builds.
 - PR 100: The Release workflow's version is optional. Left empty, it releases the next patch after the latest tag,
