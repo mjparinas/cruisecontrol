@@ -8,12 +8,12 @@ import kotlin.test.assertNull
 
 @OptIn(ExperimentalMaterial3Api::class)
 class CardSwipeTest {
-    @Test fun swipingRightArchives() {
-        assertEquals(CardSwipe.Archive, cardSwipe(SwipeToDismissBoxValue.StartToEnd))
+    @Test fun swipingLeftArchives() {
+        assertEquals(CardSwipe.Archive, cardSwipe(SwipeToDismissBoxValue.EndToStart))
     }
 
-    @Test fun swipingLeftClears() {
-        assertEquals(CardSwipe.Clear, cardSwipe(SwipeToDismissBoxValue.EndToStart))
+    @Test fun swipingRightClears() {
+        assertEquals(CardSwipe.Clear, cardSwipe(SwipeToDismissBoxValue.StartToEnd))
     }
 
     @Test fun aSettledCardDoesNothing() {
