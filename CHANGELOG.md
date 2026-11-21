@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Google Assistant shortcut: "Hey Google, start a task to add dark mode to aiauto on Cruise Control" starts a task
+  with no taps. Name the repo at the start or end of the request, or it goes to the last-used one. Google only
+  offers the shortcut once the app is on the Play Console.
 - A release made when a pull request merges stays a draft until the Release workflow attaches its APK, so no public
   release is ever missing the APK. If the build fails, the release stays a draft.
 - The Release workflow no longer insists on a version. Leave it empty and it releases the next patch version after
