@@ -29,6 +29,10 @@ commands. See "Voice commands" in the README.
   fuzzy matching against saved repos so transcription slips still work.
 - **Saved prompts.** One-tap templates in the car such as "Bump dependencies", "Fix the failing build", "Write tests
   for the last change".
+- **Every repo available, most recently used first.** Offer every repo the GitHub token can push to in the phone
+  and car repo pickers, not just the ones saved in Settings, so a task can start anywhere without adding the repo
+  first. Order the list by most recently used: repos with recent tasks at the top, then the rest by last push
+  (`GitHub.myRepos()` already sorts that way). Cache the list so the car picker opens without waiting on GitHub.
 
 ## Ask, don't change
 
