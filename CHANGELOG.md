@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Keep listening until Stop now really waits for Stop. Staying quiet for the first few seconds used to end
+  listening, and on the phone a pause could send what you'd said. Hiccups from the speech recognizer now just
+  start listening again, and only Stop sends.
+
 ## v0.8.0
 
 - Per-repo settings: tap a repo in Settings for its own Merge when checks pass, Fix merge conflicts automatically,

@@ -47,7 +47,8 @@ Driving safety comes first:
   Talk button and starts listening when it opens. Android Auto's messaging view always asks for Send, which apps
   can't turn off, so the app explains how to avoid it. Keep listening until Stop (off by default) makes pauses not
   send, both on the car screen and from the phone app's mic button, which then listens in the app instead of
-  opening Google's speech dialog.
+  opening Google's speech dialog. Until Stop, recognizer errors restart listening too (up to 5 in a row), since
+  it often fails after silence or while restarting, and an error must never send.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences.
 - Short replies (status, stop, merge it, fix it, yes, no) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
@@ -242,6 +243,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- Next PR: Keep listening until Stop restarts on recognizer errors instead of stopping or sending, so silence at
+  the start or a hiccup between pauses no longer ends it.
 - PR 78: The update check offers the highest recent release with an APK, not just GitHub's latest release, which
   often has no APK yet right after a merge.
 - PR 77: The car chat can use OpenAI or Gemini models with their own optional keys. Coding tasks stay on Claude.
