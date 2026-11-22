@@ -16,6 +16,8 @@
   when the network returns. Missed Claude messages are spoken from session history after a reconnect. Parked Approve
   or Deny is retried, and put back on screen if it never reaches Claude. Car chat queues brief server errors and rate
   limits as well as no signal. Sync runs when the network comes back. GitHub calls use timeouts and short retries.
+- The Talk to Claude conversation in Android Auto's messaging view stays there for the whole drive, since that view
+  has no button to start a chat: dismiss it and it comes straight back, ready to tap and talk.
 
 ## v0.8.0
 
