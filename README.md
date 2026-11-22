@@ -279,9 +279,9 @@ checks its versions, numbers and paths against the code, so the build fails if i
 ## Making a release
 
 In the Actions tab, open **Release** and click **Run workflow**. To choose the version yourself,
-enter the next version, like `v0.8.0`. Leave it empty to release the next patch version after the latest tag
+enter the next version, like `v0.8.1`. Leave it empty to release the next patch version after the latest tag
 instead (for example `v0.7.20` becomes `v0.7.21`), the same way the app's auto-release picks it. You can also
-push a tag like `v0.8.0`. Either way, the workflow tests the code, builds a release APK and publishes a GitHub
+push a tag like `v0.8.1`. Either way, the workflow tests the code, builds a release APK and publishes a GitHub
 release with the APK attached. The version name comes from the tag and the version code from the run number, so
 there's nothing to bump in the code first.
 

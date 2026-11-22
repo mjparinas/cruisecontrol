@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.8.1
+
 - The Google Assistant shortcut now finds any repo your GitHub token can push to, not just saved ones, so it no
   longer says to add a repo first when you haven't saved any. Its phrases say Cruise Control instead of Claude, like
   "Hey Google, ask Cruise Control to add dark mode to aiauto".

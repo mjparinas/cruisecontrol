@@ -304,6 +304,7 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- v0.8.1 cut from the notes merged since the v0.8.0 tag (PRs 110, 111 and 113) plus PR 112.
 - The Google Assistant shortcut finds any repo the token can push to, like the pickers since PR 83, instead of only
   saved repos, and its phrases name Cruise Control rather than Claude ("ask Cruise Control to ..."). The docs now say
   Gemini may not pick up custom App Actions intents.

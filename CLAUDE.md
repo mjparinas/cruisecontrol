@@ -73,7 +73,7 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   entry and pointing the README's release example at it; `ChangelogTest` checks both. After the pull request merges,
   the owner runs the Release workflow with that version. Left empty, the workflow releases the next patch after
   the latest tag via `.github/scripts/next-version.sh`, which follows the same rule as `Versions.nextPatch`. The agent can't push tags. If the newest changelog
-  version still has no tag (v0.8.0 didn't as of v0.7.20), fold the Unreleased notes into it instead of adding a new one.
+  version still has no tag, fold the Unreleased notes into it instead of adding a new one.
 - Release when a PR is merged is on for this repo, so every merge publishes a patch tag. Check the real latest
   version with `git ls-remote --tags origin`. The local `main` branch can be stale: branch from `origin/main`.
 - Open pull requests usually conflict in CHANGELOG.md, AGENTS.md's decision log and docs/FEATURE_IDEAS.md after
