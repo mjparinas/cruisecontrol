@@ -166,7 +166,9 @@ class Graph(context: Context) {
     private fun prepareBriefing() {
         if (!settings.briefingOnConnect || !isConfigured) return
         val since = maxOf(settings.lastDriveEndedMillis, System.currentTimeMillis() - BRIEFING_WINDOW_MILLIS)
-        val text = dev.aiauto.core.Briefing.since(tasks.all(), since, settings.spentTodayUsd) ?: return
+        val text = dev.aiauto.core.Briefing.since(
+            tasks.all(), since, settings.spentTodayUsd, settings.spentThisMonthUsd, settings.monthlyLimitUsd,
+        ) ?: return
         synchronized(this) { briefing = text }
         scope.launch {
             kotlinx.coroutines.delay(BRIEFING_DELAY_MILLIS)

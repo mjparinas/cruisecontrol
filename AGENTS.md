@@ -144,6 +144,7 @@ Tasks, repos and sync:
   the network returns. Only connection failures are queued, and never a turn that already ran a tool, so nothing
   such as a task start can happen twice. The queue lives in memory, not on disk, since it only matters on a drive.
 - A briefing of what happened since the last drive (up to a day back) is read when the phone connects to the car.
+  It ends with today's spend and this month's, measured against the monthly limit when one is set.
 
 Look and accessibility:
 
@@ -285,6 +286,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- The welcome-back briefing says this month's spend, and the monthly limit when one is set, after today's. The
+  home screen and widget still only show today's spend.
 - PR 93: Parked mode. While the car is parked, steps the agent's safety check flags wait for Approve or Deny on the
   car screen instead of being declined; driving off denies any still waiting.
 - PR 92: A search box at the top of Settings filters the page as you type. Pull request and repo-rule words find

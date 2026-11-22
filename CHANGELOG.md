@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The welcome-back briefing says how much you've spent this month as well as today, and how that compares with
+  your monthly limit when you've set one.
 - Google Assistant shortcut: "Hey Google, start a task to add dark mode to aiauto on Cruise Control" starts a task
   with no taps. Name the repo at the start or end of the request, or it goes to the last-used one. Google only
   offers the shortcut once the app is on the Play Console.
