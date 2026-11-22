@@ -208,7 +208,7 @@ a related word like "colour" or "money". Clear it to see everything again.
   and the microphone's Stop button sends what you said.
 - **Briefing when you get in** (on by default): when the phone connects to the car, Claude reads what happened
   since your last drive, up to a day back: merged pull requests, finished and failed tasks, questions waiting for
-  you and what you've spent today. If the car screen is open it reads it there, then listens.
+  you and what you've spent today and this month, with your monthly limit if you've set one. If the car screen is open it reads it there, then listens.
 - **Remember past drives** (on by default): the car chat keeps your last 20 exchanges on the phone and gives them
   to Claude at the start of the next drive. **Forget past drives** clears them.
 - **Speaking speed and voice** are under In the car. The voice list shows the phone's text-to-speech voices for its

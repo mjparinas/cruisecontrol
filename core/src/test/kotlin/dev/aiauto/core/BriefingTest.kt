@@ -32,6 +32,18 @@ class BriefingTest {
         )
     }
 
+    @Test fun saysThisMonthsSpend() {
+        val tasks = listOf(task("a", TaskStatus.Done, 200, title = "Add tests"))
+        fun spend(today: Double, month: Double, limit: Double?) =
+            Briefing.since(tasks, 100, today, month, limit)!!.substringAfter("in app. ")
+        assertEquals("You've spent $1.50 today and $12.00 this month.", spend(1.5, 12.0, null))
+        assertEquals("You've spent $1.50 today and $12.00 of this month's $50.00 limit.", spend(1.5, 12.0, 50.0))
+        assertEquals("You've spent $12.00 this month.", spend(0.0, 12.0, null))
+        assertEquals("You've spent $1.50 today.", spend(1.5, 1.5, null))
+        assertEquals("You've spent $0 of this month's $50.00 limit.", spend(0.0, 0.0, 50.0))
+        assertTrue("spent" !in Briefing.since(tasks, 100, 0.0, 0.0, null)!!)
+    }
+
     @Test fun namesAtMostTwo() {
         val text = Briefing.since((1..4).map { task("$it", TaskStatus.Failed, 200) }, 100, 0.0)!!
         assertTrue("Four tasks failed: task 1 in app and task 2 in app, and 2 more." in text, text)
