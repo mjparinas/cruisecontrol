@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Bug fixes: a question Claude asked in an earlier turn no longer marks a finished turn as waiting on you or alerts
+  again; turning on GitHub's auto-merge is no longer announced as merged; a spoken repo name with a capitalized
+  "Slash" still finds the repo; the Accent colour setting uses Canadian spelling.
+
 ## v0.8.2
 
 - The home screen's task search box now matches the Settings search: a rounded pill on the card colour with a

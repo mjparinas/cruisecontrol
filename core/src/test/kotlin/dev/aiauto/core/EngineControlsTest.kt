@@ -688,4 +688,35 @@ class EngineControlsTest {
         engine().start(repo, "rename the setting")
         assertEquals(listOf(AlertKind.Question), alerts)
     }
+
+    @Test fun anEarlierTurnsQuestionIsNotAskedAgain() {
+        claude.turns += listOf(AgentUpdate.Said("Should I also update the docs?"), AgentUpdate.TurnDone)
+        claude.turns += listOf(AgentUpdate.Progress("Editing files"), AgentUpdate.TurnDone)
+        val engine = engine()
+        val task = engine.start(repo, "rename the setting")
+        assertEquals(TaskStatus.NeedsInput, store.get(task.id)!!.status)
+        engine.prompt(task.id, "yes, update the readme as well")
+        assertEquals(TaskStatus.Done, store.get(task.id)!!.status)
+        assertEquals(listOf(AlertKind.Question), alerts)
+    }
+
+    @Test fun gitHubAutoMergeIsNotAnnouncedAsMerged() {
+        config.merge = true
+        val autoMerging = object : FakeGitHub() {
+            override fun merge(repo: RepoRef, number: Int) = MergeResult.AutoMergeOn
+        }
+        val engine = TaskEngine(
+            store = store, config = config, scope = CoroutineScope(SupervisorJob()), clock = { now },
+            claudeFactory = { claude }, githubFactory = { autoMerging }, onMessage = { _, m -> said += m.text },
+            sleep = {}, dispatcher = Dispatchers.Unconfined,
+        )
+        val task = engine.start(repo, "fix it")
+        autoMerging.checksResult = ChecksSummary(Checks.Passing, total = 1)
+        engine.refreshPullRequest(task.id)
+        val after = store.get(task.id)!!
+        assertEquals(PrState.Open, after.prState)
+        assertTrue(after.githubAutoMerge)
+        assertTrue("GitHub will merge pull request 7 when checks pass." in said)
+        assertFalse("Merged pull request 7." in said)
+    }
 }

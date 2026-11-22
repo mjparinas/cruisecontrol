@@ -420,13 +420,13 @@ private enum class SettingsDialog { AnthropicKey, GithubToken, OpenAiKey, Gemini
 /** Accent colour: a row of round swatches, the chosen one ticked. Each shrinks a little on a narrow phone rather than being cut off. */
 @Composable
 private fun AccentRow(selected: Accent, onPick: (Accent) -> Unit) {
-    if (!LocalSettingsSearch.current.showsRow(LocalSettingsSection.current, "Accent color")) return
+    if (!LocalSettingsSearch.current.showsRow(LocalSettingsSection.current, "Accent colour")) return
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(Icons.Rounded.Palette, BadgeHue.Accent)
             Spacer(Modifier.width(16.dp))
-            RowText("Accent color", selected.label, Modifier.weight(1f))
+            RowText("Accent colour", selected.label, Modifier.weight(1f))
         }
         Spacer(Modifier.height(12.dp))
         Row(

@@ -232,7 +232,7 @@ Security:
   the workflow turns it back into a draft while it builds and publishes it once the APK is attached
   (`ReleaseWorkflowTest` checks this). A failed build leaves the release a draft.
 - The shortcut's action reaches the exported `MainActivity`, so any app could send it. Android stops background
-  apps from opening activities, the request can only target saved repos, the spending limits still apply, and the
+  apps from opening activities, the request can only target repos the token can already push to, the spending limits still apply, and the
   new task opens on screen and is announced, with Stop on it.
 - The GitHub token is only sent to api.github.com, and to gist.githubusercontent.com when moving an old sync gist,
   never to wherever a URL in a response points.
@@ -305,6 +305,9 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- Bug review: Claude's question from an earlier turn no longer counts for a later turn; GitHub auto-merge isn't
+  reported as merged; spoken repo names match a capitalized "Slash"; the Accent colour row uses Canadian spelling.
+  The Security section now says the shortcut targets any repo the token can push to, matching the code.
 - v0.8.2 cut with the home screen search box restyle as its only note.
 - The home screen's task search box uses the same rounded pill as the Settings search, with a clear button, instead
   of an outlined field with a floating label.
