@@ -208,6 +208,8 @@ class TaskEngine(
     /** Call when the phone gets a working network again. Resumes tasks that stopped because it was lost. */
     fun onNetworkAvailable() {
         mine().filter { it.status == TaskStatus.Failed && it.interrupted }.forEach { retry(it.id) }
+        // A finished turn may still be waiting for GitHub to accept its pull request.
+        refreshPullRequests()
     }
 
     /**
@@ -275,17 +277,34 @@ class TaskEngine(
 
     private fun answer(taskId: String, allow: Boolean, line: String) {
         val approval = store.get(taskId)?.approval ?: return
+        // Clear the buttons first so a double tap doesn't send confirm twice.
         journal.update(taskId) { it.copy(approval = null) }
-        journal.status(taskId, line, notify = false)
-        val sessionId = store.get(taskId)?.sessionId ?: return
-        scope.launch(dispatcher) { withClaude { claude -> runCatching { claude.confirm(sessionId, approval.toolUseId, allow) } } }
+        val sessionId = store.get(taskId)?.sessionId
+        if (sessionId == null) {
+            journal.status(taskId, line, notify = false)
+            return
+        }
+        scope.launch(dispatcher) {
+            val sent = confirmWithRetries(sessionId, approval.toolUseId, allow)
+            if (sent) {
+                journal.status(taskId, line, notify = false)
+            } else if (store.get(taskId)?.approval == null) {
+                // Confirm never reached Claude: put the choice back so they can try again.
+                journal.update(taskId) { it.copy(approval = approval) }
+                journal.status(taskId, "Couldn't send that to Claude. Try Approve or Deny again.")
+            }
+        }
     }
 
     /** Holds a flagged step for the driver while parked, or declines it if the car started moving in the meantime. */
     private fun holdForApproval(claude: AgentClient, taskId: String, update: AgentUpdate.NeedsApproval) {
         val sessionId = store.get(taskId)?.sessionId ?: return
         if (!isParked) {
-            runCatching { claude.confirm(sessionId, update.toolUseId, allow = false) }
+            // Decline must reach Claude or the session waits until the read timeout; retry briefly here.
+            if (!confirmNow(claude, sessionId, update.toolUseId, allow = false)) {
+                journal.step(taskId, Speaker.Status, "Couldn't decline a risky ${update.toolName} step. It may wait until Claude times out.")
+                return
+            }
             journal.step(taskId, Speaker.Status, "Skipped a risky ${update.toolName} step that needs review")
             return
         }
@@ -293,6 +312,39 @@ class TaskEngine(
         val approval = ToolApproval(update.toolUseId, update.toolName, update.detail)
         journal.update(taskId) { it.copy(approval = approval) }
         journal.status(taskId, "Claude wants to ${approval.summary}. Approve or deny it on the car screen.")
+    }
+
+    /** Sends a parked-mode Approve or Deny, retrying short outages. Returns false when Claude never got it. */
+    private suspend fun confirmWithRetries(sessionId: String, toolUseId: String, allow: Boolean): Boolean {
+        var attempt = 0
+        while (true) {
+            val key = config.anthropicKey() ?: return false
+            val ok = runCatching {
+                claudeFactory(key).use { claude ->
+                    runInterruptible { claude.confirm(sessionId, toolUseId, allow) }
+                }
+            }
+            if (ok.isSuccess) return true
+            val error = ok.exceptionOrNull()!!
+            if (error is CancellationException) throw error
+            if (!Failures.isTransient(error) || ++attempt >= SEND_ATTEMPTS) return false
+            sleep(Failures.backoffMillis(attempt))
+        }
+    }
+
+    /** Declines a flagged step on the live client, with a couple of quick retries for a flaky link. */
+    private fun confirmNow(claude: AgentClient, sessionId: String, toolUseId: String, allow: Boolean): Boolean {
+        var attempt = 0
+        while (true) {
+            try {
+                claude.confirm(sessionId, toolUseId, allow)
+                return true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                if (!Failures.isTransient(e) || ++attempt >= SEND_ATTEMPTS) return false
+            }
+        }
     }
 
     /** Stops a task that's working: Claude is interrupted and the task waits for a new prompt. */
@@ -409,14 +461,21 @@ class TaskEngine(
     /** True while some pull request's checks or merge are worth watching, so the app should stay awake. */
     fun isWatchingPullRequests(): Boolean {
         val now = clock()
-        return mine().any { !isRunning(it.id) && pullRequests.needsWatching(it, now) }
+        return mine().any { !isRunning(it.id) && (pullRequests.needsWatching(it, now) || pullRequests.needsOpening(it, now)) }
     }
 
-    /** Refreshes state and checks for every task with an open pull request, and merges green ones when auto-merge is on. */
+    /**
+     * Refreshes state and checks for every task with an open pull request, merges green ones when auto-merge is on,
+     * and retries opening a pull request when a coding turn finished without one (usually a GitHub blip).
+     */
     fun refreshPullRequests(): Job = scope.launch(dispatcher) {
-        mine().filter { it.hasOpenPr && !isRunning(it.id) }.forEach { task ->
+        val now = clock()
+        mine().filter { !isRunning(it.id) }.forEach { task ->
             currentCoroutineContext().ensureActive()
-            runCatching { pullRequests.refresh(task.id) }
+            when {
+                pullRequests.needsOpening(task, now) -> runCatching { pullRequests.open(task.id) }
+                task.hasOpenPr -> runCatching { pullRequests.refresh(task.id) }
+            }
         }
     }
 

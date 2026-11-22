@@ -32,6 +32,18 @@ internal class PullRequests(
     }
 
     /**
+     * True when Claude finished a coding turn but the pull request never opened, most often because GitHub was
+     * unreachable at the end of the turn. Kept within [WATCH_MILLIS] of the last update so old finished tasks
+     * aren't polled forever.
+     */
+    fun needsOpening(task: Task, now: Long): Boolean {
+        if (task.readOnly || task.prNumber != null) return false
+        if (task.status != TaskStatus.Done && task.status != TaskStatus.NeedsInput) return false
+        if (config.githubToken() == null) return false
+        return now - task.updatedMillis <= WATCH_MILLIS
+    }
+
+    /**
      * Opens a pull request for the task's branch if Claude pushed it, or picks up one that already exists.
      * Does nothing when there's no GitHub token or the branch isn't there. Safe to repeat.
      */

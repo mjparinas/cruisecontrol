@@ -20,6 +20,7 @@ object Failures {
     /** True when waiting and retrying is likely to work: dropped connections, timeouts, rate limits, busy servers. */
     fun isTransient(e: Throwable): Boolean = when (e) {
         is GitHubException -> e.code == 408 || e.code == 429 || e.code >= 500 || e.code == 0
+        is ChatApiException -> e.code == 408 || e.code == 429 || e.code >= 500
         is AnthropicServiceException -> e is SseException || e.statusCode().let { it == 408 || it == 409 || it == 429 || it >= 500 }
         is AnthropicIoException, is AnthropicRetryableException, is IOException -> true
         else -> e.cause?.takeIf { it !== e }?.let(::isTransient) ?: false

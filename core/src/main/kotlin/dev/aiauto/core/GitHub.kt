@@ -9,6 +9,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 class GitHubException(val code: Int, message: String) : IOException(message)
 
@@ -94,7 +95,11 @@ sealed interface MergeResult {
 }
 
 /** The few GitHub REST calls the app needs, authenticated with the user's token. Open so tests can fake it. */
-open class GitHub(private val token: String, private val http: OkHttpClient = OkHttpClient()) {
+open class GitHub(
+    private val token: String,
+    private val http: OkHttpClient = defaultClient(),
+    private val pause: (Long) -> Unit = { millis -> Thread.sleep(millis) },
+) {
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 
     @Serializable
@@ -434,6 +439,19 @@ open class GitHub(private val token: String, private val http: OkHttpClient = Ok
     private fun get(path: String) = send("GET", path, null)
 
     private fun send(method: String, path: String, body: String?, accept: String = "application/vnd.github+json"): String {
+        var attempt = 0
+        while (true) {
+            try {
+                return sendOnce(method, path, body, accept)
+            } catch (e: IOException) {
+                // GitHubException is an IOException; Failures sorts permanent codes from retries.
+                if (!Failures.isTransient(e) || ++attempt >= SEND_ATTEMPTS) throw e
+                pause(Failures.backoffMillis(attempt))
+            }
+        }
+    }
+
+    private fun sendOnce(method: String, path: String, body: String?, accept: String): String {
         val request = Request.Builder()
             .url("https://api.github.com$path")
             .header("Authorization", "Bearer $token")
@@ -452,8 +470,17 @@ open class GitHub(private val token: String, private val http: OkHttpClient = Ok
         }
     }
 
-    private companion object {
-        val OK_CONCLUSIONS = setOf("success", "neutral", "skipped")
-        const val GIST_RAW_HOST = "gist.githubusercontent.com"
+    companion object {
+        private val OK_CONCLUSIONS = setOf("success", "neutral", "skipped")
+        private const val GIST_RAW_HOST = "gist.githubusercontent.com"
+        private const val SEND_ATTEMPTS = 3
+
+        /** Shared client with timeouts so a hung GitHub call can't leave a task stuck forever. */
+        fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(60, TimeUnit.SECONDS)
+            .build()
     }
 }
