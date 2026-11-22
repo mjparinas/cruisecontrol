@@ -286,6 +286,10 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- Clickable settings and project rows expose button actions to screen readers; repository settings rows show a delete icon, status text enforces 4.5:1 contrast, and accent swatch checkmarks use a contrasting shade.
+- The owner wants to pursue Ask mode, spoken pull request summaries, a wider briefing, monthly spend on the home
+  screen and widget, and the listed phone features. The owner does not want task read-back, car-chat repeat/quiet,
+  longer car lists or a parking hand-off notification; these are marked in `docs/FEATURE_IDEAS.md`.
 - Feature ideas checked against the code again: held speech while listening, the steering-wheel experiment and
   "undo that" and "start over" moved from Still missing to Already built.
 - The welcome-back briefing says this month's spend, and the monthly limit when one is set, after today's. The
