@@ -95,7 +95,7 @@ class AssistantTest {
         assertEquals("low", first["reasoning"]!!.jsonObject["effort"]!!.jsonPrimitive.content)
         assertEquals("false", first["store"]!!.jsonPrimitive.content)
         assertTrue(first["instructions"]!!.jsonPrimitive.content.startsWith("You are ChatGPT,"))
-        assertEquals(6, first["tools"]!!.jsonArray.size)
+        assertEquals(7, first["tools"]!!.jsonArray.size)
         // The second request carries the reasoning and the call back, followed by the tool's answer.
         val input = http.sent[1].second["input"]!!.jsonArray.map { it.jsonObject }
         assertEquals(listOf("user", null, null, null), input.map { it["role"]?.jsonPrimitive?.content })

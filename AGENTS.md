@@ -186,10 +186,10 @@ Claude:
 - Instructions every task needs go in `ClaudeAgents.firstPrompt`, sent with each task, rather than the system
   prompt baked into the agent, so agents already saved on a phone pick them up without being remade.
 - The car chat uses the Messages API directly with a small set of tools (start a task, reply to a task, add a repo,
-  get status, stop a task, merge a pull request). The tools are described once in `Assistant` and sent in each
-  provider's format by `core/src/main/kotlin/dev/aiauto/core/ChatProviders.kt`, which keeps each conversation in
-  that provider's own message format so tool calls, OpenAI's encrypted reasoning and Gemini's thought signatures go
-  back exactly as they came. OpenAI requests are sent with store off.
+  get status, stop a task, merge a pull request, close or reopen a pull request). The tools are described once in
+  `Assistant` and sent in each provider's format by `core/src/main/kotlin/dev/aiauto/core/ChatProviders.kt`, which
+  keeps each conversation in that provider's own message format so tool calls, OpenAI's encrypted reasoning and
+  Gemini's thought signatures go back exactly as they came. OpenAI requests are sent with store off.
 - Claude car chat requests turn on automatic prompt caching (a top-level `cache_control` with the default 5-minute
   lifetime), so tools, system prompt and earlier turns are read from the cache on each turn. A drive's back and
   forth is well inside five minutes, so the 1-hour lifetime, which costs twice input to write, isn't worth it.
@@ -299,6 +299,9 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- "Fix it" and automatic check fixes include the last lines of each failed Actions job's log when the token has
+  Actions: read, and fall back to check names only when it doesn't. The car chat can close or reopen a pull request
+  with the same two-turn confirmation as merge.
 - Bug fixes: VoiceCommand treats negated yes-phrases as No; Ask follow-ups keep read-only rules and refuse write
   shortcuts; conflict handling always blocks the failing-checks question; car merge preview requires a non-draft with
   readable checks; colliding pull request numbers ask which repo; SyncMerge keeps max spend and known PR fields and

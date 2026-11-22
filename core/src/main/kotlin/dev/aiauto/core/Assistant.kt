@@ -29,6 +29,16 @@ interface AssistantActions {
 
     /** Merges a pull request the driver confirmed. Returns what to tell Claude. */
     fun merge(repo: RepoRef, number: Int): String = throw UnsupportedOperationException("Merging isn't available.")
+
+    /** Checks whether a pull request can close or reopen, without changing it. */
+    fun previewClose(repo: String, prNumber: Int?, reopen: Boolean): ClosePreview =
+        throw UnsupportedOperationException("Closing isn't available.")
+
+    /** Closes a pull request the driver confirmed. Returns what to tell Claude. */
+    fun close(repo: RepoRef, number: Int): String = throw UnsupportedOperationException("Closing isn't available.")
+
+    /** Reopens a pull request the driver confirmed. Returns what to tell Claude. */
+    fun reopen(repo: RepoRef, number: Int): String = throw UnsupportedOperationException("Closing isn't available.")
 }
 
 /**
@@ -54,6 +64,7 @@ class Assistant(
     /** Counts the driver's questions, so a merge can only be confirmed by a later one. */
     private var turn = 0
     private val merges = MergeConfirmation(actions)
+    private val closes = CloseConfirmation(actions)
     private var conversation: ChatConversation? = null
     /** The provider and key [conversation] was made for. A new model provider or key starts a new one. */
     private var conversationFor: Pair<ChatProvider, String>? = null
@@ -131,6 +142,7 @@ class Assistant(
         conversation?.rollback(0)
         startedMillis = clock()
         merges.clear()
+        closes.clear()
     }
 
     private fun converse(talk: ChatConversation, chat: ChatProfile): String {
@@ -163,6 +175,7 @@ class Assistant(
                 GET_STATUS -> actions.status(arg("repo"), number("pr_number"), arg("task_id"))
                 STOP_TASK -> actions.stopTask(arg("task_id"))
                 MERGE -> merges.handle(arg("repo"), number("pr_number"), flag("confirmed"), turn)
+                CLOSE -> closes.handle(arg("repo"), number("pr_number"), flag("confirmed"), flag("reopen"), turn)
                 else -> throw IllegalArgumentException("Unknown tool ${call.name}")
             }
         }.fold({ it to false }, { (it.message ?: "That didn't work.") to true })
@@ -203,6 +216,7 @@ class Assistant(
         private const val GET_STATUS = "get_status"
         private const val STOP_TASK = "stop_task"
         private const val MERGE = "merge_pull_request"
+        private const val CLOSE = "close_pull_request"
 
         private const val MEMORY_INTRO =
             "Your earlier conversations with the driver, from past drives, oldest first. Use them when the driver " +
@@ -225,6 +239,10 @@ class Assistant(
             To merge a pull request, call merge_pull_request without confirmed first, read back what it says and
             ask the driver to confirm. Only call it again with confirmed true after the driver says yes. Never
             merge on your own initiative.
+            To close a pull request without merging, call close_pull_request without confirmed first, read back what
+            it says and ask the driver to confirm. Only call it again with confirmed true after they say yes. To
+            reopen one that was closed without merging, call close_pull_request with reopen true the same way.
+            Never close or reopen on your own initiative.
         """.trimIndent()
 
         private val TOOLS = listOf(
@@ -277,6 +295,18 @@ class Assistant(
                     Triple("confirmed", "boolean", "True only once the driver said yes."),
                 ),
             ),
+            ChatTool(
+                CLOSE,
+                "Close a pull request without merging, or reopen one that was closed without merging. Call it first " +
+                    "without confirmed to check it and get a question for the driver. Call it again with confirmed " +
+                    "true only after the driver said yes. Set reopen true only when reopening.",
+                listOf(
+                    Triple("repo", "string", "The repo as owner/name or as the driver said it. Leave out if unclear."),
+                    Triple("pr_number", "integer", "The pull request number."),
+                    Triple("confirmed", "boolean", "True only once the driver said yes."),
+                    Triple("reopen", "boolean", "True to reopen a closed pull request instead of closing an open one."),
+                ),
+            ),
         )
 
         private fun defaultClient(key: String): AnthropicClient = AnthropicOkHttpClient.builder()
@@ -321,6 +351,49 @@ internal class MergeConfirmation(private val actions: AssistantActions) {
     }
 
     private fun sameTarget(preview: MergePreview, repo: String, prNumber: Int?): Boolean =
+        (prNumber == null || prNumber == preview.number) &&
+            (repo.isBlank() || repo.equals(preview.repo.fullName, ignoreCase = true) || RepoRef.matchSpoken(repo, listOf(preview.repo)).isNotEmpty())
+}
+
+/**
+ * Closing or reopening by voice takes two tool calls in different turns, the same way merging does: the first
+ * describes the pull request and asks, and only a later yes for the same pull request changes it.
+ */
+internal class CloseConfirmation(private val actions: AssistantActions) {
+    private var pending: Pair<ClosePreview, Int>? = null
+
+    fun clear() { pending = null }
+
+    fun handle(repo: String, prNumber: Int?, confirmed: Boolean, reopen: Boolean, turn: Int): String {
+        val waiting = pending
+        if (confirmed && waiting != null && waiting.second < turn && waiting.first.reopen == reopen &&
+            sameTarget(waiting.first, repo, prNumber)
+        ) {
+            pending = null
+            return if (waiting.first.reopen) {
+                actions.reopen(waiting.first.repo, waiting.first.number)
+            } else {
+                actions.close(waiting.first.repo, waiting.first.number)
+            }
+        }
+        val preview = actions.previewClose(repo, prNumber, reopen)
+        if (!preview.ready) {
+            pending = null
+            val verb = if (reopen) "reopen" else "close"
+            return "${preview.summary} It can't $verb right now. Tell the driver why in a sentence."
+        }
+        pending = preview to turn
+        val verb = if (reopen) "reopening" else "closing"
+        val toolHint = if (reopen) {
+            "call close_pull_request again with confirmed true and reopen true"
+        } else {
+            "call close_pull_request again with confirmed true"
+        }
+        return "${preview.summary} Not changed yet. Ask the driver to confirm $verb pull request ${preview.number} in " +
+            "${preview.repo.name}, and only after they say yes, $toolHint."
+    }
+
+    private fun sameTarget(preview: ClosePreview, repo: String, prNumber: Int?): Boolean =
         (prNumber == null || prNumber == preview.number) &&
             (repo.isBlank() || repo.equals(preview.repo.fullName, ignoreCase = true) || RepoRef.matchSpoken(repo, listOf(preview.repo)).isNotEmpty())
 }

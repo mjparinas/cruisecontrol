@@ -33,7 +33,7 @@ class TaskEngine(
     private val scope: CoroutineScope,
     private val clock: () -> Long = System::currentTimeMillis,
     private val claudeFactory: (String) -> AgentClient = ::ClaudeAgents,
-    githubFactory: (String) -> GitHub = { GitHub(it) },
+    private val githubFactory: (String) -> GitHub = { GitHub(it) },
     /** Called for each new line, so the app can notify and read it aloud. */
     onMessage: (Task, TaskMessage) -> Unit = { _, _ -> },
     /** Called for each new progress note, so the app can read it aloud without posting a notification. */
@@ -118,7 +118,7 @@ class TaskEngine(
             command == VoiceCommand.Yes && pending == PendingAction.FixConflicts ||
                 command == VoiceCommand.FixBuild && conflicting -> send(taskId, text, fixConflictsPrompt(task))
             command == VoiceCommand.Yes && pending == PendingAction.FixChecks ||
-                command == VoiceCommand.FixBuild && checksFailing -> send(taskId, text, fixChecksPrompt(task))
+                command == VoiceCommand.FixBuild && checksFailing -> send(taskId, text, fixChecksPromptFor(task))
             command == VoiceCommand.Yes && pending == PendingAction.StartOver -> send(taskId, text, startOverPrompt(task))
             (command == VoiceCommand.Undo || command == VoiceCommand.StartOver) && task.prState == PrState.Merged -> {
                 journal.append(taskId, Speaker.You, text)
@@ -199,6 +199,20 @@ class TaskEngine(
             current?.join()
             if (!isRunning(taskId)) send(taskId, null, prompt)
         }
+    }
+
+    /** Builds the fix-checks prompt, adding Actions log tails when the token can read them. */
+    private fun fixChecksPromptFor(task: Task): String = fixChecksPrompt(task, failingJobLogs(task))
+
+    /** Failed Actions job log tails for [task]'s open pull request, or empty when they can't be read. */
+    internal fun failingJobLogs(task: Task): List<FailingJobLog> {
+        val number = task.prNumber ?: return emptyList()
+        val token = config.githubToken() ?: return emptyList()
+        return runCatching {
+            val github = githubFactory(token)
+            val sha = github.pull(task.repo, number).head.sha
+            github.failingJobLogs(task.repo, sha)
+        }.getOrDefault(emptyList())
     }
 
     /** Picks a stopped task back up: creates its session if it never got one, resends unsent prompts, and reattaches. */
@@ -690,12 +704,19 @@ class TaskEngine(
         fun isStandingStill(metersPerSecond: Float?): Boolean = metersPerSecond != null && kotlin.math.abs(metersPerSecond) < 0.1f
 
         /** Sent when the driver asks Claude to fix the checks that failed on its pull request. */
-        fun fixChecksPrompt(task: Task): String {
+        fun fixChecksPrompt(task: Task, jobLogs: List<FailingJobLog> = emptyList()): String {
             val failing = task.checks?.failing.orEmpty()
-            return "The checks failed on pull request ${task.prNumber} after your last push" +
-                (if (failing.isEmpty()) "." else ": ${failing.joinToString(", ")}.") +
-                " You can't see their logs. Reproduce the failure by running the same build or tests here, fix it," +
-                " commit, and push to the same branch."
+            val header = "The checks failed on pull request ${task.prNumber} after your last push" +
+                (if (failing.isEmpty()) "." else ": ${failing.joinToString(", ")}.")
+            if (jobLogs.isEmpty()) {
+                return "$header You can't see their logs. Reproduce the failure by running the same build or tests here," +
+                    " fix it, commit, and push to the same branch."
+            }
+            val tails = jobLogs.joinToString("\n\n") { log ->
+                "### ${log.name}\n${log.tail}"
+            }
+            return "$header Here are the last lines of each failed job's log:\n\n$tails\n\n" +
+                "Use these logs to find the failure. Reproduce only if you still need to. Fix it, commit, and push to the same branch."
         }
 
         /** Sent when the pull request conflicts with its base branch. */

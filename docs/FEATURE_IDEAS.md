@@ -43,6 +43,10 @@ These started on this list and are now in the app. See the README for how they w
 - **Steering-wheel buttons (experiment)**: behind the Steering-wheel buttons setting, off by default, play or pause
   starts Talk and next or previous repeats the last update. Still to learn: whether cars send the buttons to it
   reliably, and whether a media browser service is needed for that.
+- **Failing log tail in "fix it"**: when checks fail, "fix it" (and automatic fixes) send Claude the last lines of
+  each failed Actions job's log when the token can read Actions, and fall back to check names only when it can't.
+- **Close or reopen a pull request by voice**: the car chat can close a pull request without merging, or reopen one
+  that was closed without merging, with the same two-turn confirmation as merge.
 
 ### Coding tasks on other providers
 
@@ -62,16 +66,10 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 
 ### Close the loop by voice
 
-- **Failing log tail in "fix it".** Today "fix it" sends Claude only the names of the failing checks, so Claude has to
-  find and rerun the failure itself. Fetching the last lines of the failed job's log (the Actions jobs and logs
-  endpoints) and adding them to `TaskEngine.fixChecksPrompt` would make fixes faster and cheaper. It needs the token's
-  **Actions: read** permission, and the prompt should fall back to names only when the log can't be read.
 - **Review comments as prompts.** Watch the task's pull request for new review comments, alongside the checks that
   `PullRequests` already follows, and read them out: "Sam commented on PR 12: rename this function". Replying sends the
   comment and your reply to the same session. It needs a `GitHub.reviewComments()` call, a "last seen comment" field on
   the task so nothing is read twice, and a new alert kind.
-- **Close or reopen a pull request by voice.** The car chat can merge but not close a pull request it got wrong. A
-  close tool with the same two-turn confirmation as `MergeConfirmation` would cover it.
 
 ### Start work without typing
 

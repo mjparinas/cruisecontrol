@@ -120,8 +120,14 @@ internal class PullRequests(
                     // A conflict fix pushes new commits, which run the checks again, so don't ask for both at once.
                     when {
                         fixingConflicts -> {}
-                        tryAutoFix(taskId, settings.autoFixChecks, TaskEngine.fixChecksPrompt(store.get(taskId) ?: task)) ->
-                            journal.status(taskId, "$failed Asking Claude to fix them.")
+                        tryAutoFix(
+                            taskId,
+                            settings.autoFixChecks,
+                            TaskEngine.fixChecksPrompt(
+                                store.get(taskId) ?: task,
+                                runCatching { github.failingJobLogs(task.repo, pr.head.sha) }.getOrDefault(emptyList()),
+                            ),
+                        ) -> journal.status(taskId, "$failed Asking Claude to fix them.")
                         else -> {
                             journal.update(taskId) { it.copy(pending = PendingAction.FixChecks) }
                             val question = "$failed Say yes to have Claude fix them."

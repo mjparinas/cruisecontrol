@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- "Fix it" and automatic check fixes send Claude the last lines of each failed Actions job's log when the GitHub
+  token can read Actions, and still fall back to check names alone when it can't.
+- The car chat can close a pull request without merging, or reopen one that was closed without merging, with the same
+  two-turn confirmation as merge.
 - Bug fixes: spoken answers like "do not merge" no longer count as yes; Ask sessions stay read-only on follow-ups;
   a new conflict isn't overwritten by failing checks; drafts and unread checks aren't offered as ready to merge;
   the same pull request number in two repos asks which one; sync keeps a pull request and spend the other device

@@ -149,6 +149,13 @@ class Graph(context: Context) {
             override fun previewMerge(repo: String, prNumber: Int?) = voiceControls.previewMerge(repo, prNumber)
 
             override fun merge(repo: RepoRef, number: Int) = voiceControls.merge(repo, number)
+
+            override fun previewClose(repo: String, prNumber: Int?, reopen: Boolean) =
+                voiceControls.previewClose(repo, prNumber, reopen)
+
+            override fun close(repo: RepoRef, number: Int) = voiceControls.close(repo, number)
+
+            override fun reopen(repo: RepoRef, number: Int) = voiceControls.reopen(repo, number)
         },
         canSpend = { engine.canSpend() },
         onSpend = { settings.addSpend(it) },

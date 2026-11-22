@@ -116,6 +116,7 @@ class EngineControlsTest {
         override fun openPull(repo: RepoRef, branch: String, title: String, body: String) = pr
         override fun pull(repo: RepoRef, number: Int) = pr
         override fun checks(repo: RepoRef, sha: String) = checksResult
+        override fun failingJobLogs(repo: RepoRef, sha: String, maxJobs: Int, maxLines: Int): List<FailingJobLog> = emptyList()
         override fun enableAutoMerge(pull: PullRequest) = autoMergeAllowed
         override fun merge(repo: RepoRef, number: Int): MergeResult {
             refuseMerge?.let { return MergeResult.Refused(it) }

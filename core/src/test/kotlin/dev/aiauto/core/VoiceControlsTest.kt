@@ -31,8 +31,18 @@ class VoiceControlsTest {
     private class FakeGitHub : GitHub("token") {
         var pull = PullRequest(42, "https://github.com/me/app/pull/42", title = "Fix login", head = PullRequest.Head("abc"))
         var checksResult = ChecksSummary(Checks.Passing, total = 2)
+        val stateChanges = mutableListOf<Pair<Int, Boolean>>()
         override fun pull(repo: RepoRef, number: Int) = pull.copy(number = number)
         override fun checks(repo: RepoRef, sha: String) = checksResult
+        override fun setPullState(repo: RepoRef, number: Int, open: Boolean): PullRequest {
+            stateChanges += number to open
+            pull = pull.copy(
+                number = number,
+                state = if (open) "open" else "closed",
+                merged = false,
+            )
+            return pull
+        }
     }
 
     private val store = MapStore()
@@ -118,10 +128,15 @@ class VoiceControlsTest {
         override fun addRepo(name: String) = ""
         override fun previewMerge(repo: String, prNumber: Int?) = controls.previewMerge(repo, prNumber)
         override fun merge(repo: RepoRef, number: Int) = controls.merge(repo, number)
+        override fun previewClose(repo: String, prNumber: Int?, reopen: Boolean) = controls.previewClose(repo, prNumber, reopen)
+        override fun close(repo: RepoRef, number: Int) = controls.close(repo, number)
+        override fun reopen(repo: RepoRef, number: Int) = controls.reopen(repo, number)
     }
 
     @Test
     fun mergeNeedsAYesInALaterTurn() {
+        github.pull = github.pull.copy(state = "open", merged = false, draft = false)
+        github.checksResult = ChecksSummary(Checks.Passing, total = 2)
         val gate = MergeConfirmation(actions)
         // Claude jumping straight to confirmed only gets the question.
         assertTrue("Ask the driver" in gate.handle("app", 42, confirmed = true, turn = 1))
@@ -148,5 +163,38 @@ class VoiceControlsTest {
         assertTrue("can't merge" in gate.handle("app", 42, confirmed = false, turn = 1))
         assertTrue("can't merge" in gate.handle("app", 42, confirmed = true, turn = 2))
         assertTrue(merged.isEmpty())
+    }
+
+    @Test
+    fun closeNeedsAYesInALaterTurn() {
+        github.pull = github.pull.copy(state = "open", merged = false)
+        github.stateChanges.clear()
+        val gate = CloseConfirmation(actions)
+        assertTrue("closing" in gate.handle("app", 42, confirmed = true, reopen = false, turn = 1))
+        assertTrue(github.stateChanges.isEmpty())
+        gate.handle("app", 42, confirmed = true, reopen = false, turn = 1)
+        assertTrue(github.stateChanges.isEmpty())
+        assertEquals("Closed pull request 42.", gate.handle("app", 42, confirmed = true, reopen = false, turn = 2))
+        assertEquals(listOf(42 to false), github.stateChanges)
+    }
+
+    @Test
+    fun reopenNeedsAYesInALaterTurn() {
+        github.pull = github.pull.copy(state = "closed", merged = false)
+        github.stateChanges.clear()
+        val gate = CloseConfirmation(actions)
+        assertTrue("reopening" in gate.handle("app", 42, confirmed = false, reopen = true, turn = 1))
+        assertEquals("Reopened pull request 42.", gate.handle("app", 42, confirmed = true, reopen = true, turn = 2))
+        assertEquals(listOf(42 to true), github.stateChanges)
+    }
+
+    @Test
+    fun mergedPullRequestCannotCloseOrReopen() {
+        github.pull = github.pull.copy(state = "closed", merged = true)
+        github.stateChanges.clear()
+        val gate = CloseConfirmation(actions)
+        assertTrue("can't close" in gate.handle("app", 42, confirmed = false, reopen = false, turn = 1))
+        assertTrue("can't reopen" in gate.handle("app", 42, confirmed = false, reopen = true, turn = 1))
+        assertTrue(github.stateChanges.isEmpty())
     }
 }
