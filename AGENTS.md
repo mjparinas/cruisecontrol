@@ -286,6 +286,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- Feature ideas checked against the code again: held speech while listening, the steering-wheel experiment and
+  "undo that" and "start over" moved from Still missing to Already built.
 - The welcome-back briefing says this month's spend, and the monthly limit when one is set, after today's. The
   home screen and widget still only show today's spend.
 - PR 93: Parked mode. While the car is parked, steps the agent's safety check flags wait for Approve or Deny on the

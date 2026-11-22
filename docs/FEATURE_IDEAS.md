@@ -27,6 +27,11 @@ These started on this list and are now in the app. See the README for how they w
 - **Google Assistant shortcut**: "Hey Google, start a task to ... on Cruise Control" starts a task with no taps,
   once the app is uploaded to the Play Console.
 - **Listening and thinking tones**: a tone when the microphone opens and closes, and a soft cue while an answer is slow.
+- **Spoken updates wait while the microphone is open**: `Speaker` holds new speech while `VoiceInput` listens and
+  reads it once listening ends, so the car never talks over the driver.
+- **Steering-wheel buttons (experiment)**: behind the Steering-wheel buttons setting, off by default, play or pause
+  starts Talk and next or previous repeats the last update. Still to learn: whether cars send the buttons to it
+  reliably, and whether a media browser service is needed for that.
 
 ### Coding tasks on other providers
 
@@ -43,9 +48,6 @@ the `AgentClient` interface, with the same budget and token protections, rather 
   returns, so a misheard request still costs a session. Saying "Starting: add a dark mode toggle, in aiauto" with a
   few seconds to say "cancel" or tap Cancel would catch transcription slips. The read-back text and the cancel window
   belong in `core` so they can be tested.
-- **Hold spoken updates while the microphone is open.** `ListenScreen` and `MicScreen` stop the speaker when they
-  start listening, but a task message or progress note that arrives mid-sentence is read out straight away, talks over
-  the driver and can end up in the transcript. `Speaker` could queue new speech while listening and play it after.
 - **"Repeat that" and "quiet" in the car chat.** Task replies already handle both. The car chat could too: "repeat
   that" replaying its last answer, and "quiet" turning quiet mode on only for the rest of the drive.
 - **More than six rows in car lists.** `PickRepoScreen` now lists every repo last used first, but still shows only
@@ -55,9 +57,6 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 - **Hand-off when you park.** When the phone disconnects from the car, post one phone notification that sums up what
   is still going: "2 tasks still running, PR 12 is ready to review". Tapping it opens the task list, so nothing
   started on the drive is forgotten once you're out of the car.
-- **Steering-wheel button (experiment).** Built behind the Steering-wheel buttons setting, off by default: play or
-  pause starts Talk, next or previous repeats the last update. Still to learn: whether cars send the buttons to it
-  reliably, and whether a media browser service is needed for that.
 
 ### Close the loop by voice
 
@@ -69,9 +68,6 @@ the `AgentClient` interface, with the same budget and token protections, rather 
   `PullRequests` already follows, and read them out: "Sam commented on PR 12: rename this function". Replying sends the
   comment and your reply to the same session. It needs a `GitHub.reviewComments()` call, a "last seen comment" field on
   the task so nothing is read twice, and a new alert kind.
-- **"Undo that" and "Start over".** Two more quick commands in `VoiceCommand`. "Undo that" asks Claude to revert its
-  last commit on the branch and push. "Start over" closes the pull request, deletes the branch and starts a fresh task
-  with the original request. Both should confirm with yes or no first, like merging does.
 - **Close or reopen a pull request by voice.** The car chat can merge but not close a pull request it got wrong. A
   close tool with the same two-turn confirmation as `MergeConfirmation` would cover it.
 
