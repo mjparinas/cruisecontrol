@@ -1,8 +1,10 @@
 package dev.aiauto.core
 
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class VoiceShortcutTest {
     private val aiauto = RepoRef("mjparinas", "aiauto")
@@ -75,6 +77,17 @@ class VoiceShortcutTest {
 
     @Test fun dropsALeadingTo() {
         assertEquals("add dark mode", start("to add dark mode to aiauto").request)
+    }
+
+    @Test fun assistantPhrasesNameCruiseControlNotClaude() {
+        val strings = File("../app/src/main/res/values/strings.xml").readText()
+        val queries = Regex("<string-array name=\"start_task_queries\">(.*?)</string-array>", RegexOption.DOT_MATCHES_ALL)
+            .find(strings)!!.groupValues[1]
+            .let { Regex("<item>(.*?)</item>").findAll(it).map { m -> m.groupValues[1] }.toList() }
+        assertTrue(queries.isNotEmpty())
+        assertTrue(queries.none { it.contains("Claude", ignoreCase = true) }, "Assistant phrases mention Claude: $queries")
+        assertTrue(queries.all { it.endsWith("$" + "request") })
+        assertTrue("ask Cruise Control to $" + "request" in queries)
     }
 
     @Test fun explainsWhatIsMissing() {

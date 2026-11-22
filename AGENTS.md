@@ -303,7 +303,8 @@ Each line is checked against the code by `AgentsDocTest`.
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
 - The Google Assistant shortcut finds any repo the token can push to, like the pickers since PR 83, instead of only
-  saved repos. The docs now say Gemini may not pick up custom App Actions intents.
+  saved repos, and its phrases name Cruise Control rather than Claude ("ask Cruise Control to ..."). The docs now say
+  Gemini may not pick up custom App Actions intents.
 - The home screen's today and this month spend moved from two widely spaced headers onto one card, side by side,
   with limit bars.
 - Bug fixes: VoiceCommand treats negated yes-phrases as No; Ask follow-ups keep read-only rules and refuse write

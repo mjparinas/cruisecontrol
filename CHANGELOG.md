@@ -3,7 +3,8 @@
 ## Unreleased
 
 - The Google Assistant shortcut now finds any repo your GitHub token can push to, not just saved ones, so it no
-  longer says to add a repo first when you haven't saved any.
+  longer says to add a repo first when you haven't saved any. Its phrases say Cruise Control instead of Claude, like
+  "Hey Google, ask Cruise Control to add dark mode to aiauto".
 - The home screen shows today's and this month's spend side by side on one tidy card, each with a bar towards its
   limit that turns amber near the limit and red once it's reached, instead of two widely spaced headers.
 - Bug fixes: spoken answers like "do not merge" no longer count as yes; Ask sessions stay read-only on follow-ups;

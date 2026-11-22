@@ -137,7 +137,7 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
 ## Google Assistant shortcut
 
 Start a task without opening the app: say "Hey Google, start a task to add dark mode to aiauto on Cruise Control".
-"Ask Claude to", "tell Claude to" and "have Claude" work in place of "start a task to". The app opens on the new
+"Ask Cruise Control to", "tell Cruise Control to" and "have Cruise Control" work in place of "start a task to". The app opens on the new
 task and says "Starting on aiauto: add dark mode" (read aloud in the car, shown on the phone otherwise).
 
 - Name the repo at the end ("... to aiauto", "... in the cruise control site repo") or the start ("in aiauto, add a
