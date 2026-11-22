@@ -158,7 +158,9 @@ Look and accessibility:
 - Text and accents meet WCAG AA contrast (4.5:1 for text, 3:1 for outlines), touch targets are at least 48 dp, and
   TalkBack gets labels and custom actions for anything done by swiping.
 - The app icon is a cruise control speedometer (PR 38).
-- Home and widget spending summaries show both today's and this month's totals, with each configured limit.
+- Home and widget spending summaries show both today's and this month's totals, with each configured limit. On the
+  home screen they sit side by side on one compact card (`SpendMeter` in core), each with a bar towards its limit
+  that turns amber from 80% and red at the limit, instead of two stacked section headers.
 - The phone task list searches active and archived tasks by request, message, repo or pull request number.
 - The welcome-back briefing also checks recent issue and pull request activity and failed main-branch checks across saved repos.
 - Important phone task, pull request, template and shared-request text wraps instead of being cut off; template Start
@@ -302,6 +304,8 @@ Newest first. Earlier work (before PR 13) isn't in the history; add older decisi
 
 - The Google Assistant shortcut finds any repo the token can push to, like the pickers since PR 83, instead of only
   saved repos. The docs now say Gemini may not pick up custom App Actions intents.
+- The home screen's today and this month spend moved from two widely spaced headers onto one card, side by side,
+  with limit bars.
 - Bug fixes: VoiceCommand treats negated yes-phrases as No; Ask follow-ups keep read-only rules and refuse write
   shortcuts; conflict handling always blocks the failing-checks question; car merge preview requires a non-draft with
   readable checks; colliding pull request numbers ask which repo; SyncMerge keeps max spend and known PR fields and
