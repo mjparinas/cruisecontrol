@@ -96,8 +96,8 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 
 ### Safety and cost
 
-- **Monthly spend in the briefing.** The monthly limit is built, but the welcome-back briefing, home screen and
-  widget only mention today's spend. They could say how much of the month is used.
+- **Monthly spend on the home screen and widget.** The welcome-back briefing now says the month's spend and limit,
+  but the home screen and widget only mention today's spend. They could say how much of the month is used.
 
 ### Phone side
 
