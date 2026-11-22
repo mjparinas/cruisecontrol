@@ -20,6 +20,9 @@ data class PullRequest(
     val title: String = "",
     val merged: Boolean = false,
     val draft: Boolean = false,
+    @SerialName("changed_files") val changedFiles: Int = 0,
+    val additions: Int = 0,
+    val deletions: Int = 0,
     /** Null while GitHub is still working it out, and always null in list results. */
     val mergeable: Boolean? = null,
     /** "dirty" means there are merge conflicts. */
@@ -29,6 +32,7 @@ data class PullRequest(
     @SerialName("auto_merge") val autoMerge: kotlinx.serialization.json.JsonElement? = null,
     @SerialName("merged_at") val mergedAt: String? = null,
     @SerialName("merge_commit_sha") val mergeCommitSha: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 ) {
     @Serializable
     data class Head(val sha: String = "", val ref: String = "")
@@ -63,6 +67,14 @@ data class PullFile(
     val additions: Int = 0,
     val deletions: Int = 0,
     val patch: String? = null,
+)
+
+@Serializable
+data class GitHubIssue(
+    val number: Int,
+    val title: String,
+    @SerialName("updated_at") val updatedAt: String,
+    @SerialName("pull_request") val pullRequest: kotlinx.serialization.json.JsonElement? = null,
 )
 
 /** A repo at a glance: what landed last, whether its main branch is green, and what's waiting for review. */
@@ -191,6 +203,12 @@ open class GitHub(private val token: String, private val http: OkHttpClient = Ok
 
     open fun openPulls(repo: RepoRef, limit: Int = 10): List<PullRequest> =
         json.decodeFromString(get("/repos/${repo.fullName}/pulls?state=open&sort=updated&direction=desc&per_page=$limit"))
+
+    /** Issues updated since the previous drive. GitHub includes pull requests in this endpoint too. */
+    open fun issuesUpdatedSince(repo: RepoRef, sinceMillis: Long): List<GitHubIssue> {
+        val since = java.time.Instant.ofEpochMilli(sinceMillis).toString()
+        return json.decodeFromString(get("/repos/${repo.fullName}/issues?state=all&since=$since&per_page=100"))
+    }
 
     /** The newest commit on [branch], or null when the branch is empty. */
     open fun latestCommit(repo: RepoRef, branch: String = repo.defaultBranch): CommitInfo? = try {

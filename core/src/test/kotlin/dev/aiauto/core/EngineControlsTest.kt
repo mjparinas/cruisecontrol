@@ -334,7 +334,7 @@ class EngineControlsTest {
         config.merge = true
         val engine = engine()
         val task = engine.start(repo, "fix it")
-        assertTrue(said.last().contains("I'll merge it when checks pass"))
+        assertTrue(said.any { it.contains("I'll merge it when checks pass") })
         assertTrue(engine.isWatchingPullRequests())
 
         engine.refreshPullRequest(task.id)
@@ -357,9 +357,9 @@ class EngineControlsTest {
         config.others[other.fullName] = RepoSettings(autoMerge = false)
         val engine = engine()
         val here = engine.start(repo, "fix it")
-        assertTrue(said.last().contains("I'll merge it when checks pass"))
+        assertTrue(said.any { it.contains("I'll merge it when checks pass") })
         val there = engine.start(other, "fix it too")
-        assertTrue(said.last().contains("is open for review"))
+        assertTrue(said.any { it.contains("is open for review") })
 
         github.checksResult = ChecksSummary(Checks.Passing, total = 1)
         engine.refreshPullRequest(there.id)

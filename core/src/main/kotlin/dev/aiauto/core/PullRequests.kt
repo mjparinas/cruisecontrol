@@ -61,6 +61,10 @@ internal class PullRequests(
                 else -> "Pull request ${pr.number} is open for review."
             },
         )
+        if (open && task.prNumber == null) {
+            val summary = pr.title.takeIf { it.isNotBlank() } ?: task.title
+            journal.status(taskId, "Change summary: $summary. ${pr.changedFiles} files changed, with ${pr.additions} additions and ${pr.deletions} deletions.")
+        }
     }
 
     /**

@@ -22,7 +22,7 @@ class QuickTaskTile : TileService() {
         super.onClick()
         startActivityAndCollapse(
             Intent(this, MainActivity::class.java)
-                .setAction(MainActivity.ACTION_OPEN_NEW_TASK)
+                .setAction(MainActivity.ACTION_WIDGET_MIC)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
         )
     }

@@ -19,6 +19,17 @@ These started on this list and are now in the app. See the README for how they w
 - **Queue a car chat request with no signal**: the car chat keeps a question asked offline and answers it when the
   network returns.
 - **Home screen widget** with running tasks and today's spend.
+- **Monthly spend on the home screen and widget**, alongside today's total and any configured limits.
+- **Ask mode**, for read-only questions about a repository, with answers read aloud.
+- **Spoken pull request summary**, including the pull request title and diff counts.
+- **Wider welcome-back briefing**, including changed issues and pull requests across saved repos and failed main-branch checks.
+- **Ready to review** phone screen with pull request diffs, conversation, approve and merge actions.
+- **Task history search** across active and archived tasks.
+- **Setup checklist** for keys, repo access, phone permissions and Android Auto's Unknown sources setting.
+- **Share to Cruise Control** to start from text shared by another app.
+- **Launcher shortcuts and Quick Settings tile** for New task, Talk to Claude, and the last-used repo.
+- **Widget microphone** that opens New task and starts listening.
+- **Pull request notification actions** to open the pull request and bring up merge confirmation when checks pass.
 - **Other AI providers for the car chat**: OpenAI and Gemini models, each with its own key in Settings.
 - **Every repo available, most recently used first**: the phone and car repo pickers and the car chat offer every
   repo the GitHub token can push to, not only saved ones, with repos you've used most recently at the top.
@@ -42,21 +53,12 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 
 ## Still missing
 
-### Easier in the car
+### Not planned by the owner
 
-- **Read back a new task before it starts.** A task spoken from Tasks > New task starts as soon as the recognizer
-  returns, so a misheard request still costs a session. Saying "Starting: add a dark mode toggle, in aiauto" with a
-  few seconds to say "cancel" or tap Cancel would catch transcription slips. The read-back text and the cancel window
-  belong in `core` so they can be tested.
-- **"Repeat that" and "quiet" in the car chat.** Task replies already handle both. The car chat could too: "repeat
-  that" replaying its last answer, and "quiet" turning quiet mode on only for the rest of the drive.
-- **More than six rows in car lists.** `PickRepoScreen` now lists every repo last used first, but still shows only
-  the first six, so an older repo can't be picked in the car. Asking the host for its real list size with
-  `ConstraintManager.getContentLimit` instead of a fixed six (also in `TasksScreen` and `TemplatesScreen`) would
-  fix that.
-- **Hand-off when you park.** When the phone disconnects from the car, post one phone notification that sums up what
-  is still going: "2 tasks still running, PR 12 is ready to review". Tapping it opens the task list, so nothing
-  started on the drive is forgotten once you're out of the car.
+- Read back a new task before starting.
+- Add “repeat that” or “quiet” to car chat.
+- Show more than six rows in car lists.
+- Notify about unfinished work when parking.
 
 ### Close the loop by voice
 
@@ -77,42 +79,3 @@ the `AgentClient` interface, with the same budget and token protections, rather 
   adds "Closes #34" to the pull request body so GitHub closes the issue on merge. It needs `GitHub.issue()`, a
   `start_coding_task` option for an issue number in `Assistant`, and **Issues: read** on the token. A follow-up could read
   the newest open issues aloud so you can pick one.
-
-### Ask, don't change
-
-- **Ask mode.** A read-only task type for questions like "how does the task engine reconnect?" or "what changed this
-  week?". It runs a session whose prompt forbids commits and pushes, so no branch or pull request is made, and the
-  answer is read aloud. The car chat can't do this today because it doesn't see the code.
-- **Spoken diff summary.** When a pull request opens, read a one-sentence summary of the change, like "Added a toggle
-  and two tests, 40 lines", so you know what you'll be reviewing later. The line counts come from the pull request
-  itself; the sentence can come from Claude's last message or a short call to a small model.
-- **Wider briefing.** The welcome-back briefing only covers tasks the app started. Adding a main branch that went red,
-  new issues and pull requests from other people across saved repos would make it a real morning briefing. The
-  data is already fetched for **Projects** by `GitHub.status()`.
-
-### Safety and cost
-
-- **Monthly spend on the home screen and widget.** The welcome-back briefing now says the month's spend and limit,
-  but the home screen and widget only mention today's spend. They could say how much of the month is used.
-
-### Phone side
-
-- **Review when you arrive.** A "Ready to review" list on the phone that shows the diff and the conversation
-  together, with approve and merge buttons. It needs the pull request's files from GitHub and a simple diff view.
-- **Microphone on the widget.** The widget opens the app, but has no button to speak a new task straight from the
-  home screen.
-- **Task history search.** Search past requests and pull requests across repos, including archived tasks, from the
-  phone's task list.
-- **Setup checklist.** Setup has six steps across three apps, and a missed one shows up later as a silent failure. A
-  checklist in Settings could tick off what the app can check itself (API key works, token can push to each repo and
-  read checks, notifications and microphone allowed, battery optimization off) and link to the fix for each one.
-  Android Auto's Unknown sources can't be read, so that step stays a tip.
-- **Share to Cruise Control.** Accept text and links from other apps' Share menu, such as a GitHub issue, a crash
-  message or a Slack thread, and open New task with it filled in. It needs an `ACTION_SEND` intent filter on
-  `MainActivity`.
-- **Launcher shortcuts and a quick settings tile.** Long-pressing the app icon could offer New task, Talk to Claude
-  and the last-used repo. A quick settings tile could start a task or switch read aloud on and off. Both are small
-  and work on any phone, unlike the Google Assistant shortcut, which needs the app on Play.
-- **Buttons on the result notification.** When a task's pull request opens or its checks pass, the notification
-  only offers Reply. Adding Open pull request and, when checks are green, Merge (with the same confirmation as in the
-  app) would save opening the app for the most common next step.

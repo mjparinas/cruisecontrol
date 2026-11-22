@@ -60,6 +60,8 @@ fun NewTaskScreen(
     listenUntilStop: Boolean = false,
     sharedText: String? = null,
     onStartShared: ((RepoRef, String) -> Unit)? = null,
+    autoListen: Boolean = false,
+    onAutoListenHandled: () -> Unit = {},
 ) {
     var selected by remember { mutableStateOf(lastUsed?.takeIf { it in repos } ?: repos.firstOrNull()) }
     var askMode by remember { mutableStateOf(false) }
@@ -69,7 +71,7 @@ fun NewTaskScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { ScreenTopBar("New task", onBack) },
         floatingActionButton = {
-            MicButton(enabled = selected != null, listenUntilStop = listenUntilStop, disabledReason = "Add a repo in Settings first.") { text ->
+            MicButton(enabled = selected != null, listenUntilStop = listenUntilStop, disabledReason = "Add a repo in Settings first.", autoStart = autoListen, onAutoStartHandled = onAutoListenHandled) { text ->
                 selected?.let { if (askMode) onStartAsk(it, text) else onStart(it, text) }
             }
         },
@@ -119,10 +121,15 @@ fun NewTaskScreen(
 
             SectionHeader("How it works")
             SettingsCard {
-                SettingRow(Icons.Rounded.Mic, BadgeHue.Red, "Tap the microphone", "Say the change in a sentence or two. It starts the task when you're done.")
-                SettingRow(Icons.Rounded.AccountTree, BadgeHue.Violet, "Works on a new branch", "Claude makes the change on its own branch.")
-                SettingRow(Icons.Rounded.Science, BadgeHue.Teal, "Runs the tests it finds", "Before it opens the pull request.")
-                SettingRow(Icons.Rounded.Visibility, BadgeHue.Green, "Opens a pull request", "For you to review. Updates arrive as messages you can hear in the car.")
+                if (askMode) {
+                    SettingRow(Icons.Rounded.Mic, BadgeHue.Red, "Ask a question", "Say what you want to understand about this repository.")
+                    SettingRow(Icons.Rounded.Visibility, BadgeHue.Green, "Read-only answer", "Claude inspects the code and answers aloud. It won't change files or open a pull request.")
+                } else {
+                    SettingRow(Icons.Rounded.Mic, BadgeHue.Red, "Tap the microphone", "Say the change in a sentence or two. It starts the task when you're done.")
+                    SettingRow(Icons.Rounded.AccountTree, BadgeHue.Violet, "Works on a new branch", "Claude makes the change on its own branch.")
+                    SettingRow(Icons.Rounded.Science, BadgeHue.Teal, "Runs the tests it finds", "Before it opens the pull request.")
+                    SettingRow(Icons.Rounded.Visibility, BadgeHue.Green, "Opens a pull request", "For you to review. Updates arrive as messages you can hear in the car.")
+                }
             }
         }
     }

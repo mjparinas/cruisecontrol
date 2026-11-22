@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added Ask mode with a read-only repository prompt, spoken pull request summaries, a wider drive briefing, a Ready to review screen with
+  diffs and approve or merge actions, task history search, a setup checklist, shared text requests, launcher and
+  Quick Settings entry points, a widget microphone, pull request notification actions, and monthly spend on the
+  home screen and widget.
 - Accessibility: template Start and Delete have separate controls, and task, pull request and template text can wrap
   instead of being cut off in the phone UI. Status label text keeps AA contrast against its card.
 - The welcome-back briefing says how much you've spent this month as well as today, and how that compares with
