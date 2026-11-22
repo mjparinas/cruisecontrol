@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Accessibility: template Start and Delete have separate controls, and task, pull request and template text can wrap
+  instead of being cut off in the phone UI. Status label text keeps AA contrast against its card.
 - The welcome-back briefing says how much you've spent this month as well as today, and how that compares with
   your monthly limit when you've set one.
 - Google Assistant shortcut: "Hey Google, start a task to add dark mode to aiauto on Cruise Control" starts a task

@@ -12,7 +12,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.AccountTree
@@ -30,8 +29,12 @@ import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,11 +54,15 @@ fun NewTaskScreen(
     templates: List<TaskTemplate>,
     onBack: () -> Unit,
     onStart: (RepoRef, String) -> Unit,
+    onStartAsk: (RepoRef, String) -> Unit = onStart,
     onAddTemplate: (name: String, prompt: String) -> Unit,
     onDeleteTemplate: (TaskTemplate) -> Unit,
     listenUntilStop: Boolean = false,
+    sharedText: String? = null,
+    onStartShared: ((RepoRef, String) -> Unit)? = null,
 ) {
     var selected by remember { mutableStateOf(lastUsed?.takeIf { it in repos } ?: repos.firstOrNull()) }
+    var askMode by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     if (adding) AddTemplateDialog(onDismiss = { adding = false }, onSave = onAddTemplate)
     Scaffold(
@@ -63,18 +70,39 @@ fun NewTaskScreen(
         topBar = { ScreenTopBar("New task", onBack) },
         floatingActionButton = {
             MicButton(enabled = selected != null, listenUntilStop = listenUntilStop, disabledReason = "Add a repo in Settings first.") { text ->
-                selected?.let { onStart(it, text) }
+                selected?.let { if (askMode) onStartAsk(it, text) else onStart(it, text) }
             }
         },
     ) { padding ->
         // The bottom padding keeps the last card clear of the floating microphone.
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 136.dp)) {
+            if (!sharedText.isNullOrBlank()) {
+                SectionHeader("Shared from another app")
+                SettingsCard {
+                    Text(sharedText, Modifier.fillMaxWidth().padding(16.dp))
+                    if (onStartShared != null) SettingRow(Icons.Rounded.PlayArrow, BadgeHue.Accent, "Start this request", "Starts a task in the selected repo.") {
+                        selected?.let { onStartShared(it, sharedText) }
+                    }
+                }
+            }
             SectionHeader("Repository")
             SettingsCard {
                 repos.forEach { repo -> RepoChoice(repo, selected = repo == selected) { selected = repo } }
             }
 
-            SectionHeader("Templates")
+            SectionHeader("What do you want to do?")
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                listOf("Make a change", "Ask about code").forEachIndexed { index, label ->
+                    SegmentedButton(
+                        selected = askMode == (index == 1),
+                        onClick = { askMode = index == 1 },
+                        shape = SegmentedButtonDefaults.itemShape(index, 2),
+                    ) { Text(label) }
+                }
+            }
+
+            if (!askMode) SectionHeader("Templates")
+            if (!askMode)
             SettingsCard {
                 templates.forEach { template ->
                     TemplateRow(
@@ -125,13 +153,13 @@ private fun TemplateRow(template: TaskTemplate, enabled: Boolean, onRun: () -> U
         Modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp)
-            .clickable(enabled = enabled, onClickLabel = "Start ${template.name}", onClick = onRun)
             .padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconBadge(Icons.Rounded.PlayArrow, BadgeHue.Teal)
         Spacer(Modifier.width(16.dp))
-        RowText(template.name, if (template.prompt.length > 90) template.prompt.take(88).trimEnd() + "…" else template.prompt, Modifier.weight(1f))
+        RowText(template.name, template.prompt, Modifier.weight(1f))
+        TextButton(onClick = onRun, enabled = enabled) { Text("Start") }
         IconButton(onClick = onDelete) { Icon(Icons.Rounded.Close, "Delete ${template.name}") }
     }
 }

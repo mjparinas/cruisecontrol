@@ -70,6 +70,13 @@ class TaskEngine(
 
     /** Starts a new task on [repo] from a spoken or typed [request]. Returns the new task. */
     fun start(repo: RepoRef, request: String): Task {
+        return start(repo, request, readOnly = false)
+    }
+
+    /** Starts a repository question session whose prompt forbids edits, commits and pushes. */
+    fun startAsk(repo: RepoRef, request: String): Task = start(repo, request, readOnly = true)
+
+    private fun start(repo: RepoRef, request: String, readOnly: Boolean): Task {
         val now = clock()
         val id = UUID.randomUUID().toString().take(8)
         val task = Task(
@@ -77,6 +84,7 @@ class TaskEngine(
             repo = repo,
             title = titleFrom(request),
             branch = "claude/${slug(request)}-$id",
+            readOnly = readOnly,
             createdMillis = now,
             updatedMillis = now,
             device = config.deviceId(),
@@ -569,7 +577,7 @@ class TaskEngine(
     private suspend fun afterTurn(taskId: String) {
         val task = store.get(taskId) ?: return
         journal.announceTurnResult(taskId)
-        if (config.githubToken() != null) {
+        if (!task.readOnly && config.githubToken() != null) {
             if (task.prNumber == null) {
                 try {
                     withRetries { pullRequests.open(taskId) }

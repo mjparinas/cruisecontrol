@@ -154,6 +154,8 @@ Look and accessibility:
 - Text and accents meet WCAG AA contrast (4.5:1 for text, 3:1 for outlines), touch targets are at least 48 dp, and
   TalkBack gets labels and custom actions for anything done by swiping.
 - The app icon is a cruise control speedometer (PR 38).
+- Important phone task, pull request, template and shared-request text wraps instead of being cut off; template Start
+  and Delete are separate controls.
 
 ## Engineering decisions
 
@@ -286,6 +288,7 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- Accessibility review: task, pull request, template and shared-request text wraps; template actions are separate.
 - Clickable settings and project rows expose button actions to screen readers; repository settings rows show a delete icon, status text enforces 4.5:1 contrast, and accent swatch checkmarks use a contrasting shade.
 - The owner wants to pursue Ask mode, spoken pull request summaries, a wider briefing, monthly spend on the home
   screen and widget, and the listed phone features. The owner does not want task read-back, car-chat repeat/quiet,
