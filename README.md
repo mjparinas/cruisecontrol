@@ -91,8 +91,10 @@ and stops Claude when that reaches it, so a run of busy days can't add up past i
 whichever is reached first stops Claude and the car chat. The tighter of the two is also set as the session's
 budget on Anthropic's side, so it holds even if the phone loses signal.
 
-The task list can search all active and archived conversations by request, message, repo or pull request number. Its
-spending header and the home-screen widget show both today's and this month's spend, with each limit when set. Tap
+The task list can search all active and archived conversations by request, message, repo or pull request number. A
+spending card at its top shows today's and this month's spend side by side, each with a bar towards its limit when
+one is set; the bar turns amber from 80% of the limit and red once it's reached. The home-screen widget shows both
+totals too. Tap
 **Ask about code** on New task for a read-only repository question; its answer is spoken like a task update. The
 **Ready to review** screen shows open pull request diffs and the task conversation, with GitHub approve and confirmed
 merge actions. Settings has a setup checklist for keys, repository access and phone permissions. Text shared from

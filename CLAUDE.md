@@ -33,7 +33,7 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     `Graph.watchNetwork` sends when the phone is back online. `ChatProviders.kt` has the car chat models and talks to Claude, OpenAI
     (Responses API) or Gemini (OpenAI-compatible endpoint); tests fake `ChatHttp`. Claude chat requests use
     automatic prompt caching, and `ModelChoice` holds each model's cache hit price. `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
-    replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `Briefing.kt` is the drive briefing;
+    replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `SpendMeter.kt` backs the home screen's spending card; `Briefing.kt` is the drive briefing;
     `VoiceShortcut.kt` turns a Google Assistant shortcut request into a repo and task (`MainActivity` runs it).
     `SteeringWheel.kt` maps the experimental steering-wheel buttons to actions; the app's `car/WheelButtons.kt`
     media session feeds it while the car screen shows.
