@@ -80,9 +80,13 @@ class EngineControlsTest {
         val confirmations = mutableListOf<Pair<String, Boolean>>()
         /** Runs while a flagged step waits, before the turn goes on. */
         var whileWaiting: () -> Unit = {}
-        var confirmFailsWith: Throwable? = null
+        /** How many confirms should fail with a transient error before one is accepted. */
+        var confirmFailuresLeft = 0
         override fun confirm(sessionId: String, toolUseId: String, allow: Boolean) {
-            confirmFailsWith?.let { throw it }
+            if (confirmFailuresLeft > 0) {
+                confirmFailuresLeft--
+                throw java.io.IOException("connection reset")
+            }
             confirmations += toolUseId to allow
         }
         override fun interrupt(sessionId: String) { interrupted += sessionId }
@@ -263,18 +267,31 @@ class EngineControlsTest {
     @Test fun aFailedApprovalConfirmPutsTheChoiceBack() {
         val engine = engine()
         engine.setParked(true)
-        claude.confirmFailsWith = java.io.IOException("connection reset")
+        // Exhaust the three confirm retries so the choice is put back for another tap.
+        claude.confirmFailuresLeft = 3
         claude.turns += listOf(flagged, AgentUpdate.Said("Cleaned it."), AgentUpdate.TurnDone)
         claude.whileWaiting = {
             engine.answerApproval(store.all().single().id, allow = true)
             val waiting = store.get(store.all().single().id)!!
             assertEquals(ToolApproval("tool-1", "bash", "rm -rf build"), waiting.approval)
             assertTrue(waiting.messages.any { "Couldn't send that to Claude" in it.text })
-            claude.confirmFailsWith = null
-            engine.answerApproval(waiting.id, allow = true)
+            assertTrue(claude.confirmations.isEmpty())
         }
         val task = engine.start(repo, "clean the build")
+        assertTrue(claude.confirmations.isEmpty())
+        assertTrue(store.get(task.id)!!.messages.any { "Couldn't send that to Claude" in it.text })
+    }
+
+    @Test fun approvalConfirmRetriesABriefOutageThenSucceeds() {
+        val engine = engine()
+        engine.setParked(true)
+        // Two transient failures, then success — still inside one Approve tap (SEND_ATTEMPTS is 3).
+        claude.confirmFailuresLeft = 2
+        claude.turns += listOf(flagged, AgentUpdate.Said("Cleaned it."), AgentUpdate.TurnDone)
+        claude.whileWaiting = { engine.answerApproval(store.all().single().id, allow = true) }
+        val task = engine.start(repo, "clean the build")
         assertEquals(listOf("tool-1" to true), claude.confirmations)
+        assertEquals(0, claude.confirmFailuresLeft)
         assertNull(store.get(task.id)!!.approval)
         assertTrue(store.get(task.id)!!.messages.any { it.text == "Approved. Claude is carrying on." })
     }

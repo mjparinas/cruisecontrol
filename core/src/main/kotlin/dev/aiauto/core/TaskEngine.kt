@@ -108,6 +108,12 @@ class TaskEngine(
         if (pending != null && command != VoiceCommand.Repeat) journal.update(taskId) { it.copy(pending = null) }
         val checksFailing = task.hasOpenPr && task.checks?.state == Checks.Failing
         val conflicting = task.hasOpenPr && task.conflicts
+        // Ask sessions never write: undo, start over, fix and merge would break that.
+        if (task.readOnly && command in READ_ONLY_BLOCKED) {
+            journal.append(taskId, Speaker.You, text)
+            journal.status(taskId, "This is an Ask session, so it stays read-only. Start a coding task to change the repo.")
+            return
+        }
         when {
             command == VoiceCommand.Yes && pending == PendingAction.FixConflicts ||
                 command == VoiceCommand.FixBuild && conflicting -> send(taskId, text, fixConflictsPrompt(task))
@@ -174,9 +180,11 @@ class TaskEngine(
             journal.update(taskId) { it.copy(autoFixes = 0) }
         }
         if (task.archived) journal.update(taskId) { it.copy(archived = false) }
+        // Follow-ups on Ask sessions keep the read-only rules; the first prompt already has them.
+        val toSend = if (task.readOnly && task.sessionId != null) ClaudeAgents.readOnlyFollowUp(text) else text
         // Without a session the prompt joins the first message; otherwise it queues behind any unsent one.
         if (task.sessionId != null) {
-            journal.update(taskId) { it.copy(pendingPrompt = listOfNotNull(it.pendingPrompt, text).joinToString("\n\n")) }
+            journal.update(taskId) { it.copy(pendingPrompt = listOfNotNull(it.pendingPrompt, toSend).joinToString("\n\n")) }
         }
         launchTurn(taskId)
     }
@@ -284,15 +292,15 @@ class TaskEngine(
             journal.status(taskId, line, notify = false)
             return
         }
-        scope.launch(dispatcher) {
-            val sent = confirmWithRetries(sessionId, approval.toolUseId, allow)
-            if (sent) {
-                journal.status(taskId, line, notify = false)
-            } else if (store.get(taskId)?.approval == null) {
-                // Confirm never reached Claude: put the choice back so they can try again.
-                journal.update(taskId) { it.copy(approval = approval) }
-                journal.status(taskId, "Couldn't send that to Claude. Try Approve or Deny again.")
-            }
+        // Run inline: parked Approve/Deny must finish (or put the choice back) before the next tap, and
+        // nesting another launch under the live follow callback races the turn on Unconfined.
+        val sent = confirmWithRetries(sessionId, approval.toolUseId, allow)
+        if (sent) {
+            journal.status(taskId, line, notify = false)
+        } else if (store.get(taskId)?.approval == null) {
+            // Confirm never reached Claude: put the choice back so they can try again.
+            journal.update(taskId) { it.copy(approval = approval) }
+            journal.status(taskId, "Couldn't send that to Claude. Try Approve or Deny again.")
         }
     }
 
@@ -308,27 +316,31 @@ class TaskEngine(
             journal.step(taskId, Speaker.Status, "Skipped a risky ${update.toolName} step that needs review")
             return
         }
-        if (store.get(taskId)?.approval?.toolUseId == update.toolUseId) return
+        val previous = store.get(taskId)?.approval
+        if (previous?.toolUseId == update.toolUseId) return
+        // Only one step can wait on the car screen; deny any earlier one so the session isn't left hanging.
+        if (previous != null) confirmNow(claude, sessionId, previous.toolUseId, allow = false)
         val approval = ToolApproval(update.toolUseId, update.toolName, update.detail)
         journal.update(taskId) { it.copy(approval = approval) }
         journal.status(taskId, "Claude wants to ${approval.summary}. Approve or deny it on the car screen.")
     }
 
-    /** Sends a parked-mode Approve or Deny, retrying short outages. Returns false when Claude never got it. */
-    private suspend fun confirmWithRetries(sessionId: String, toolUseId: String, allow: Boolean): Boolean {
+    /**
+     * Sends a parked-mode Approve or Deny, retrying short outages right away. No delay between tries so the
+     * choice is restored (or accepted) before the car screen can be tapped again on the same turn.
+     */
+    private fun confirmWithRetries(sessionId: String, toolUseId: String, allow: Boolean): Boolean {
         var attempt = 0
         while (true) {
             val key = config.anthropicKey() ?: return false
+            // Already on the engine dispatcher; nesting runInterruptible races the live follow callback.
             val ok = runCatching {
-                claudeFactory(key).use { claude ->
-                    runInterruptible { claude.confirm(sessionId, toolUseId, allow) }
-                }
+                claudeFactory(key).use { claude -> claude.confirm(sessionId, toolUseId, allow) }
             }
             if (ok.isSuccess) return true
             val error = ok.exceptionOrNull()!!
             if (error is CancellationException) throw error
             if (!Failures.isTransient(error) || ++attempt >= SEND_ATTEMPTS) return false
-            sleep(Failures.backoffMillis(attempt))
         }
     }
 
@@ -668,6 +680,11 @@ class TaskEngine(
 
         /** How long the car must stand still before it counts as parked, so rolling to a stop doesn't count. */
         const val PARKED_AFTER_MILLIS = 10_000L
+
+        /** Voice shortcuts that would write to the repo; Ask sessions refuse them. */
+        private val READ_ONLY_BLOCKED = setOf(
+            VoiceCommand.Undo, VoiceCommand.StartOver, VoiceCommand.FixBuild, VoiceCommand.Merge,
+        )
 
         /** True when the car's reported speed means it's standing still. An unknown speed counts as moving. */
         fun isStandingStill(metersPerSecond: Float?): Boolean = metersPerSecond != null && kotlin.math.abs(metersPerSecond) < 0.1f

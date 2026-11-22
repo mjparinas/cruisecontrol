@@ -265,6 +265,7 @@ class GitHubClientTest {
         on("GET", "/repos/me/app/branches/claude/fix", 200, """{"name": "claude/fix"}""")
         assertTrue(github.branchExists(repo, "claude/fix"))
         responses.clear()
+        sent.clear()
         on("GET", "/repos/me/app/branches/claude/fix", 500, "")
         assertEquals(500, assertFailsWith<GitHubException> { github.branchExists(repo, "claude/fix") }.code)
         assertEquals(3, sent.count { it.method == "GET" && it.path.endsWith("/branches/claude/fix") }, "transient 500s are retried")

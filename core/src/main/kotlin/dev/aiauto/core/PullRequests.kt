@@ -118,14 +118,17 @@ internal class PullRequests(
                 Checks.Failing -> {
                     val failed = "Checks failed on pull request $number: ${checks.failing.take(3).joinToString(", ")}."
                     // A conflict fix pushes new commits, which run the checks again, so don't ask for both at once.
-                    if (!fixingConflicts && tryAutoFix(taskId, settings.autoFixChecks, TaskEngine.fixChecksPrompt(store.get(taskId) ?: task))) {
-                        journal.status(taskId, "$failed Asking Claude to fix them.")
-                    } else {
-                        journal.update(taskId) { it.copy(pending = PendingAction.FixChecks) }
-                        val question = "$failed Say yes to have Claude fix them."
-                        // The alert posts and reads this line itself, so the regular update stays quiet.
-                        journal.status(taskId, question, notify = false)
-                        alert(taskId, AlertKind.ChecksFailed, question)
+                    when {
+                        fixingConflicts -> {}
+                        tryAutoFix(taskId, settings.autoFixChecks, TaskEngine.fixChecksPrompt(store.get(taskId) ?: task)) ->
+                            journal.status(taskId, "$failed Asking Claude to fix them.")
+                        else -> {
+                            journal.update(taskId) { it.copy(pending = PendingAction.FixChecks) }
+                            val question = "$failed Say yes to have Claude fix them."
+                            // The alert posts and reads this line itself, so the regular update stays quiet.
+                            journal.status(taskId, question, notify = false)
+                            alert(taskId, AlertKind.ChecksFailed, question)
+                        }
                     }
                 }
                 Checks.Passing -> journal.status(
@@ -182,7 +185,10 @@ internal class PullRequests(
         return message
     }
 
-    /** Announces new merge conflicts and fixes them or asks to. Returns true when Claude was asked to fix them. */
+    /**
+     * Announces new merge conflicts and fixes them or asks to. Always returns true once a new conflict has been
+     * handled, so a refresh that also sees failing checks doesn't overwrite the conflict question.
+     */
     private fun conflictsFound(taskId: String, number: Int): Boolean {
         val task = store.get(taskId) ?: return false
         val base = task.repo.defaultBranch
@@ -192,7 +198,7 @@ internal class PullRequests(
         }
         journal.update(taskId) { it.copy(pending = PendingAction.FixConflicts) }
         journal.status(taskId, "Pull request $number has merge conflicts with $base. Say yes to have Claude fix them.")
-        return false
+        return true
     }
 
     /** Hands [prompt] to Claude when [enabled] and the task hasn't used up its automatic fixes. */

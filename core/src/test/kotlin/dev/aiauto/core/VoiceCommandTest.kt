@@ -17,6 +17,8 @@ class VoiceCommandTest {
         assertEquals(VoiceCommand.Stop, VoiceCommand.parse("stop"))
         assertEquals(VoiceCommand.FixBuild, VoiceCommand.parse("fix it"))
         assertEquals(VoiceCommand.Yes, VoiceCommand.parse("Yes, do it"))
+        assertEquals(VoiceCommand.Yes, VoiceCommand.parse("sure, merge it"))
+        assertEquals(VoiceCommand.Yes, VoiceCommand.parse("do"))
         assertEquals(VoiceCommand.No, VoiceCommand.parse("no"))
         assertEquals(VoiceCommand.Repeat, VoiceCommand.parse("Repeat that."))
         assertEquals(VoiceCommand.Repeat, VoiceCommand.parse("say that again please"))
@@ -32,6 +34,15 @@ class VoiceCommandTest {
         assertEquals(VoiceCommand.StartOver, VoiceCommand.parse("start from scratch"))
         assertNull(VoiceCommand.parse("add an undo button to the editor"))
         assertNull(VoiceCommand.parse("start over the onboarding flow when the user logs out"))
+    }
+
+    @Test fun negationIsNeverYes() {
+        assertEquals(VoiceCommand.No, VoiceCommand.parse("do not merge"))
+        assertEquals(VoiceCommand.No, VoiceCommand.parse("yeah no"))
+        assertEquals(VoiceCommand.No, VoiceCommand.parse("yes, no"))
+        assertEquals(VoiceCommand.No, VoiceCommand.parse("yes don't"))
+        assertEquals(VoiceCommand.No, VoiceCommand.parse("do nothing"))
+        assertNull(VoiceCommand.parse("do the other thing please"))
     }
 
     private val repo = RepoRef("me", "app")
@@ -141,6 +152,15 @@ class VoiceCommandTest {
         assertEquals("yes", claude.sent.last(), "A yes with nothing pending goes to Claude")
     }
 
+    @Test fun doNotMergeCancelsInsteadOfConfirming() {
+        taskWithPr()
+        engine.prompt("t1", "merge")
+        engine.prompt("t1", "do not merge")
+        assertEquals("Okay, leaving it as is.", said.last())
+        assertTrue(github.merges.isEmpty())
+        assertNull(store.get("t1")!!.pending)
+    }
+
     @Test fun refusesToMergeFailingChecksAndOffersAFix() {
         taskWithPr()
         github.checksResult = ChecksSummary(Checks.Failing, failing = listOf("build"), total = 1)
@@ -212,6 +232,21 @@ class VoiceCommandTest {
         engine.prompt("t1", "start over")
         assertEquals("Pull request 7 is already merged. Start a new task to change it.", said.last())
         assertTrue(claude.sent.isEmpty())
+    }
+
+    @Test fun askSessionsRefuseWriteShortcutsAndKeepFollowUpsReadOnly() {
+        store.put(
+            Task(
+                "ask1", repo, "Where is spending?", "ask/where", sessionId = "s-ask",
+                status = TaskStatus.Done, readOnly = true, createdMillis = 0, updatedMillis = 0,
+            ),
+        )
+        engine.prompt("ask1", "undo that")
+        assertEquals("This is an Ask session, so it stays read-only. Start a coding task to change the repo.", said.last())
+        assertTrue(claude.sent.isEmpty())
+        engine.prompt("ask1", "where are the tests")
+        assertTrue(claude.sent.single().startsWith("This is still a read-only Ask session."))
+        assertTrue(claude.sent.single().endsWith("where are the tests"))
     }
 
     @Test fun repeatReadsTheLastMessageAgainAndKeepsTheQuestionOpen() {
