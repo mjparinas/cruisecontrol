@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Bug fixes: spoken answers like "do not merge" no longer count as yes; Ask sessions stay read-only on follow-ups;
+  a new conflict isn't overwritten by failing checks; drafts and unread checks aren't offered as ready to merge;
+  the same pull request number in two repos asks which one; sync keeps a pull request and spend the other device
+  already had, and doesn't bring back replaced progress lines; a second parked approval denies the first so Claude
+  isn't left waiting.
+- Resilience: if a coding turn finishes without a pull request, the app keeps trying to open one for three hours and
+  when the network returns. Missed Claude messages are spoken from session history after a reconnect. Parked Approve
+  or Deny is retried, and put back on screen if it never reaches Claude. Car chat queues brief server errors and rate
+  limits as well as no signal. Sync runs when the network comes back. GitHub calls use timeouts and short retries.
+
 ## v0.8.0
 
 - Added Ask mode with a read-only repository prompt, spoken pull request summaries, a wider drive briefing, a Ready to review screen with

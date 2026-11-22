@@ -80,7 +80,11 @@ class EngineControlsTest {
         val confirmations = mutableListOf<Pair<String, Boolean>>()
         /** Runs while a flagged step waits, before the turn goes on. */
         var whileWaiting: () -> Unit = {}
-        override fun confirm(sessionId: String, toolUseId: String, allow: Boolean) { confirmations += toolUseId to allow }
+        var confirmFailsWith: Throwable? = null
+        override fun confirm(sessionId: String, toolUseId: String, allow: Boolean) {
+            confirmFailsWith?.let { throw it }
+            confirmations += toolUseId to allow
+        }
         override fun interrupt(sessionId: String) { interrupted += sessionId }
         override fun archive(sessionId: String) { archived += sessionId }
         override fun setBudget(sessionId: String, maxUsd: Double) { budgets += maxUsd }
@@ -254,6 +258,39 @@ class EngineControlsTest {
         val task = engine.start(repo, "clean the build")
         assertEquals(listOf("tool-1" to false), claude.confirmations)
         assertTrue(store.get(task.id)!!.messages.any { "because the car is moving" in it.text })
+    }
+
+    @Test fun aFailedApprovalConfirmPutsTheChoiceBack() {
+        val engine = engine()
+        engine.setParked(true)
+        claude.confirmFailsWith = java.io.IOException("connection reset")
+        claude.turns += listOf(flagged, AgentUpdate.Said("Cleaned it."), AgentUpdate.TurnDone)
+        claude.whileWaiting = {
+            engine.answerApproval(store.all().single().id, allow = true)
+            val waiting = store.get(store.all().single().id)!!
+            assertEquals(ToolApproval("tool-1", "bash", "rm -rf build"), waiting.approval)
+            assertTrue(waiting.messages.any { "Couldn't send that to Claude" in it.text })
+            claude.confirmFailsWith = null
+            engine.answerApproval(waiting.id, allow = true)
+        }
+        val task = engine.start(repo, "clean the build")
+        assertEquals(listOf("tool-1" to true), claude.confirmations)
+        assertNull(store.get(task.id)!!.approval)
+        assertTrue(store.get(task.id)!!.messages.any { it.text == "Approved. Claude is carrying on." })
+    }
+
+    @Test fun opensAMissingPullRequestOnRefresh() {
+        github.branch = false
+        val engine = engine()
+        val task = engine.start(repo, "fix it")
+        assertNull(store.get(task.id)!!.prNumber)
+        assertEquals(TaskStatus.Done, store.get(task.id)!!.status)
+        assertTrue(engine.isWatchingPullRequests())
+
+        github.branch = true
+        engine.refreshPullRequests()
+        assertEquals(7, store.get(task.id)!!.prNumber)
+        assertTrue(said.any { "Pull request 7 is open" in it })
     }
 
     @Test fun onlyAZeroSpeedCountsAsStandingStill() {
@@ -552,6 +589,17 @@ class EngineControlsTest {
         assertEquals(1, claude.sent.size)
         engine.prompt(task.id, "yes")
         assertTrue(claude.sent.last().contains("merge conflicts with main"))
+    }
+
+    @Test fun aConflictAndFailingChecksKeepTheConflictQuestion() {
+        val engine = engine()
+        val task = engine.start(repo, "add a feature")
+        github.pr = github.pr.copy(mergeable = false, mergeableState = "dirty")
+        github.checksResult = ChecksSummary(Checks.Failing, failing = listOf("build"), total = 1)
+        engine.refreshPullRequest(task.id)
+        assertEquals(PendingAction.FixConflicts, store.get(task.id)!!.pending)
+        assertTrue(said.any { "merge conflicts" in it })
+        assertTrue(said.none { "Say yes to have Claude fix them." in it && "Checks failed" in it })
     }
 
     @Test fun reportsARefusedMergeOnlyOnce() {

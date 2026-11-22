@@ -30,10 +30,11 @@ ask it to. You can also add a repo by voice: say something like "add my repo aia
 repos your GitHub token can push to and saves it. **New chat** starts the conversation over. Each answer counts toward the daily and monthly spending limits.
 Claude's answers use prompt caching, so the instructions and earlier turns of the conversation cost a fraction of
 the usual price when you ask again within five minutes.
-If there's no signal when you ask, in a tunnel or a dead zone, Claude says it'll send your question when you're back
-online. The phone keeps up to 5 such questions, and as soon as the network returns it asks them in order and reads
-each answer aloud, starting with what you asked. Questions older than 30 minutes are dropped, and a question is never
-sent twice if it had already started or answered a task before the connection dropped.
+If there's no signal when you ask, or the chat briefly can't get through (a timeout, rate limit or server blip),
+Claude says it'll send your question once the connection is steadier. The phone keeps up to 5 such questions, and as
+soon as it can get through it asks them in order and reads each answer aloud, starting with what you asked. Questions
+older than 30 minutes are dropped, and a question is never sent twice if it had already started or answered a task
+before the connection dropped.
 
 If the car only shows Cruise Control's messaging view ("No new messages during this drive"), Android Auto is hiding the
 app screen, usually because **Unknown sources** is off (see setup below). You can still talk to Claude there: each
@@ -64,10 +65,11 @@ times. The tones use the same assistant audio as the microphone, so music ducks 
 open pull requests with their checks. Tap a pull request to hear its checks or merge it (the app asks first).
 
 When a task's pull request opens, the app follows its checks and tells you when they pass or fail. Until they
-finish, the task's status pill on the phone says **Checks running** in amber instead of **Done**. With
-**Merge when checks pass** on (the default), it turns on GitHub's auto-merge if the repo allows it, so GitHub merges
-even with your phone off. Otherwise the app merges once every check is green, as long as it's still running. Failing
-checks, or checks your token can't read, are never merged.
+finish, the task's status pill on the phone says **Checks running** in amber instead of **Done**. If Claude finished
+but the pull request never opened (usually a brief GitHub outage), the app keeps trying for up to three hours and
+again when the network returns. With **Merge when checks pass** on (the default), it turns on GitHub's auto-merge if
+the repo allows it, so GitHub merges even with your phone off. Otherwise the app merges once every check is green, as
+long as it's still running. Failing checks, or checks your token can't read, are never merged.
 
 Two more switches, both on by default, send problems straight back to Claude. **Fix merge conflicts
 automatically** has Claude merge the latest main branch into its pull request, resolve the conflicts and push. **Fix

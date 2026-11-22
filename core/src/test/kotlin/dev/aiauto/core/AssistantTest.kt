@@ -189,12 +189,26 @@ class AssistantTest {
     }
 
     @Test
-    fun otherFailuresAreNotQueued() {
+    fun permanentFailuresAreNotQueued() {
         val http = FakeHttp()
+        http.failWith = ChatApiException(ChatProvider.OpenAI, 401, "Incorrect API key")
+        val assistant = assistant(ChatModel.GptLuna, http)
+
+        assertEquals("OpenAI rejected your API key. Check it in Settings.", assistant.ask("hello"))
+        assertFalse(assistant.hasQueued())
+    }
+
+    @Test
+    fun briefServerErrorsAreQueuedLikeAnOutage() {
+        val http = FakeHttp(
+            """{"output": [{"type": "message", "content": [{"type": "output_text", "text": "Hello back."}]}], "usage": {}}""",
+        )
         http.failWith = ChatApiException(ChatProvider.OpenAI, 500, "down")
         val assistant = assistant(ChatModel.GptLuna, http)
 
-        assertEquals("OpenAI's servers had a problem. Try again in a minute.", assistant.ask("hello"))
+        assertEquals(Assistant.QUEUED, assistant.ask("hello"))
+        assertTrue(assistant.hasQueued())
+        assertEquals(listOf("You asked: hello. Hello back."), assistant.sendQueued())
         assertFalse(assistant.hasQueued())
     }
 
