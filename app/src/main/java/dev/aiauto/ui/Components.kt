@@ -39,6 +39,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -72,10 +74,12 @@ fun StatusPill(task: Task, modifier: Modifier = Modifier) {
 
 @Composable
 fun Pill(label: String, color: Color, modifier: Modifier = Modifier, showDot: Boolean = false) {
+    val background = color.copy(alpha = 0.12f).compositeOver(MaterialTheme.colorScheme.surface)
+    val textColor = accessibleForeground(color, background)
     Row(
         modifier
             .clip(RoundedCornerShape(50))
-            .background(color.copy(alpha = 0.12f))
+            .background(background)
             .padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -86,11 +90,25 @@ fun Pill(label: String, color: Color, modifier: Modifier = Modifier, showDot: Bo
         Text(
             label,
             style = MaterialTheme.typography.labelMedium,
-            color = color,
+            color = textColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
     }
+}
+
+/** Keeps small status text at WCAG AA contrast even when a theme or new status shade changes. */
+private fun accessibleForeground(preferred: Color, background: Color): Color {
+    if (contrastRatio(preferred, background) >= 4.5f) return preferred
+    val dark = Color.Black
+    val light = Color.White
+    return if (contrastRatio(dark, background) >= contrastRatio(light, background)) dark else light
+}
+
+private fun contrastRatio(foreground: Color, background: Color): Float {
+    val lighter = maxOf(foreground.luminance(), background.luminance())
+    val darker = minOf(foreground.luminance(), background.luminance())
+    return (lighter + 0.05f) / (darker + 0.05f)
 }
 
 /**
@@ -170,10 +188,11 @@ fun ChecksLabel(summary: dev.aiauto.core.ChecksSummary?, modifier: Modifier = Mo
         dev.aiauto.core.Checks.Pending -> BadgeHue.Amber.colour()
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val textColor = accessibleForeground(color, MaterialTheme.colorScheme.surface)
     Text(
         dev.aiauto.core.SpokenStatus.checks(summary).replaceFirstChar { it.uppercase() },
         style = MaterialTheme.typography.labelMedium,
-        color = color,
+        color = textColor,
         modifier = modifier,
     )
 }

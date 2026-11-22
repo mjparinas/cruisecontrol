@@ -121,6 +121,8 @@ internal fun SettingRow(
     title: String,
     summary: String? = null,
     enabled: Boolean = true,
+    onClickLabel: String = "Open $title",
+    trailingIcon: ImageVector? = null,
     onClick: (() -> Unit)? = null,
 ) {
     if (!LocalSettingsSearch.current.showsRow(LocalSettingsSection.current, title)) return
@@ -128,13 +130,22 @@ internal fun SettingRow(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp)
-            .then(if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick) else Modifier)
+            .then(if (onClick != null) Modifier.clickable(
+                enabled = enabled,
+                role = Role.Button,
+                onClickLabel = onClickLabel,
+                onClick = onClick,
+            ) else Modifier)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconBadge(icon, hue)
         Spacer(Modifier.width(16.dp))
         RowText(title, summary, Modifier.weight(1f))
+        if (trailingIcon != null) {
+            Spacer(Modifier.width(12.dp))
+            Icon(trailingIcon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 

@@ -78,6 +78,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import dev.aiauto.core.SettingsSearch
@@ -231,6 +232,8 @@ fun SettingsScreen(
                                 Icons.Rounded.FolderOpen, BadgeHue.Blue, repo.fullName,
                                 RepoSettings.of(state.repoSettings, repo).summary(),
                                 enabled = !state.busy,
+                                onClickLabel = "Edit settings or remove ${repo.fullName}",
+                                trailingIcon = Icons.Rounded.Delete,
                             ) { editing = repo }
                         }
                         SettingRow(
@@ -470,7 +473,11 @@ private fun AccentRow(selected: Accent, onPick: (Accent) -> Unit) {
                             .clip(CircleShape)
                             .background(if (dark) accent.dark else accent.light),
                     ) {
-                        if (on) Icon(Icons.Rounded.Check, null, tint = if (dark) Color(0xFF1A1714) else Color.White, modifier = Modifier.size(20.dp))
+                        if (on) {
+                            val swatch = if (dark) accent.dark else accent.light
+                            val check = if (swatch.luminance() > 0.179f) Color(0xFF1A1714) else Color.White
+                            Icon(Icons.Rounded.Check, null, tint = check, modifier = Modifier.size(20.dp))
+                        }
                     }
                 }
             }
