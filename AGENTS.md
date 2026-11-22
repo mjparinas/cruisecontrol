@@ -48,7 +48,9 @@ Driving safety comes first:
   An unknown speed, or no speed permission, counts as moving.
 - Voice input sends as soon as the driver stops talking on the app's own car screen. The car screen opens on one big
   Talk button and starts listening when it opens. Android Auto's messaging view always asks for Send, which apps
-  can't turn off, so the app explains how to avoid it. The phone app is voice first: the New task screen and the
+  can't turn off, so the app explains how to avoid it. That view also has no button for starting a chat, so the
+  Talk to Claude conversation posted when the phone connects is the way in, and dismissing it during a drive puts it
+  straight back (`core/src/main/kotlin/dev/aiauto/core/CarChat.kt`). The phone app is voice first: the New task screen and the
   task chat have no text box, only a floating microphone at the bottom right (`MicButton`) that listens in the app
   with `VoiceInput`, turns into a Stop button while listening, and sends when the person stops talking. Keep
   listening until Stop (off by default) makes pauses not send, both on the car screen and on the phone, and Stop
@@ -299,6 +301,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- The Talk to Claude conversation in Android Auto's messaging view comes back when dismissed during a drive, since
+  that view has no button for starting a chat and apps can't add one.
 - Bug fixes: VoiceCommand treats negated yes-phrases as No; Ask follow-ups keep read-only rules and refuse write
   shortcuts; conflict handling always blocks the failing-checks question; car merge preview requires a non-draft with
   readable checks; colliding pull request numbers ask which repo; SyncMerge keeps max spend and known PR fields and

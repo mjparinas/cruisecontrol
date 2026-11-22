@@ -27,6 +27,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     `runningCount` (the number on the phone's Active tab).
   - `GitHub.kt` is the REST client; `PullRequests.kt` follows checks, merges and auto-fixes; `Projects.kt` is
     the per-repo status view.
+  - `CarChat.kt` decides when the Talk to Claude conversation (Android Auto's messaging view, posted by the app's
+    `notify/Notifier.kt`) comes back after it's dismissed, since that view has no button to start a chat.
   - `Assistant.kt` is the spoken car chat, including the queue of questions asked with no signal, which
     `Graph.watchNetwork` sends when the phone is back online. `ChatProviders.kt` has the car chat models and talks to Claude, OpenAI
     (Responses API) or Gemini (OpenAI-compatible endpoint); tests fake `ChatHttp`. Claude chat requests use
