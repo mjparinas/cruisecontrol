@@ -163,7 +163,8 @@ Look and accessibility:
 - Home and widget spending summaries show both today's and this month's totals, with each configured limit. On the
   home screen they sit side by side on one compact card (`SpendMeter` in core), each with a bar towards its limit
   that turns amber from 80% and red at the limit, instead of two stacked section headers.
-- The phone task list searches active and archived tasks by request, message, repo or pull request number.
+- The phone task list searches active and archived tasks by request, message, repo or pull request number. Its
+  search box is the same pill as Settings' (`SearchField` in `app/src/main/java/dev/aiauto/ui/Components.kt`).
 - The welcome-back briefing also checks recent issue and pull request activity and failed main-branch checks across saved repos.
 - Important phone task, pull request, template and shared-request text wraps instead of being cut off; template Start
   and Delete are separate controls.
@@ -304,6 +305,9 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- v0.8.2 cut with the home screen search box restyle as its only note.
+- The home screen's task search box uses the same rounded pill as the Settings search, with a clear button, instead
+  of an outlined field with a floating label.
 - v0.8.1 cut from the notes merged since the v0.8.0 tag (PRs 110, 111 and 113) plus PR 112.
 - The Google Assistant shortcut finds any repo the token can push to, like the pickers since PR 83, instead of only
   saved repos, and its phrases name Cruise Control rather than Claude ("ask Cruise Control to ..."). The docs now say

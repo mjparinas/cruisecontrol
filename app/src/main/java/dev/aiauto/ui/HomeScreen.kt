@@ -43,7 +43,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -154,14 +153,7 @@ fun HomeScreen(
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                singleLine = true,
-                label = { Text("Search task history") },
-                leadingIcon = { Icon(Icons.Rounded.Search, null) },
-            )
+            SearchField(query, "Search task history") { query = it }
             // A two-way pill switch, as Tuned's segmented choices, rather than tabs with an underline.
             if (normalizedQuery.isEmpty()) SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
                 listOf(if (running == 0) "Active" else "Active ($running)", if (archived.isEmpty()) "Archived" else "Archived (${archived.size})").forEachIndexed { i, label ->

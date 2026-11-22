@@ -41,7 +41,7 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     (the highest recent release with an APK) and picks release-on-merge tags.
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the
   Compose phone UI, `car/` is the Car App Library UI (`ParkedWatcher` reads the car's speed for parked mode; its `VoiceInput` also serves the phone's floating
-  microphone, `MicButton` in `ui/Components.kt`, the only input on the New task and task chat screens;
+  microphone, `MicButton` in `ui/Components.kt` (which also has `SearchField`, the search pill shared by Home and Settings), the only input on the New task and task chat screens;
   `core/Dictation.kt` decides when it listens again, sends or gives up),
   `notify/` holds notifications, text-to-speech (`Speaker` holds new speech while `VoiceInput` listens, using
   `core/SpeechHold.kt`) and `TonePlayer` (listening and thinking tones, made by `core/Tones.kt`),
