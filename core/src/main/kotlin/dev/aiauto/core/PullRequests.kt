@@ -145,10 +145,15 @@ internal class PullRequests(
         if (!willMerge) return
         val refusalKey = "$taskId:${pr.head.sha}"
         when (val result = github.merge(task.repo, number)) {
-            MergeResult.Merged, MergeResult.AutoMergeOn -> {
+            MergeResult.Merged -> {
                 journal.update(taskId) { it.copy(prState = PrState.Merged) }
                 journal.status(taskId, "Merged pull request $number.")
-                if (result == MergeResult.Merged) release(taskId, github, clock(), null)
+                release(taskId, github, clock(), null)
+            }
+            // Not merged yet: GitHub merges it later, and the next refresh sees that and announces it.
+            MergeResult.AutoMergeOn -> {
+                journal.update(taskId) { it.copy(githubAutoMerge = true) }
+                journal.status(taskId, "GitHub will merge pull request $number when checks pass.")
             }
             is MergeResult.Refused -> if (mergeRefusals.put(refusalKey, result.reason) == null) {
                 journal.status(taskId, "Couldn't merge pull request $number. ${result.reason}")

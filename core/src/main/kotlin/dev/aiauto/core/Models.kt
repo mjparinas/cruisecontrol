@@ -34,7 +34,8 @@ data class RepoRef(
             if (said.isEmpty()) return emptyList()
             val byFull = candidates.filter { norm(it.fullName) == said }
             if (byFull.isNotEmpty()) return byFull
-            val nameOnly = norm(spoken.substringAfterLast('/').substringAfterLast(" slash "))
+            // Lowercase first: speech recognition may capitalize "Slash".
+            val nameOnly = norm(spoken.lowercase().substringAfterLast('/').substringAfterLast(" slash "))
             return candidates.filter { norm(it.name) == nameOnly }
         }
 

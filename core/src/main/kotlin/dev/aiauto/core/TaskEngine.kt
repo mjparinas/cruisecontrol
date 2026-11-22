@@ -661,7 +661,9 @@ class TaskEngine(
                 pullRequests.rewatch(taskId)
             }
         }
-        val question = store.get(taskId)?.messages?.lastOrNull { it.speaker == Speaker.Claude }?.text?.trimEnd()?.takeIf { it.endsWith("?") }
+        // Only this turn's lines count, so a question Claude asked in an earlier turn isn't asked again.
+        val question = store.get(taskId)?.messages?.takeLastWhile { it.speaker != Speaker.You }
+            ?.lastOrNull { it.speaker == Speaker.Claude }?.text?.trimEnd()?.takeIf { it.endsWith("?") }
         journal.update(taskId) { it.copy(status = if (question != null) TaskStatus.NeedsInput else TaskStatus.Done, interruptedSinceMillis = null, approval = null) }
         if (question != null) alert(taskId, AlertKind.Question, question)
     }
