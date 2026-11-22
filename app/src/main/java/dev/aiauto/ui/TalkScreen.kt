@@ -26,6 +26,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun TalkScreen(
@@ -55,7 +57,7 @@ fun TalkScreen(
                     messages += true to text
                     busy = true
                     scope.launch {
-                        val answer = runCatching { onAsk(text) }.getOrElse { "Sorry, that didn't go through. Try again." }
+                        val answer = runCatching { withContext(Dispatchers.IO) { onAsk(text) } }.getOrElse { "Sorry, that didn't go through. Try again." }
                         messages += false to answer
                         busy = false
                     }
@@ -64,7 +66,9 @@ fun TalkScreen(
         },
     ) { padding ->
         if (messages.isEmpty() && !busy) {
-            EmptyState(Icons.Rounded.QuestionAnswer, BadgeHue.Accent, "Talk to Claude", "Ask about your tasks and repositories, or start a task by voice.")
+            Column(Modifier.fillMaxSize().padding(padding)) {
+                EmptyState(Icons.Rounded.QuestionAnswer, BadgeHue.Accent, "Talk to Claude", "Ask about your tasks and repositories, or start a task by voice.")
+            }
         } else {
             LazyColumn(
                 Modifier.fillMaxSize().padding(padding),

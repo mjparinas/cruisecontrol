@@ -44,13 +44,14 @@ fun SetupChecklistScreen(
     hasGithubToken: Boolean,
     githubToken: String?,
     repos: List<RepoRef>,
+    refreshKey: Int,
     onBack: () -> Unit,
     onSettings: () -> Unit,
 ) {
     val context = LocalContext.current
-    val micAllowed = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-    val notificationsAllowed = Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-    val batteryFree = (context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true)
+    val micAllowed = remember(refreshKey) { ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED }
+    val notificationsAllowed = remember(refreshKey) { Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED }
+    val batteryFree = remember(refreshKey) { context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true }
     var repoChecks by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var checkingRepos by remember { mutableStateOf(false) }
     LaunchedEffect(githubToken, repos) {

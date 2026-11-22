@@ -93,6 +93,7 @@ spending header and the home-screen widget show both today's and this month's sp
 **Ready to review** screen shows open pull request diffs and the task conversation, with GitHub approve and confirmed
 merge actions. Settings has a setup checklist for keys, repository access and phone permissions. Text shared from
 another app can start a task, and the widget microphone, launcher shortcuts and Quick Settings tile open voice input.
+The launcher also has direct shortcuts for **Talk to Claude** and your last-used repo.
 
 While you're in the car, the app reads Claude's messages and short progress notes like "Building or testing"
 aloud, ducking your music while it talks. You can turn this off in Settings. While the microphone is listening to

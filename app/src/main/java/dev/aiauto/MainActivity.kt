@@ -13,6 +13,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -31,6 +32,7 @@ import dev.aiauto.ui.SettingsScreen
 import dev.aiauto.ui.SettingsState
 import dev.aiauto.ui.SetupChecklistScreen
 import dev.aiauto.ui.TaskScreen
+import dev.aiauto.ui.TalkScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -51,6 +53,7 @@ class MainActivity : ComponentActivity() {
     private var sharedRequest by mutableStateOf<String?>(null)
     private var confirmMergeTask by mutableStateOf<String?>(null)
     private var autoListen by mutableStateOf(false)
+    private var lifecycleTick by mutableIntStateOf(0)
 
     /**
      * Asks once to lift battery limits. Without it, Android (Samsung especially) can stop the app soon after
@@ -171,6 +174,7 @@ class MainActivity : ComponentActivity() {
                         hasGithubToken = g.secrets.githubToken != null,
                         githubToken = g.secrets.githubToken,
                         repos = repos,
+                        refreshKey = lifecycleTick,
                         onBack = { screen = Screen.Settings },
                         onSettings = { screen = Screen.Settings },
                     )
@@ -364,6 +368,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        lifecycleTick++
         // Pull request state and checks change on GitHub while the app is closed.
         graph.engine.refreshPullRequests()
         graph.sync.syncSoon()
@@ -408,7 +413,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun Intent.sharedRequest(): String? = if (action == Intent.ACTION_SEND && type?.startsWith("text/") == true)
-        getStringExtra(Intent.EXTRA_TEXT)?.trim()?.takeIf { it.isNotEmpty() } else null
+        extras?.get(Intent.EXTRA_TEXT)?.toString()?.trim()?.takeIf { it.isNotEmpty() } else null
 
     /**
      * Starts the task a Google Assistant shortcut asked for and says so, or says what's missing. Null when the

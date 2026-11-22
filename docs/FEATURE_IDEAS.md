@@ -27,7 +27,7 @@ These started on this list and are now in the app. See the README for how they w
 - **Task history search** across active and archived tasks.
 - **Setup checklist** for keys, repo access, phone permissions and Android Auto's Unknown sources setting.
 - **Share to Cruise Control** to start from text shared by another app.
-- **Launcher shortcuts and Quick Settings tile** for starting a voice task.
+- **Launcher shortcuts and Quick Settings tile** for New task, Talk to Claude, and the last-used repo.
 - **Widget microphone** that opens New task and starts listening.
 - **Pull request notification actions** to open the pull request and bring up merge confirmation when checks pass.
 - **Other AI providers for the car chat**: OpenAI and Gemini models, each with its own key in Settings.
