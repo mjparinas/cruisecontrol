@@ -40,11 +40,14 @@ class TasksWidget : AppWidgetProvider() {
             val waiting = going.size - working
             val spent = g.settings.spentTodayUsd
             val limit = g.settings.dailyLimitUsd
+            val spentThisMonth = g.settings.spentThisMonthUsd
+            val monthlyLimit = g.settings.monthlyLimitUsd
 
             val views = RemoteViews(context.packageName, R.layout.widget_tasks)
             views.setTextViewText(
                 R.id.widget_spend,
-                SpokenStatus.money(spent) + (limit?.let { " of ${SpokenStatus.money(it)}" } ?: "") + " today",
+                "Today ${SpokenStatus.money(spent)}" + (limit?.let { " of ${SpokenStatus.money(it)}" } ?: "") +
+                    " · Month ${SpokenStatus.money(spentThisMonth)}" + (monthlyLimit?.let { " of ${SpokenStatus.money(it)}" } ?: ""),
             )
             views.setTextViewText(R.id.widget_summary, summary(working, waiting))
             val rows = listOf(R.id.widget_task1, R.id.widget_task2, R.id.widget_task3)

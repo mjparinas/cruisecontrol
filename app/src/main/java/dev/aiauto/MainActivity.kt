@@ -41,6 +41,7 @@ private sealed interface Screen {
 
 class MainActivity : ComponentActivity() {
     private var screen by mutableStateOf<Screen>(Screen.Home)
+    private var sharedRequest by mutableStateOf<String?>(null)
 
     /**
      * Asks once to lift battery limits. Without it, Android (Samsung especially) can stop the app soon after
@@ -70,7 +71,8 @@ class MainActivity : ComponentActivity() {
         g.refreshAvailableRepos()
         // A recreated activity or one reopened from Recents still carries the shortcut, which already started its task.
         val fresh = savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
-        screen = intent.taskTarget() ?: intent.takeIf { fresh }?.startFromShortcut() ?: if (g.isConfigured) Screen.Home else Screen.Settings
+        sharedRequest = intent.sharedRequest()
+        screen = intent.taskTarget() ?: intent.takeIf { fresh }?.startFromShortcut() ?: if (sharedRequest != null) Screen.NewTask else if (g.isConfigured) Screen.Home else Screen.Settings
 
         setContent {
             var themeMode by remember { mutableStateOf(enumOrDefault(g.settings.themeMode, ThemeMode.System)) }
@@ -111,6 +113,8 @@ class MainActivity : ComponentActivity() {
                         onClearFinished = { tasks.filter { it.isFinished && !it.archived && !g.engine.isRunning(it.id) }.forEach { g.notifier.clear(it.id) }; g.engine.clearFinished() },
                         spentToday = g.settings.spentTodayUsd,
                         dailyLimit = g.settings.dailyLimitUsd,
+                        spentThisMonth = g.settings.spentThisMonthUsd,
+                        monthlyLimit = g.settings.monthlyLimitUsd,
                     )
                     Screen.Projects -> ProjectsScreen(
                         repos = repos,
@@ -134,6 +138,13 @@ class MainActivity : ComponentActivity() {
                         onAddTemplate = { name, prompt -> g.templates.add(name, prompt) },
                         onDeleteTemplate = { g.templates.remove(it.id) },
                         listenUntilStop = g.settings.listenUntilStop,
+                        sharedText = sharedRequest,
+                        onStartShared = { repo, text ->
+                            val task = g.engine.start(repo, text)
+                            TaskService.ensureRunning(this)
+                            sharedRequest = null
+                            screen = Screen.Detail(task.id)
+                        },
                         onBack = { screen = Screen.Home },
                         onStart = { repo, text ->
                             val task = g.engine.start(repo, text)
@@ -300,8 +311,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        intent.sharedRequest()?.let { sharedRequest = it; screen = Screen.NewTask }
         (intent.taskTarget() ?: intent.startFromShortcut())?.let { screen = it }
     }
+
+    private fun Intent.sharedRequest(): String? = if (action == Intent.ACTION_SEND && type?.startsWith("text/") == true)
+        getStringExtra(Intent.EXTRA_TEXT)?.trim()?.takeIf { it.isNotEmpty() } else null
 
     /**
      * Starts the task a Google Assistant shortcut asked for and says so, or says what's missing. Null when the

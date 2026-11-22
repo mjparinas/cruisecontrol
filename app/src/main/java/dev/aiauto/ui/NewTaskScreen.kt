@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +55,8 @@ fun NewTaskScreen(
     onAddTemplate: (name: String, prompt: String) -> Unit,
     onDeleteTemplate: (TaskTemplate) -> Unit,
     listenUntilStop: Boolean = false,
+    sharedText: String? = null,
+    onStartShared: ((RepoRef, String) -> Unit)? = null,
 ) {
     var selected by remember { mutableStateOf(lastUsed?.takeIf { it in repos } ?: repos.firstOrNull()) }
     var adding by remember { mutableStateOf(false) }
@@ -69,6 +72,15 @@ fun NewTaskScreen(
     ) { padding ->
         // The bottom padding keeps the last card clear of the floating microphone.
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 136.dp)) {
+            if (!sharedText.isNullOrBlank()) {
+                SectionHeader("Shared from another app")
+                SettingsCard {
+                    Text(sharedText, Modifier.fillMaxWidth().padding(16.dp), maxLines = 8, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    if (onStartShared != null) SettingRow(Icons.Rounded.PlayArrow, BadgeHue.Accent, "Start this request", "Starts a task in the selected repo.") {
+                        selected?.let { onStartShared(it, sharedText) }
+                    }
+                }
+            }
             SectionHeader("Repository")
             SettingsCard {
                 repos.forEach { repo -> RepoChoice(repo, selected = repo == selected) { selected = repo } }
@@ -125,13 +137,13 @@ private fun TemplateRow(template: TaskTemplate, enabled: Boolean, onRun: () -> U
         Modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp)
-            .clickable(enabled = enabled, onClickLabel = "Start ${template.name}", onClick = onRun)
             .padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconBadge(Icons.Rounded.PlayArrow, BadgeHue.Teal)
         Spacer(Modifier.width(16.dp))
-        RowText(template.name, if (template.prompt.length > 90) template.prompt.take(88).trimEnd() + "…" else template.prompt, Modifier.weight(1f))
+        RowText(template.name, template.prompt, Modifier.weight(1f))
+        TextButton(onClick = onRun, enabled = enabled) { Text("Start") }
         IconButton(onClick = onDelete) { Icon(Icons.Rounded.Close, "Delete ${template.name}") }
     }
 }

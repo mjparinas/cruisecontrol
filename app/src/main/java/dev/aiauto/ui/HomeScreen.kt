@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.QuestionAnswer
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material3.AlertDialog
@@ -37,6 +38,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -92,11 +94,20 @@ fun HomeScreen(
     onClearFinished: () -> Unit,
     spentToday: Double,
     dailyLimit: Double?,
+    spentThisMonth: Double,
+    monthlyLimit: Double?,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    var query by rememberSaveable { mutableStateOf("") }
     val showArchived = tab == 1
     val (archived, active) = tasks.partition { it.archived }
-    val shown = if (showArchived) archived else active.needsYouFirst()
+    val normalizedQuery = query.trim()
+    val shown = if (normalizedQuery.isNotEmpty()) tasks.filter { task ->
+        task.title.contains(normalizedQuery, ignoreCase = true) ||
+            task.repo.fullName.contains(normalizedQuery, ignoreCase = true) ||
+            task.prNumber?.toString()?.contains(normalizedQuery) == true ||
+            task.messages.any { it.text.contains(normalizedQuery, ignoreCase = true) }
+    }.sortedByDescending { it.updatedMillis } else if (showArchived) archived else active.needsYouFirst()
     val running = tasks.runningCount()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -132,8 +143,16 @@ fun HomeScreen(
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                singleLine = true,
+                label = { Text("Search task history") },
+                leadingIcon = { Icon(Icons.Rounded.Search, null) },
+            )
             // A two-way pill switch, as Tuned's segmented choices, rather than tabs with an underline.
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+            if (normalizedQuery.isEmpty()) SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
                 listOf(if (running == 0) "Active" else "Active ($running)", if (archived.isEmpty()) "Archived" else "Archived (${archived.size})").forEachIndexed { i, label ->
                     SegmentedButton(
                         selected = tab == i,
@@ -150,7 +169,8 @@ fun HomeScreen(
                 }
             }
             when {
-                shown.isNotEmpty() -> TaskList(shown, spentToday, dailyLimit, onOpen, onArchive = archive, onClear = { task -> clearing = task })
+                shown.isNotEmpty() -> TaskList(shown, spentToday, dailyLimit, spentThisMonth, monthlyLimit, onOpen, onArchive = archive, onClear = { task -> clearing = task })
+                normalizedQuery.isNotEmpty() -> EmptyState(Icons.Rounded.Search, BadgeHue.Blue, "No matching tasks", "Try a request, repo name or pull request number.")
                 showArchived -> EmptyState(
                     Icons.Rounded.Archive, BadgeHue.Blue, "No archived chats",
                     "Swipe a task card left, or archive it from its chat, to keep it here out of the main list.",
@@ -173,6 +193,8 @@ private fun TaskList(
     tasks: List<Task>,
     spentToday: Double,
     dailyLimit: Double?,
+    spentThisMonth: Double,
+    monthlyLimit: Double?,
     onOpen: (Task) -> Unit,
     onArchive: (Task) -> Unit,
     onClear: (Task) -> Unit,
@@ -185,6 +207,9 @@ private fun TaskList(
         item {
             // The list is already inset 16 dp, so the header needs only 16 more to line up with the card text.
             SectionHeader("Today · ${SpokenStatus.money(spentToday)}" + (dailyLimit?.let { " of ${SpokenStatus.money(it)}" } ?: ""), inset = 16.dp)
+        }
+        item {
+            SectionHeader("This month · ${SpokenStatus.money(spentThisMonth)}" + (monthlyLimit?.let { " of ${SpokenStatus.money(it)}" } ?: ""), inset = 16.dp)
         }
         items(tasks, key = { it.id }) { task ->
             val swipes = cardSwipes(task.archived)
@@ -278,23 +303,19 @@ private fun TaskCard(task: Task, swipes: Set<CardSwipe>, onArchive: () -> Unit, 
                         task.repo.name.uppercase(),
                         style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
                     Spacer(Modifier.width(8.dp))
                     StatusPill(task)
                 }
                 Spacer(Modifier.height(4.dp))
-                Text(task.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(task.title, style = MaterialTheme.typography.titleMedium)
                 task.lastMessage?.let {
                     Spacer(Modifier.height(4.dp))
                     Text(
                         it.text,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Spacer(Modifier.height(10.dp))

@@ -27,6 +27,8 @@
             android:id="@+id/widget_spend"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:maxLines="2"
+            android:ellipsize="end"
             android:text="$0 today"
             android:textColor="@color/widget_accent"
             android:textSize="13sp"
