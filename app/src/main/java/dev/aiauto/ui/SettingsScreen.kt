@@ -77,10 +77,7 @@ import dev.aiauto.core.SpokenStatus
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import dev.aiauto.core.SettingsSearch
 
 data class SettingsState(
@@ -185,7 +182,7 @@ fun SettingsScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(bottom = 24.dp),
             ) {
-                SettingsSearchField(query) { query = it }
+                SearchField(query, "Search settings") { query = it }
                 SectionHeader("Setup")
                 SettingsCard {
                     SettingRow(Icons.Rounded.Check, BadgeHue.Green, "Setup checklist", "Check keys, repos and phone permissions.", onClick = onSetupChecklist)
@@ -416,28 +413,6 @@ fun SettingsScreen(
 private fun SearchableSection(name: String, content: @Composable () -> Unit) {
     if (!LocalSettingsSearch.current.showsSection(name)) return
     CompositionLocalProvider(LocalSettingsSection provides name) { content() }
-}
-
-/** The search box at the top of Settings: a pill on the card colour, like the reply box, with a clear button once something is typed. */
-@Composable
-private fun SettingsSearchField(query: String, onQuery: (String) -> Unit) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQuery,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        placeholder = { Text("Search settings") },
-        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-        trailingIcon = {
-            if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Rounded.Close, contentDescription = "Clear search") }
-        },
-        singleLine = true,
-        shape = RoundedCornerShape(28.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-            focusedContainerColor = MaterialTheme.colorScheme.surface,
-            unfocusedBorderColor = Color.Transparent,
-        ),
-    )
 }
 
 private enum class SettingsDialog { AnthropicKey, GithubToken, OpenAiKey, GeminiKey, PickRepos, AddRepo, DailyLimit, MonthlyLimit, Theme }

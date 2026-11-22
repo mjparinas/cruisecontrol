@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The home screen's task search box now matches the Settings search: a rounded pill on the card colour with a
+  clear button once you type.
+
 ## v0.8.1
 
 - The Google Assistant shortcut now finds any repo your GitHub token can push to, not just saved ones, so it no

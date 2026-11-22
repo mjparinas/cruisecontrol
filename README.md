@@ -91,7 +91,8 @@ and stops Claude when that reaches it, so a run of busy days can't add up past i
 whichever is reached first stops Claude and the car chat. The tighter of the two is also set as the session's
 budget on Anthropic's side, so it holds even if the phone loses signal.
 
-The task list can search all active and archived conversations by request, message, repo or pull request number. A
+The task list can search all active and archived conversations by request, message, repo or pull request number. Its
+search box looks like the one in Settings, a rounded pill with a clear button once you type. A
 spending card at its top shows today's and this month's spend side by side, each with a bar towards its limit when
 one is set; the bar turns amber from 80% of the limit and red once it's reached. The home-screen widget shows both
 totals too. Tap
