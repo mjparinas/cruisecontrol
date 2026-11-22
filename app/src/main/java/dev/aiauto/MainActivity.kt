@@ -26,6 +26,7 @@ import dev.aiauto.ui.ThemeMode
 import dev.aiauto.ui.HomeScreen
 import dev.aiauto.ui.NewTaskScreen
 import dev.aiauto.ui.ProjectsScreen
+import dev.aiauto.ui.ReviewScreen
 import dev.aiauto.ui.SettingsScreen
 import dev.aiauto.ui.SettingsState
 import dev.aiauto.ui.TaskScreen
