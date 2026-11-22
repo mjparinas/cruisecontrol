@@ -38,8 +38,10 @@ before the connection dropped.
 
 If the car only shows Cruise Control's messaging view ("No new messages during this drive"), Android Auto is hiding the
 app screen, usually because **Unknown sources** is off (see setup below). You can still talk to Claude there: each
-time the phone connects to the car, a **Talk to Claude** conversation appears. Tap it, reply by voice, and Claude's
-answer arrives in the same conversation and is read aloud. In this view Android Auto asks you to confirm with a
+time the phone connects to the car, a **Talk to Claude** conversation appears. Android Auto's messaging view only
+lists recent conversations and doesn't let apps add a button for starting a new one, so this conversation is your
+chat button: it stays in the list for the whole drive, and if you dismiss it, it comes straight back. Tap it, reply
+by voice, and Claude's answer arrives in the same conversation and is read aloud. In this view Android Auto asks you to confirm with a
 **Send** button after you stop talking; apps can't turn that off. The app screen doesn't ask: **Talk** and **Reply**
 send your words as soon as you stop speaking, so turn on **Unknown sources** to talk without pressing anything.
 

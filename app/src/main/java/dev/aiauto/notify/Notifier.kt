@@ -16,6 +16,7 @@ import androidx.core.graphics.drawable.IconCompat
 import dev.aiauto.MainActivity
 import dev.aiauto.R
 import dev.aiauto.core.AlertKind
+import dev.aiauto.core.CarChat
 import dev.aiauto.core.Checks
 import dev.aiauto.core.PrState
 import dev.aiauto.core.RepoRef
@@ -120,7 +121,8 @@ class Notifier(private val context: Context, private val settings: Settings, pri
     /**
      * The "Talk to Claude" conversation for Android Auto's messaging view. Replying to it by voice asks
      * Claude directly, and the answer comes back in the same conversation and is read aloud. This works
-     * even when the car only shows Cruise Control as a messaging app.
+     * even when the car only shows Cruise Control as a messaging app, which has no button to start a chat.
+     * Dismissing it during a drive puts it back (see [CarChat]).
      */
     @Synchronized
     fun postChat(fromClaude: String? = null, fromYou: String? = null) {
@@ -128,7 +130,7 @@ class Notifier(private val context: Context, private val settings: Settings, pri
         fromYou?.let { chat.addLast(Triple(false, it, now)) }
         fromClaude?.let { chat.addLast(Triple(true, it, now)) }
         while (chat.size > MAX_MESSAGES) chat.removeFirst()
-        if (chat.isEmpty()) chat.addLast(Triple(true, CHAT_HELLO, now))
+        if (chat.isEmpty()) chat.addLast(Triple(true, CarChat.GREETING, now))
         val style = NotificationCompat.MessagingStyle(me)
             .setConversationTitle("Talk to Claude")
             .setGroupConversation(false)
@@ -140,7 +142,7 @@ class Notifier(private val context: Context, private val settings: Settings, pri
     @Synchronized
     fun startChat() {
         chat.clear()
-        postChat(fromClaude = CHAT_HELLO)
+        postChat(fromClaude = CarChat.GREETING)
     }
 
     fun clearChat() = manager.cancel(CHAT_ID)
@@ -192,6 +194,13 @@ class Notifier(private val context: Context, private val settings: Settings, pri
             .setShowsUserInterface(false)
             .build()
 
+        // Android Auto's messaging view has no button to start a chat, so a dismissed chat conversation comes back.
+        val dismissed = if (replyTo == CHAT_TARGET) PendingIntent.getBroadcast(
+            context, id + 4,
+            Intent(context, ReplyReceiver::class.java).setAction(ReplyReceiver.ACTION_DISMISS).putExtra(ReplyReceiver.EXTRA_TARGET, replyTo),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        ) else null
+
         val quickAction = quick?.let { (label, text) ->
             val intent = PendingIntent.getBroadcast(
                 context, id + 1,
@@ -229,6 +238,7 @@ class Notifier(private val context: Context, private val settings: Settings, pri
             .apply { merge?.let(::addAction) }
             .apply { quickAction?.let(::addAction) }
             .addInvisibleAction(markRead)
+            .apply { dismissed?.let(::setDeleteIntent) }
             .setContentIntent(openApp(replyTo.takeUnless { it.startsWith(NEW_PREFIX) || it == CHAT_TARGET }))
             .build()
         // Notifications can be blocked or throttled; that must never take a running task down with it.
@@ -252,8 +262,6 @@ class Notifier(private val context: Context, private val settings: Settings, pri
         const val NEW_PREFIX = "new:"
         const val CHAT_TARGET = "chat"
         private const val CHAT_ID = 2
-        private const val CHAT_HELLO = "Hi, it's Claude. Reply to this message and say anything. " +
-            "To skip the Send button, turn on Unknown sources in Android Auto and use Talk on the Cruise Control screen."
         private const val MAX_MESSAGES = 8
         private const val PROGRESS_GAP_MILLIS = 15_000L
     }
