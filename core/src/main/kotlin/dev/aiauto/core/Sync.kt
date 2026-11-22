@@ -57,10 +57,20 @@ object SyncMerge {
                 b == null -> a
                 else -> {
                     val newer = if (b.updatedMillis > a.updatedMillis) b else a
+                    val older = if (newer === b) a else b
                     newer.copy(
-                        messages = (a.messages + b.messages).distinctBy { it.id }.sortedBy { it.timeMillis },
+                        messages = mergeMessages(newer, older),
                         // Unsent prompts never sync, so keep this device's own unless another device took the task over.
                         pendingPrompt = if (newer.device == a.device) a.pendingPrompt else newer.pendingPrompt,
+                        // A device that never saw the pull request or spend must not wipe the other side's.
+                        costUsd = maxOf(a.costUsd, b.costUsd),
+                        prNumber = newer.prNumber ?: older.prNumber,
+                        prUrl = newer.prUrl ?: older.prUrl,
+                        prState = mergePrState(newer.prState, older.prState),
+                        sessionId = newer.sessionId ?: older.sessionId,
+                        checks = newer.checks ?: older.checks,
+                        prOpenedMillis = newer.prOpenedMillis ?: older.prOpenedMillis,
+                        releaseTag = newer.releaseTag ?: older.releaseTag,
                     )
                 }
             }
@@ -106,6 +116,29 @@ object SyncMerge {
     fun forUpload(snapshot: SyncSnapshot): SyncSnapshot = snapshot.copy(
         tasks = snapshot.tasks.map { it.copy(messages = it.messages.takeLast(MESSAGES_PER_TASK), pendingPrompt = null) },
     )
+
+    /**
+     * Unions both sides' messages, but drops progress lines the newer side already replaced, so an old "Editing
+     * files" line doesn't come back after sync.
+     */
+    private fun mergeMessages(newer: Task, older: Task): List<TaskMessage> {
+        val newerProgress = newer.messages.filter { it.id.startsWith(PROGRESS) }.map { it.id }.toSet()
+        val kept = (newer.messages + older.messages)
+            .filterNot { it.id.startsWith(PROGRESS) && it.id !in newerProgress && newerProgress.isNotEmpty() }
+            .distinctBy { it.id }
+            .sortedBy { it.timeMillis }
+        return kept
+    }
+
+    /** Never let a terminal pull request state regress when the newer snapshot hasn't caught up. */
+    private fun mergePrState(newer: PrState?, older: PrState?): PrState? {
+        val both = listOfNotNull(newer, older)
+        if (PrState.Merged in both) return PrState.Merged
+        if (PrState.Closed in both) return PrState.Closed
+        return newer ?: older
+    }
+
+    private const val PROGRESS = "p-"
 }
 
 /** The sync repo exists but anyone can see it, so the app won't write tasks and chats there. */

@@ -73,6 +73,25 @@ class VoiceControlsTest {
     }
 
     @Test
+    fun draftsAndUnknownChecksAreNotReady() {
+        github.pull = github.pull.copy(draft = true)
+        assertEquals(false, controls.previewMerge("app", 42).ready)
+        github.pull = github.pull.copy(draft = false)
+        github.checksResult = ChecksSummary(Checks.Unknown, total = 1)
+        assertEquals(false, controls.previewMerge("app", 42).ready)
+    }
+
+    @Test
+    fun theSamePullNumberInTwoReposAsksWhichOne() {
+        task("t1", app, pr = 5)
+        task("t2", site, pr = 5)
+        saved = listOf(app)
+        val e = assertFailsWith<IllegalArgumentException> { controls.previewMerge("", 5) }
+        assertTrue("more than one repo" in e.message!!.lowercase(), e.message)
+        assertTrue("me/app" in e.message!! && "me/site" in e.message!!, e.message)
+    }
+
+    @Test
     fun stopWithNothingRunning() {
         task("t1", app)
         assertEquals("Nothing is running right now.", controls.stop(""))

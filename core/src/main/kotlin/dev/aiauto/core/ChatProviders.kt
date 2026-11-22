@@ -333,7 +333,12 @@ class ChatApiException(val provider: ChatProvider, val code: Int, message: Strin
 
 /** The real [ChatHttp]. The key is only ever sent to the provider's own endpoint. */
 class OkHttpChatHttp(
-    private val http: OkHttpClient = OkHttpClient.Builder().callTimeout(Duration.ofSeconds(60)).build(),
+    private val http: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(Duration.ofSeconds(15))
+        .readTimeout(Duration.ofSeconds(60))
+        .writeTimeout(Duration.ofSeconds(30))
+        .callTimeout(Duration.ofSeconds(90))
+        .build(),
 ) : ChatHttp {
     override fun post(provider: ChatProvider, key: String, body: JsonObject): JsonObject {
         val url = requireNotNull(provider.endpoint) { "${provider.label} has no chat endpoint." }

@@ -272,8 +272,8 @@ class Graph(context: Context) {
     }
 
     /**
-     * Resumes tasks that stopped because the connection dropped, and answers car chat questions asked with no
-     * signal, as soon as the phone is back online.
+     * Resumes tasks that stopped because the connection dropped, answers car chat questions that couldn't get
+     * through, and kicks a sync, as soon as the phone is back online.
      */
     fun watchNetwork(context: Context) {
         val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return
@@ -287,6 +287,7 @@ class Graph(context: Context) {
                     } catch (e: Throwable) {
                         Log.w("AiAuto", "Couldn't resume tasks after the network came back", e)
                     }
+                    sync.syncSoon()
                     scope.launch(Dispatchers.IO) { sendQueuedChat() }
                 }
             })

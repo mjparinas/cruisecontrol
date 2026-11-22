@@ -106,7 +106,9 @@ Claude and cost:
 Pull requests and automation:
 
 - After a pull request opens, the app watches its checks for 3 hours, announces the result and, with the repo's Merge
-  when checks pass on (the default), turns on GitHub's auto-merge or merges once every check is green.
+  when checks pass on (the default), turns on GitHub's auto-merge or merges once every check is green. If a coding
+  turn finishes without a pull request (usually because GitHub was unreachable), the app keeps trying to open one for
+  the same three-hour window, including when the network comes back.
 - Fix merge conflicts automatically and Fix failing checks automatically are per repo and on by default. After 3
   automatic fixes on a task the app goes back to asking, so it can never loop.
 - Alerts for failed checks, questions from Claude and stuck tasks (no update for 15 minutes) are always shown, even
@@ -140,9 +142,10 @@ Tasks, repos and sync:
   the request, only from saved repos, and otherwise uses the last-used repo. Google only registers it for apps on the
   Play Console, so it waits on the Play plan for installs from GitHub releases.
 - The car chat remembers the last 20 exchanges across drives, with a switch to turn it off and a Forget button.
-- A car chat question asked with no signal is kept on the phone (up to 5, for 30 minutes) and answered aloud when
-  the network returns. Only connection failures are queued, and never a turn that already ran a tool, so nothing
-  such as a task start can happen twice. The queue lives in memory, not on disk, since it only matters on a drive.
+- A car chat question that fails before any tool runs is kept on the phone (up to 5, for 30 minutes) and answered
+  aloud when the phone can get through again: no signal, a timeout, a rate limit, or a brief server error. A turn
+  that already ran a tool is never queued, so nothing such as a task start can happen twice. The queue lives in
+  memory, not on disk, since it only matters on a drive. A validated network also kicks a sync.
 - A briefing of what happened since the last drive (up to a day back) is read when the phone connects to the car.
   It ends with today's spend and this month's, measured against the monthly limit when one is set.
 
@@ -192,8 +195,13 @@ Claude:
   forth is well inside five minutes, so the 1-hour lifetime, which costs twice input to write, isn't worth it.
   Cache writes are priced at 1.25 times input and reads at each model's cache hit price (`ModelChoice`).
 - Streams are reconnected by the engine, and past events are listed after reconnecting so nothing is reported
-  twice and turns that ended offline are caught up. Tasks cut off by a lost connection retry every 30 seconds for up
-  to two hours.
+  twice and turns that ended offline are caught up. Agent messages that arrived while the phone was offline are
+  spoken from history on reconnect, not only the final stop reason. Tasks cut off by a lost connection retry every
+  30 seconds for up to two hours.
+- Parked Approve or Deny is sent with short retries; if it never reaches Claude, the choice is put back on the
+  screen so the driver can try again instead of leaving the session waiting.
+- The GitHub client uses connect, read, write and call timeouts and retries transient 408/429/5xx replies a few
+  times with the same backoff as the engine, so a one-shot blip doesn't strand a pull request or check refresh.
 
 Reliability on the phone:
 
@@ -291,6 +299,13 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- Bug fixes: VoiceCommand treats negated yes-phrases as No; Ask follow-ups keep read-only rules and refuse write
+  shortcuts; conflict handling always blocks the failing-checks question; car merge preview requires a non-draft with
+  readable checks; colliding pull request numbers ask which repo; SyncMerge keeps max spend and known PR fields and
+  drops replaced progress lines; a new parked approval denies the previous tool id.
+- Resilience: retry opening a missing pull request after a finished turn, replay missed agent messages from session
+  history on reconnect, restore parked Approve/Deny when confirm fails, queue car chat on transient chat errors (not
+  only offline), kick sync when the network returns, and give the GitHub client timeouts plus brief retries.
 - Accessibility review: task, pull request, template and shared-request text wraps; template actions are separate.
 - Ask mode uses a read-only session prompt, and new pull requests announce their title and diff counts. The welcome-back
   briefing checks saved repos for changed issues, pull requests and failed main-branch checks. The phone now

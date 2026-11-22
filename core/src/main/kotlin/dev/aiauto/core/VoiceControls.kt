@@ -4,7 +4,7 @@ package dev.aiauto.core
 data class MergePreview(
     val repo: RepoRef,
     val number: Int,
-    /** True when the pull request is open, has no conflicts and no failing checks. */
+    /** True when the pull request is open, not a draft, has no conflicts, and checks aren't failing or unknown. */
     val ready: Boolean,
     /** One or two spoken sentences on where the pull request stands. */
     val summary: String,
@@ -70,7 +70,12 @@ class VoiceControls(
         val gh = requireGitHub()
         val pull = gh.pull(target, number)
         val checks = if (pull.prState == PrState.Open && pull.head.sha.isNotEmpty()) gh.checks(target, pull.head.sha) else null
-        val ready = pull.prState == PrState.Open && pull.hasConflicts != true && checks?.state != Checks.Failing
+        // Match PullRequests: drafts never merge, Unknown is not green, and None needs the same care as auto-merge.
+        val checksOk = when (checks?.state) {
+            Checks.Passing, Checks.Pending, Checks.None -> true
+            else -> false
+        }
+        val ready = pull.prState == PrState.Open && !pull.draft && pull.hasConflicts != true && checksOk
         val extra = when {
             !ready -> ""
             checks?.state == Checks.Pending -> " Checks are still running, so merging turns on auto-merge and GitHub merges it once they pass."
@@ -104,8 +109,18 @@ class VoiceControls(
             )
         }
         if (prNumber != null) {
-            val owners = store.all().filter { it.prNumber == prNumber }.map { it.repo }.distinctBy { it.fullName }
-            owners.singleOrNull()?.let { return it }
+            // Prefer open, non-archived tasks: the same number can exist in several repos.
+            val owners = store.all()
+                .filter { it.prNumber == prNumber }
+                .sortedWith(compareBy<Task> { it.archived }.thenByDescending { it.hasOpenPr })
+                .map { it.repo }
+                .distinctBy { it.fullName }
+            when (owners.size) {
+                1 -> return owners.first()
+                else -> if (owners.isNotEmpty()) throw IllegalArgumentException(
+                    "Pull request $prNumber is in more than one repo: ${owners.joinToString { it.fullName }}. Say which one.",
+                )
+            }
         }
         return saved.singleOrNull() ?: throw IllegalArgumentException(
             if (saved.isEmpty()) "No repos are saved yet." else "Which repo? Saved: ${saved.joinToString { it.name }}.",

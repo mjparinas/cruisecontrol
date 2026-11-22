@@ -46,4 +46,26 @@ class FirstPromptTest {
         assertTrue(prompt.startsWith("Repository: mjparinas/aiauto"))
         assertTrue(prompt.endsWith("\nadd a toggle\nand a test"))
     }
+
+    @Test fun askModeForbidsEachWriteActionAndDoesNotAskToCommit() {
+        val ask = task.copy(readOnly = true, title = "Where is spending?", branch = "ask/where-is-spending-t1")
+        val prompt = ClaudeAgents.firstPrompt(ask, "where is spending tracked")
+        val flat = prompt.replace(Regex("\\s+"), " ")
+        assertTrue("Do not change repository files." in flat)
+        assertTrue("Do not run write commands." in flat)
+        assertTrue("Do not create a branch." in flat)
+        assertTrue("Do not commit." in flat)
+        assertTrue("Do not push." in flat)
+        assertTrue("Do not open a pull request." in flat)
+        assertFalse("Commit it with your change." in prompt)
+        assertTrue("read-only Ask session" in prompt)
+        assertTrue(prompt.endsWith("\nwhere is spending tracked"))
+    }
+
+    @Test fun askFollowUpsKeepTheReadOnlyRules() {
+        val follow = ClaudeAgents.readOnlyFollowUp("where are the tests")
+        assertTrue(follow.startsWith("This is still a read-only Ask session."))
+        assertTrue("do not create a branch" in follow.lowercase())
+        assertTrue(follow.endsWith("where are the tests"))
+    }
 }

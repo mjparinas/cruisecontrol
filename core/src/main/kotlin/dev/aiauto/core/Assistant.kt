@@ -34,8 +34,9 @@ interface AssistantActions {
 /**
  * A spoken conversation for the car's mic button. Each [ask] takes what the driver said and returns the answer,
  * ready to be read aloud. Claude answers by default; Settings can pick an OpenAI or Gemini model instead. Whichever
- * answers can also start a coding task or reply to one through [AssistantActions]. A question asked with no signal is
- * kept and answered by [sendQueued] once the phone is back online. Blocking: call it off the main thread.
+ * answers can also start a coding task or reply to one through [AssistantActions]. A question that fails before any
+ * tool runs, from no signal, a timeout, a rate limit or a brief server error, is kept and answered by [sendQueued]
+ * once the phone can get through. Blocking: call it off the main thread.
  */
 class Assistant(
     private val apiKey: (ChatProvider) -> String?,
@@ -63,21 +64,22 @@ class Assistant(
 
     @Synchronized
     fun ask(spoken: String): String {
-        val (reply, offline) = attempt(spoken)
-        if (!offline) return reply
-        if (queued.size >= MAX_QUEUED) return "There's no signal, and I'm already holding $MAX_QUEUED questions. Try again once we're back online."
+        val (reply, retryable) = attempt(spoken)
+        if (!retryable) return reply
+        if (queued.size >= MAX_QUEUED) return "I couldn't get through, and I'm already holding $MAX_QUEUED questions. Try again in a minute."
         queued.addLast(spoken to clock())
         return QUEUED
     }
 
-    /** True while questions asked with no signal are waiting for [sendQueued]. */
+    /** True while questions that couldn't get through are waiting for [sendQueued]. */
     @Synchronized
     fun hasQueued(): Boolean = queued.isNotEmpty()
 
     /**
-     * Asks the questions kept while there was no signal, oldest first, and returns each answer ready to be read
-     * aloud. Call it when the network comes back. Questions older than [QUEUE_MAX_AGE_MILLIS] are dropped, since
-     * the driver has likely moved on. If the connection drops again, the rest stay queued for next time.
+     * Asks the questions kept while there was no signal or the chat provider was briefly unavailable, oldest first,
+     * and returns each answer ready to be read aloud. Call it when the network comes back. Questions older than
+     * [QUEUE_MAX_AGE_MILLIS] are dropped, since the driver has likely moved on. If the connection drops again, the
+     * rest stay queued for next time.
      */
     @Synchronized
     fun sendQueued(): List<String> {
@@ -88,15 +90,18 @@ class Assistant(
                 queued.removeFirst()
                 continue
             }
-            val (reply, offline) = attempt(spoken)
-            if (offline) break
+            val (reply, retryable) = attempt(spoken)
+            if (retryable) break
             queued.removeFirst()
             answers += "You asked: ${spoken.trim().trimEnd('.', '?', '!')}. $reply"
         }
         return answers
     }
 
-    /** One turn. The flag is true when it failed for want of a connection before anything was done, so it can be retried. */
+    /**
+     * One turn. The flag is true when it failed before anything was done for a reason that's worth retrying
+     * (no signal, a timeout, a rate limit, or a brief server error), so it can be held and tried again.
+     */
     private fun attempt(spoken: String): Pair<String, Boolean> {
         val chat = profile()
         val provider = chat.model.provider
@@ -116,7 +121,7 @@ class Assistant(
         } catch (e: Throwable) {
             // Drop the half-finished turn so the next question starts from a clean history.
             talk?.rollback(start)
-            Failures.describe(e) to (!acted && Failures.isOffline(e))
+            Failures.describe(e) to (!acted && Failures.isTransient(e))
         }
     }
 
@@ -191,7 +196,7 @@ class Assistant(
         const val MAX_QUEUED = 5
         /** How long a question asked with no signal stays worth answering. */
         const val QUEUE_MAX_AGE_MILLIS = 30 * 60_000L
-        const val QUEUED = "There's no signal right now. I'll send that when we're back online."
+        const val QUEUED = "I couldn't get through right now. I'll send that once the connection is steadier."
         private const val START_TASK = "start_coding_task"
         private const val REPLY_TO_TASK = "reply_to_task"
         private const val ADD_REPO = "add_repo"

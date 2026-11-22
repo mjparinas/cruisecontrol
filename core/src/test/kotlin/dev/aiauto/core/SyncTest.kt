@@ -22,6 +22,25 @@ class SyncTest {
         assertEquals(setOf("a", "b"), merged.tasks.map { it.id }.toSet())
     }
 
+    @Test fun newerSideWithoutAPullRequestKeepsTheOtherSidesPrAndSpend() {
+        val withPr = task("a", 100).copy(prNumber = 7, prUrl = "https://github.com/me/app/pull/7", prState = PrState.Open, costUsd = 2.5, sessionId = "s1")
+        val without = task("a", 200).copy(prNumber = null, costUsd = 0.0, sessionId = null, status = TaskStatus.Done)
+        val merged = SyncMerge.merge(SyncSnapshot(tasks = listOf(withPr)), SyncSnapshot(tasks = listOf(without))).tasks.single()
+        assertEquals(7, merged.prNumber)
+        assertEquals("https://github.com/me/app/pull/7", merged.prUrl)
+        assertEquals(PrState.Open, merged.prState)
+        assertEquals(2.5, merged.costUsd)
+        assertEquals("s1", merged.sessionId)
+        assertEquals(TaskStatus.Done, merged.status)
+    }
+
+    @Test fun replacedProgressLinesDoNotComeBackFromTheOlderSide() {
+        val older = task("a", 10, TaskMessage("p-1", Speaker.Status, "Editing files", 1))
+        val newer = task("a", 20, TaskMessage("p-2", Speaker.Status, "Running tests", 2))
+        val merged = SyncMerge.merge(SyncSnapshot(tasks = listOf(older)), SyncSnapshot(tasks = listOf(newer))).tasks.single()
+        assertEquals(listOf("p-2"), merged.messages.map { it.id })
+    }
+
     @Test fun aTaskClearedOnEitherSideStaysCleared() {
         val local = SyncSnapshot(tasks = listOf(task("b", 5)), removedTasks = listOf("a"))
         val remote = SyncSnapshot(tasks = listOf(task("a", 20), task("b", 5)))

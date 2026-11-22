@@ -46,7 +46,7 @@ class GitHubClientTest {
             .build()
     }.build()
 
-    private val github = GitHub("token", http)
+    private val github = GitHub("token", http, pause = {})
 
     private fun runs(vararg runs: String) = """{"total_count": ${runs.size}, "check_runs": [${runs.joinToString(",")}]}"""
     private fun run(name: String, status: String, conclusion: String? = null) =
@@ -265,15 +265,30 @@ class GitHubClientTest {
         on("GET", "/repos/me/app/branches/claude/fix", 200, """{"name": "claude/fix"}""")
         assertTrue(github.branchExists(repo, "claude/fix"))
         responses.clear()
+        sent.clear()
         on("GET", "/repos/me/app/branches/claude/fix", 500, "")
         assertEquals(500, assertFailsWith<GitHubException> { github.branchExists(repo, "claude/fix") }.code)
+        assertEquals(3, sent.count { it.method == "GET" && it.path.endsWith("/branches/claude/fix") }, "transient 500s are retried")
+    }
+
+    @Test fun retriesABriefOutageThenSucceeds() {
+        on("GET", "/repos/me/app/branches/claude/fix", 502, "")
+        on("GET", "/repos/me/app/branches/claude/fix", 200, """{"name": "claude/fix"}""")
+        assertTrue(github.branchExists(repo, "claude/fix"))
+        assertEquals(2, sent.size)
+    }
+
+    @Test fun aPermanentErrorIsNotRetried() {
+        on("GET", "/repos/me/app/branches/claude/fix", 401, """{"message": "Bad credentials"}""")
+        assertEquals(401, assertFailsWith<GitHubException> { github.branchExists(repo, "claude/fix") }.code)
+        assertEquals(1, sent.size)
     }
 
     @Test fun aReplyWithNoBodyIsReportedByItsStatus() {
         val bare = OkHttpClient.Builder().addInterceptor { chain ->
             Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(502).message("Bad gateway").build()
         }.build()
-        val e = assertFailsWith<GitHubException> { GitHub("token", bare).branchExists(repo, "claude/fix") }
+        val e = assertFailsWith<GitHubException> { GitHub("token", bare, pause = {}).branchExists(repo, "claude/fix") }
         assertEquals(502, e.code)
         assertEquals("GitHub: HTTP 502", e.message)
     }

@@ -234,20 +234,35 @@ class ClaudeAgents(apiKey: String) : AgentClient {
             val confirmed = HashSet<String>()
             val calls = HashMap<String, Pair<String, String?>>()
             var lastCost: Double? = null
+            // IDs we already reported before this reconnect. History marks everything as seen so the live
+            // stream doesn't double-fire; without this copy, messages that arrived while we were offline
+            // would be marked seen and then skipped forever.
+            val previouslySeen = seenEventIds.toSet()
+            val missedSaid = mutableListOf<String>()
             for ((index, past) in client.beta().sessions().events().list(sessionId).autoPager().withIndex()) {
-                eventId(past._json())?.let { seenEventIds.add(it) }
+                val id = eventId(past._json())
+                val fresh = id != null && id !in previouslySeen
+                if (id != null) seenEventIds.add(id)
                 when {
                     past.isSessionUsage() -> costOf(past.asSessionUsage().usage().listCost())?.let { lastCost = it }
                     past.isUserMessage() -> lastUserMessage = index
                     past.isUserToolConfirmation() -> confirmed.add(past.asUserToolConfirmation().toolUseId())
                     past.isAgentToolUse() -> past.asAgentToolUse().let { calls[it.id()] = it.name() to detailOf(it.input()._additionalProperties()) }
                     past.isAgentMcpToolUse() -> past.asAgentMcpToolUse().let { calls[it.id()] = it.name() to null }
+                    past.isAgentMessage() -> {
+                        if (fresh && index > lastUserMessage) {
+                            val cleaned = SpokenStatus.clean(agentMessageText(past.asAgentMessage()))
+                            if (cleaned.isNotBlank()) missedSaid += cleaned
+                        }
+                    }
                     past.isSessionStatusIdle() || past.isSessionStatusTerminated() -> lastStop = index to past
                     past.isSessionStatusRunning() || past.isSessionStatusRescheduled() -> lastStop = null
                 }
             }
             onConnected()
             lastCost?.let { onUpdate(AgentUpdate.Cost(it)) }
+            // Speak anything Claude said while we weren't listening, before catch-up or the live stream.
+            missedSaid.forEach { onUpdate(AgentUpdate.Said(it)) }
             val stop = lastStop
             if (stop != null && stop.first > lastUserMessage && catchUp(sessionId, stop.second, confirmed, calls, canReview, onUpdate)) return true
             for (event in stream.stream()) {
@@ -294,10 +309,7 @@ class ClaudeAgents(apiKey: String) : AgentClient {
     ): Boolean {
         when {
             event.isAgentMessage() -> {
-                val text = event.asAgentMessage().content()
-                    .mapNotNull { block -> block.text().map { it.text() }.orElse(null) }
-                    .joinToString(" ")
-                val cleaned = SpokenStatus.clean(text)
+                val cleaned = SpokenStatus.clean(agentMessageText(event.asAgentMessage()))
                 if (cleaned.isNotBlank()) onUpdate(AgentUpdate.Said(cleaned))
             }
             event.isAgentToolUse() -> {
@@ -416,6 +428,11 @@ class ClaudeAgents(apiKey: String) : AgentClient {
     private fun eventId(json: Optional<com.anthropic.core.JsonValue>): String? =
         json.flatMap { it.asObject() }.flatMap { obj -> Optional.ofNullable(obj["id"]).flatMap { it.asString() } }.orElse(null)
 
+    private fun agentMessageText(message: com.anthropic.models.beta.sessions.events.BetaManagedAgentsAgentMessageEvent): String =
+        message.content()
+            .mapNotNull { block -> block.text().map { it.text() }.orElse(null) }
+            .joinToString(" ")
+
     override fun close() = client.close()
 
     companion object {
@@ -444,11 +461,17 @@ class ClaudeAgents(apiKey: String) : AgentClient {
 
         private fun readOnlyInstructions(task: Task): String = """
             Repository: ${task.repo.fullName}, available at $REPO_PATH.
-            This is a read-only Ask session. Do not change repository files, run write commands, create a branch,
-            commit, push or open a pull request. Only inspect the repository and answer the user's question.
+            This is a read-only Ask session. Do not change repository files. Do not run write commands. Do not create
+            a branch. Do not commit. Do not push. Do not open a pull request. Only inspect the repository and answer
+            the user's question.
 
             Before anything else, read README.md, $NOTES_FILE and AGENTS.md at the repository root, whichever exist.
         """.trimIndent()
+
+        /** Reminder prepended to every follow-up on an Ask session, so later turns stay read-only too. */
+        fun readOnlyFollowUp(prompt: String): String =
+            "This is still a read-only Ask session. Do not edit, create, or delete files; do not run commands that write; " +
+                "do not create a branch, commit, push, or open a pull request. Answer in a short, speakable response.\n\n$prompt"
 
         private fun instructions(task: Task): String = """
             Repository: ${task.repo.fullName}, cloned at $REPO_PATH.

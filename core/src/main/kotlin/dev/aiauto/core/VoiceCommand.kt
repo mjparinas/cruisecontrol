@@ -30,9 +30,21 @@ enum class VoiceCommand {
             val core = words.filterNot { it in fillers }.joinToString(" ")
             val whole = words.joinToString(" ")
             phrases.entries.firstOrNull { (_, set) -> core in set || whole in set }?.let { return it.key }
+            // Negation wins over a yes-prefix: "do not merge", "yeah no", "yes, don't" must never confirm.
+            if (isNegated(core) || isNegated(whole)) return No
             // "Yes, do it", "sure, merge it": a yes followed by a couple of words still means yes.
+            // Bare "do" alone is already Yes above; "do …" with extra words is only Yes when it isn't a negation.
             val first = core.substringBefore(' ')
-            return if (core.count { it == ' ' } <= 2 && first in phrases.getValue(Yes)) Yes else null
+            val yesWords = phrases.getValue(Yes) - "do"
+            return if (core.count { it == ' ' } <= 2 && first in yesWords) Yes else null
+        }
+
+        private fun isNegated(phrase: String): Boolean {
+            val tokens = phrase.split(' ').filter { it.isNotBlank() }
+            return tokens.any {
+                it == "no" || it == "nope" || it == "not" || it == "never" || it == "nothing" ||
+                    it == "don't" || it == "dont"
+            }
         }
     }
 }
