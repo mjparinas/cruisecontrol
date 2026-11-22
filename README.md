@@ -139,16 +139,19 @@ Anything longer goes to Claude as usual, so "merge the two settings screens" is 
 ## Google Assistant shortcut
 
 Start a task without opening the app: say "Hey Google, start a task to add dark mode to aiauto on Cruise Control".
-"Ask Claude to", "tell Claude to" and "have Claude" work in place of "start a task to". The app opens on the new
+"Ask Cruise Control to", "tell Cruise Control to" and "have Cruise Control" work in place of "start a task to". The app opens on the new
 task and says "Starting on aiauto: add dark mode" (read aloud in the car, shown on the phone otherwise).
 
 - Name the repo at the end ("... to aiauto", "... in the cruise control site repo") or the start ("in aiauto, add a
-  toggle"). Only saved repos count. Without one, the task goes to the last-used repo.
+  toggle"). Any repo your GitHub token can push to counts, like in the New task picker. Without one, the task goes to
+  the last-used repo.
 - Saying just a template's name, like "fix lint in aiauto", starts that template.
 - If something's missing, such as keys or saved repos, the app says what and opens the screen to fix it.
 - Google only picks up the shortcut for apps uploaded to the Play Console, so it doesn't work on installs from
   GitHub releases until the app is on a Play testing track (see docs/PLAY_STORE_RELEASE.md). Google Assistant and
-  Gemini support only a few kinds of app actions in Android Auto, so it may only work on the phone. For testing,
+  Gemini support only a few kinds of app actions in Android Auto, so it may only work on the phone. On phones where
+  Gemini has replaced Google Assistant, Gemini may not pick up custom app shortcuts like this one at all. Until it
+  does, the launcher's **Talk to Claude** shortcut and the widget microphone are the quickest way in. For testing,
   `adb shell am start -n dev.aiauto/.MainActivity -a dev.aiauto.action.START_TASK --es request "add dark mode to aiauto"`
   does what the Assistant would.
 
@@ -276,9 +279,9 @@ checks its versions, numbers and paths against the code, so the build fails if i
 ## Making a release
 
 In the Actions tab, open **Release** and click **Run workflow**. To choose the version yourself,
-enter the next version, like `v0.8.0`. Leave it empty to release the next patch version after the latest tag
+enter the next version, like `v0.8.1`. Leave it empty to release the next patch version after the latest tag
 instead (for example `v0.7.20` becomes `v0.7.21`), the same way the app's auto-release picks it. You can also
-push a tag like `v0.8.0`. Either way, the workflow tests the code, builds a release APK and publishes a GitHub
+push a tag like `v0.8.1`. Either way, the workflow tests the code, builds a release APK and publishes a GitHub
 release with the APK attached. The version name comes from the tag and the version code from the run number, so
 there's nothing to bump in the code first.
 
