@@ -305,6 +305,7 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- v0.8.2 cut with the home screen search box restyle as its only note.
 - The home screen's task search box uses the same rounded pill as the Settings search, with a clear button, instead
   of an outlined field with a floating label.
 - v0.8.1 cut from the notes merged since the v0.8.0 tag (PRs 110, 111 and 113) plus PR 112.

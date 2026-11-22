@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.8.2
+
 - The home screen's task search box now matches the Settings search: a rounded pill on the card colour with a
   clear button once you type.
 
