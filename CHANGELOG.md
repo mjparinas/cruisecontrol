@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The home screen shows today's and this month's spend side by side on one tidy card, each with a bar towards its
+  limit that turns amber near the limit and red once it's reached, instead of two widely spaced headers.
 - Bug fixes: spoken answers like "do not merge" no longer count as yes; Ask sessions stay read-only on follow-ups;
   a new conflict isn't overwritten by failing checks; drafts and unread checks aren't offered as ready to merge;
   the same pull request number in two repos asks which one; sync keeps a pull request and spend the other device
