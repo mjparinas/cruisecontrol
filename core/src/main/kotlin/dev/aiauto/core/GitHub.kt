@@ -55,6 +55,16 @@ data class CommitInfo(val sha: String, val message: String, val author: String, 
 /** One open pull request with its checks, for the project view. */
 data class PullStatus(val pull: PullRequest, val checks: ChecksSummary)
 
+/** One changed file from a pull request's patch response. */
+@Serializable
+data class PullFile(
+    val filename: String,
+    val status: String = "modified",
+    val additions: Int = 0,
+    val deletions: Int = 0,
+    val patch: String? = null,
+)
+
 /** A repo at a glance: what landed last, whether its main branch is green, and what's waiting for review. */
 data class RepoStatus(
     val repo: RepoRef,
@@ -169,6 +179,15 @@ open class GitHub(private val token: String, private val http: OkHttpClient = Ok
 
     open fun pull(repo: RepoRef, number: Int): PullRequest =
         json.decodeFromString(get("/repos/${repo.fullName}/pulls/$number"))
+
+    /** Files and unified diffs for one pull request, capped at GitHub's 100-file page size. */
+    open fun pullFiles(repo: RepoRef, number: Int): List<PullFile> =
+        json.decodeFromString(get("/repos/${repo.fullName}/pulls/$number/files?per_page=100"))
+
+    /** Submits an approving review on GitHub. */
+    open fun approvePull(repo: RepoRef, number: Int) {
+        send("POST", "/repos/${repo.fullName}/pulls/$number/reviews", "{\"event\":\"APPROVE\"}")
+    }
 
     open fun openPulls(repo: RepoRef, limit: Int = 10): List<PullRequest> =
         json.decodeFromString(get("/repos/${repo.fullName}/pulls?state=open&sort=updated&direction=desc&per_page=$limit"))

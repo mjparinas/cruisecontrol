@@ -155,6 +155,8 @@ data class Task(
     val autoFixes: Int = 0,
     /** A flagged step waiting for the driver to approve or deny it while parked. */
     val approval: ToolApproval? = null,
+    /** An Ask session answers questions about the repository without creating a branch or pull request. */
+    val readOnly: Boolean = false,
     /**
      * The device that runs this task, when tasks sync between devices. Only that device follows the session and
      * watches the pull request; another device takes it over when you reply or retry from it. Null means this device.

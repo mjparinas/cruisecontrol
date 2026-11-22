@@ -90,6 +90,17 @@
                 android:resource="@xml/tasks_widget_info" />
         </receiver>
 
+        <service
+            android:name=".QuickTaskTile"
+            android:exported="true"
+            android:icon="@drawable/ic_glyph"
+            android:label="New task"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Android Auto: templated screens plus messaging notifications. -->
         <service
             android:name=".car.AiAutoCarAppService"

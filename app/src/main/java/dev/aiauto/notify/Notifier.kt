@@ -16,6 +16,8 @@ import androidx.core.graphics.drawable.IconCompat
 import dev.aiauto.MainActivity
 import dev.aiauto.R
 import dev.aiauto.core.AlertKind
+import dev.aiauto.core.Checks
+import dev.aiauto.core.PrState
 import dev.aiauto.core.RepoRef
 import dev.aiauto.core.Speaker as Who
 import dev.aiauto.core.Task
@@ -74,7 +76,7 @@ class Notifier(private val context: Context, private val settings: Settings, pri
         task.messages.takeLast(MAX_MESSAGES).forEach { m ->
             style.addMessage(m.text, m.timeMillis, if (m.speaker == Who.You) me else claude)
         }
-        notify(task.id.hashCode(), style, replyTo = task.id)
+        notify(task.id.hashCode(), style, replyTo = task.id, task = task)
     }
 
     /**
@@ -100,7 +102,7 @@ class Notifier(private val context: Context, private val settings: Settings, pri
             AlertKind.Stuck -> "Stop" to "stop"
             AlertKind.Question -> null
         }
-        notify(task.id.hashCode(), style, replyTo = task.id, channel = CH_ALERTS, quick = quick, onlyAlertOnce = kind == AlertKind.Question)
+        notify(task.id.hashCode(), style, replyTo = task.id, channel = CH_ALERTS, quick = quick, onlyAlertOnce = kind == AlertKind.Question, task = task)
         // A question was already read out as Claude's own message; the other alerts are new lines.
         if (kind != AlertKind.Question && settings.readAloudInCar && speaker.inCar) speaker.speak(text)
     }
@@ -164,6 +166,7 @@ class Notifier(private val context: Context, private val settings: Settings, pri
         quick: Pair<String, String>? = null,
         /** Don't sound again when this replaces a notification that just sounded. */
         onlyAlertOnce: Boolean = false,
+        task: Task? = null,
     ) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
             android.os.Build.VERSION.SDK_INT >= 33
@@ -199,6 +202,22 @@ class Notifier(private val context: Context, private val settings: Settings, pri
             NotificationCompat.Action.Builder(R.drawable.ic_glyph, label, intent).setShowsUserInterface(false).build()
         }
 
+        val openPull = task?.prUrl?.let { url ->
+            val intent = PendingIntent.getActivity(
+                context, id + 2, Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            NotificationCompat.Action.Builder(R.drawable.ic_glyph, "Open pull request", intent).build()
+        }
+        val merge = task?.takeIf { it.prUrl != null && it.prState == PrState.Open && it.checks?.state == Checks.Passing }?.let {
+            val intent = Intent(context, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_TASK, it.id)
+                .putExtra(MainActivity.EXTRA_CONFIRM_MERGE, true)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            val pending = PendingIntent.getActivity(context, id + 3, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            NotificationCompat.Action.Builder(R.drawable.ic_glyph, "Merge", pending).build()
+        }
+
         val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_glyph)
             .setColor(0xFFC96F4A.toInt())
@@ -206,6 +225,8 @@ class Notifier(private val context: Context, private val settings: Settings, pri
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setOnlyAlertOnce(onlyAlertOnce)
             .addAction(reply)
+            .apply { openPull?.let(::addAction) }
+            .apply { merge?.let(::addAction) }
             .apply { quickAction?.let(::addAction) }
             .addInvisibleAction(markRead)
             .setContentIntent(openApp(replyTo.takeUnless { it.startsWith(NEW_PREFIX) || it == CHAT_TARGET }))

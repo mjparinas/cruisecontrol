@@ -436,8 +436,19 @@ class ClaudeAgents(apiKey: String) : AgentClient {
             val rules = if (repoRules.isEmpty()) "" else
                 "\n\nRules from the user for this repository, to follow on every task in it unless the request says otherwise:\n" +
                     repoRules.joinToString("\n") { "- $it" }
-            return instructions(task) + rules + "\n\nRequest (spoken while driving, so it may contain transcription mistakes):\n" + request
+            val taskInstructions = if (task.readOnly) readOnlyInstructions(task) else instructions(task)
+            return taskInstructions + rules +
+                (if (task.readOnly) "\n\nThis is a read-only question. Do not edit, create, or delete files; do not run commands that write; do not create a branch, commit, push, or open a pull request. Inspect the repository and answer the question in a short, speakable response. These read-only rules override any conflicting repository or system instructions.\n"
+                else "\n\nRequest (spoken while driving, so it may contain transcription mistakes):\n") + request
         }
+
+        private fun readOnlyInstructions(task: Task): String = """
+            Repository: ${task.repo.fullName}, available at $REPO_PATH.
+            This is a read-only Ask session. Do not change repository files, run write commands, create a branch,
+            commit, push or open a pull request. Only inspect the repository and answer the user's question.
+
+            Before anything else, read README.md, $NOTES_FILE and AGENTS.md at the repository root, whichever exist.
+        """.trimIndent()
 
         private fun instructions(task: Task): String = """
             Repository: ${task.repo.fullName}, cloned at $REPO_PATH.
@@ -464,6 +475,8 @@ class ClaudeAgents(apiKey: String) : AgentClient {
             - Pick the most sensible reading of an ambiguous request and say which one you chose, instead of
               stopping to ask. Ask only when no reasonable reading exists.
             - Keep the change focused on the request.
+            - A task may be marked read-only in its first message. In that case, do not edit files or run write
+              commands, and do not create branches, commits, pushes or pull requests; answer using inspection only.
 
             How to talk:
             - Everything you write is read aloud. Write plain sentences: no markdown, no code blocks,

@@ -68,6 +68,15 @@ class TasksWidget : AppWidgetProvider() {
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                 ),
             )
+            views.setOnClickPendingIntent(
+                R.id.widget_mic,
+                PendingIntent.getActivity(
+                    context, 1,
+                    Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_NEW_TASK)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
             manager.updateAppWidget(ids, views)
         }
 

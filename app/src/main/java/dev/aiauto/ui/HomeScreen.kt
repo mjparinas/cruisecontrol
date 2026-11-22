@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.QuestionAnswer
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material3.AlertDialog
@@ -66,7 +67,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.aiauto.core.Checks
@@ -90,6 +90,7 @@ fun HomeScreen(
     onNew: () -> Unit,
     onSettings: () -> Unit,
     onProjects: () -> Unit,
+    onReview: () -> Unit,
     finishedCount: Int,
     onClearFinished: () -> Unit,
     spentToday: Double,
@@ -128,6 +129,7 @@ fun HomeScreen(
         topBar = {
             ScreenTopBar("Tasks", onBack = null, large = true) {
                 if (finishedCount > 0 && !showArchived) IconButton(onClick = onClearFinished) { Icon(Icons.Rounded.ClearAll, "Clear $finishedCount finished") }
+                IconButton(onClick = onReview) { Icon(Icons.Rounded.Code, "Ready to review") }
                 IconButton(onClick = onProjects) { Icon(Icons.Rounded.FolderOpen, "Projects") }
                 IconButton(onClick = onSettings) { Icon(Icons.Rounded.Settings, "Settings") }
             }
@@ -171,18 +173,18 @@ fun HomeScreen(
             when {
                 shown.isNotEmpty() -> TaskList(shown, spentToday, dailyLimit, spentThisMonth, monthlyLimit, onOpen, onArchive = archive, onClear = { task -> clearing = task })
                 normalizedQuery.isNotEmpty() -> EmptyState(Icons.Rounded.Search, BadgeHue.Blue, "No matching tasks", "Try a request, repo name or pull request number.")
-                showArchived -> EmptyState(
-                    Icons.Rounded.Archive, BadgeHue.Blue, "No archived chats",
-                    "Swipe a task card left, or archive it from its chat, to keep it here out of the main list.",
-                )
-                hasRepos -> EmptyState(
-                    Icons.Rounded.DirectionsCar, BadgeHue.Accent, "Nothing running yet",
-                    "Start a task by speaking a request. In the car, pick a repo and reply by voice.",
-                )
-                else -> EmptyState(
-                    Icons.Rounded.Key, BadgeHue.Amber, "Let's get set up",
-                    "Add your Claude API key, a GitHub token and a repo in Settings to get started.",
-                )
+                else -> Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SectionHeader("Today · ${SpokenStatus.money(spentToday)}" + (dailyLimit?.let { " of ${SpokenStatus.money(it)}" } ?: ""))
+                    SectionHeader("This month · ${SpokenStatus.money(spentThisMonth)}" + (monthlyLimit?.let { " of ${SpokenStatus.money(it)}" } ?: ""))
+                    EmptyState(
+                        if (showArchived) Icons.Rounded.Archive else if (hasRepos) Icons.Rounded.DirectionsCar else Icons.Rounded.Key,
+                        if (showArchived) BadgeHue.Blue else if (hasRepos) BadgeHue.Accent else BadgeHue.Amber,
+                        if (showArchived) "No archived chats" else if (hasRepos) "Nothing running yet" else "Let's get set up",
+                        if (showArchived) "Swipe a task card left, or archive it from its chat, to keep it here out of the main list."
+                        else if (hasRepos) "Start a task by speaking a request. In the car, pick a repo and reply by voice."
+                        else "Add your Claude API key, a GitHub token and a repo in Settings to get started.",
+                    )
+                }
             }
         }
     }

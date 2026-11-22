@@ -12,7 +12,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.AccountTree
@@ -30,6 +29,9 @@ import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
@@ -52,6 +54,7 @@ fun NewTaskScreen(
     templates: List<TaskTemplate>,
     onBack: () -> Unit,
     onStart: (RepoRef, String) -> Unit,
+    onStartAsk: (RepoRef, String) -> Unit = onStart,
     onAddTemplate: (name: String, prompt: String) -> Unit,
     onDeleteTemplate: (TaskTemplate) -> Unit,
     listenUntilStop: Boolean = false,
@@ -59,6 +62,7 @@ fun NewTaskScreen(
     onStartShared: ((RepoRef, String) -> Unit)? = null,
 ) {
     var selected by remember { mutableStateOf(lastUsed?.takeIf { it in repos } ?: repos.firstOrNull()) }
+    var askMode by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     if (adding) AddTemplateDialog(onDismiss = { adding = false }, onSave = onAddTemplate)
     Scaffold(
@@ -66,7 +70,7 @@ fun NewTaskScreen(
         topBar = { ScreenTopBar("New task", onBack) },
         floatingActionButton = {
             MicButton(enabled = selected != null, listenUntilStop = listenUntilStop, disabledReason = "Add a repo in Settings first.") { text ->
-                selected?.let { onStart(it, text) }
+                selected?.let { if (askMode) onStartAsk(it, text) else onStart(it, text) }
             }
         },
     ) { padding ->
@@ -75,7 +79,7 @@ fun NewTaskScreen(
             if (!sharedText.isNullOrBlank()) {
                 SectionHeader("Shared from another app")
                 SettingsCard {
-                    Text(sharedText, Modifier.fillMaxWidth().padding(16.dp), maxLines = 8, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Text(sharedText, Modifier.fillMaxWidth().padding(16.dp))
                     if (onStartShared != null) SettingRow(Icons.Rounded.PlayArrow, BadgeHue.Accent, "Start this request", "Starts a task in the selected repo.") {
                         selected?.let { onStartShared(it, sharedText) }
                     }
@@ -86,7 +90,19 @@ fun NewTaskScreen(
                 repos.forEach { repo -> RepoChoice(repo, selected = repo == selected) { selected = repo } }
             }
 
-            SectionHeader("Templates")
+            SectionHeader("What do you want to do?")
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                listOf("Make a change", "Ask about code").forEachIndexed { index, label ->
+                    SegmentedButton(
+                        selected = askMode == (index == 1),
+                        onClick = { askMode = index == 1 },
+                        shape = SegmentedButtonDefaults.itemShape(index, 2),
+                    ) { Text(label) }
+                }
+            }
+
+            if (!askMode) SectionHeader("Templates")
+            if (!askMode)
             SettingsCard {
                 templates.forEach { template ->
                     TemplateRow(

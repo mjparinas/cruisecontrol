@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +49,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -78,11 +80,19 @@ fun TaskScreen(
     onUnarchive: () -> Unit,
     onMerge: () -> Unit,
     listenUntilStop: Boolean = false,
+    confirmMergeOnOpen: Boolean = false,
+    onMergePromptShown: () -> Unit = {},
     onSend: (String) -> Unit,
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     var confirmMerge by remember { mutableStateOf(false) }
+    LaunchedEffect(task.id, confirmMergeOnOpen) {
+        if (confirmMergeOnOpen) {
+            confirmMerge = true
+            onMergePromptShown()
+        }
+    }
     if (confirmMerge) task.prNumber?.let { ConfirmMergeDialog(it, task.checks, onConfirm = onMerge, onDismiss = { confirmMerge = false }) }
     val list = rememberLazyListState()
     // Jump straight to the latest message when the task opens; only animate for messages that arrive while it's open.
@@ -102,7 +112,7 @@ fun TaskScreen(
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 title = {
                     Column {
-                        Text(task.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(task.title, style = MaterialTheme.typography.titleMedium)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             // A polite live region, so TalkBack says "Needs you", "Checks running" or "Done" when the status changes.
                             StatusPill(
@@ -186,11 +196,16 @@ private fun PrCard(task: Task, onOpen: () -> Unit, onMerge: () -> Unit) {
         task.checks?.state == Checks.Pending -> BadgeHue.Amber
         else -> BadgeHue.Blue
     }
-    RoundCard(onClick = onOpen) {
+    RoundCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(Icons.Rounded.Code, hue)
             Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clickable(role = Role.Button, onClickLabel = "Open pull request #${task.prNumber}", onClick = onOpen),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Pull request #${task.prNumber}", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.width(6.dp))

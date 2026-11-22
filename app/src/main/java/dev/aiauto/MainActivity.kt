@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.content.pm.ShortcutInfo
+import android.graphics.drawable.Icon
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -36,12 +38,14 @@ private sealed interface Screen {
     data object NewTask : Screen
     data object Settings : Screen
     data object Projects : Screen
+    data object Review : Screen
     data class Detail(val taskId: String) : Screen
 }
 
 class MainActivity : ComponentActivity() {
     private var screen by mutableStateOf<Screen>(Screen.Home)
     private var sharedRequest by mutableStateOf<String?>(null)
+    private var confirmMergeTask by mutableStateOf<String?>(null)
 
     /**
      * Asks once to lift battery limits. Without it, Android (Samsung especially) can stop the app soon after
@@ -72,7 +76,10 @@ class MainActivity : ComponentActivity() {
         // A recreated activity or one reopened from Recents still carries the shortcut, which already started its task.
         val fresh = savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
         sharedRequest = intent.sharedRequest()
+        confirmMergeTask = intent.getStringExtra(EXTRA_TASK)?.takeIf { intent.getBooleanExtra(EXTRA_CONFIRM_MERGE, false) }
         screen = intent.taskTarget() ?: intent.takeIf { fresh }?.startFromShortcut() ?: if (sharedRequest != null) Screen.NewTask else if (g.isConfigured) Screen.Home else Screen.Settings
+        if (intent.action == ACTION_OPEN_NEW_TASK) screen = Screen.NewTask
+        installLauncherShortcuts()
 
         setContent {
             var themeMode by remember { mutableStateOf(enumOrDefault(g.settings.themeMode, ThemeMode.System)) }
@@ -109,6 +116,7 @@ class MainActivity : ComponentActivity() {
                             g.projects.refreshAll(repos, maxAgeMillis = 30_000)
                             screen = Screen.Projects
                         },
+                        onReview = { screen = Screen.Review },
                         finishedCount = tasks.count { it.isFinished && !it.archived && !g.engine.isRunning(it.id) },
                         onClearFinished = { tasks.filter { it.isFinished && !it.archived && !g.engine.isRunning(it.id) }.forEach { g.notifier.clear(it.id) }; g.engine.clearFinished() },
                         spentToday = g.settings.spentTodayUsd,
@@ -131,12 +139,37 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                     )
+                    Screen.Review -> ReviewScreen(
+                        tasks = tasks,
+                        githubToken = g.secrets.githubToken,
+                        onBack = { screen = Screen.Home },
+                        onApprove = { task ->
+                            scope.launch {
+                                val message = withContext(Dispatchers.IO) {
+                                    runCatching { g.secrets.githubToken?.let { dev.aiauto.core.GitHub(it).approvePull(task.repo, task.prNumber!!) }; "Approved pull request #${task.prNumber}." }
+                                        .getOrElse { "Couldn't approve pull request. ${Failures.describe(it)}" }
+                                }
+                                android.widget.Toast.makeText(this@MainActivity, message, android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        onMerge = { task ->
+                            scope.launch {
+                                val message = withContext(Dispatchers.IO) { runCatching { g.engine.mergeNow(task.id) }.getOrElse { "Couldn't merge pull request. ${Failures.describe(it)}" } }
+                                android.widget.Toast.makeText(this@MainActivity, message, android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        },
+                    )
                     Screen.NewTask -> NewTaskScreen(
                         repos = repoChoices,
                         lastUsed = tasks.maxByOrNull { it.createdMillis }?.repo,
                         templates = templates,
                         onAddTemplate = { name, prompt -> g.templates.add(name, prompt) },
                         onDeleteTemplate = { g.templates.remove(it.id) },
+                        onStartAsk = { repo, text ->
+                            val task = g.engine.startAsk(repo, text)
+                            TaskService.ensureRunning(this)
+                            screen = Screen.Detail(task.id)
+                        },
                         listenUntilStop = g.settings.listenUntilStop,
                         sharedText = sharedRequest,
                         onStartShared = { repo, text ->
@@ -180,6 +213,8 @@ class MainActivity : ComponentActivity() {
                                 TaskService.ensureRunning(this)
                             },
                             listenUntilStop = g.settings.listenUntilStop,
+                            confirmMergeOnOpen = confirmMergeTask == task.id,
+                            onMergePromptShown = { confirmMergeTask = null },
                         ) { text ->
                             g.engine.prompt(task.id, text)
                             TaskService.ensureRunning(this)
@@ -312,7 +347,30 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.sharedRequest()?.let { sharedRequest = it; screen = Screen.NewTask }
+        confirmMergeTask = intent.getStringExtra(EXTRA_TASK)?.takeIf { intent.getBooleanExtra(EXTRA_CONFIRM_MERGE, false) }
         (intent.taskTarget() ?: intent.startFromShortcut())?.let { screen = it }
+        if (intent.action == ACTION_OPEN_NEW_TASK) screen = Screen.NewTask
+    }
+
+    private fun installLauncherShortcuts() {
+        if (Build.VERSION.SDK_INT < 25) return
+        val manager = getSystemService(android.content.pm.ShortcutManager::class.java) ?: return
+        val base = Intent(this, MainActivity::class.java).setAction(ACTION_OPEN_NEW_TASK)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        manager.dynamicShortcuts = listOf(
+            ShortcutInfo.Builder(this, "new_task")
+                .setShortLabel("New task")
+                .setLongLabel("Start a new Cruise Control task")
+                .setIcon(Icon.createWithResource(this, R.drawable.ic_glyph))
+                .setIntent(Intent(base))
+                .build(),
+            ShortcutInfo.Builder(this, "last_repo")
+                .setShortLabel("Last repo")
+                .setLongLabel("Start a task in your last used repo")
+                .setIcon(Icon.createWithResource(this, R.drawable.ic_glyph))
+                .setIntent(Intent(base).putExtra(EXTRA_LAST_REPO, true))
+                .build(),
+        )
     }
 
     private fun Intent.sharedRequest(): String? = if (action == Intent.ACTION_SEND && type?.startsWith("text/") == true)
@@ -390,6 +448,9 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_TASK = "task"
+        const val EXTRA_CONFIRM_MERGE = "confirm_merge"
+        const val EXTRA_LAST_REPO = "last_repo"
+        const val ACTION_OPEN_NEW_TASK = "dev.aiauto.action.OPEN_NEW_TASK"
 
         /** The Google Assistant shortcut's action and spoken request, declared in res/xml/shortcuts.xml. */
         const val ACTION_START_TASK = "dev.aiauto.action.START_TASK"
