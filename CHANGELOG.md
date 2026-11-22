@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.8.0
+
 - Added Ask mode with a read-only repository prompt, spoken pull request summaries, a wider drive briefing, a Ready to review screen with
   diffs and approve or merge actions, task history search, a setup checklist, shared text requests, launcher and
   Quick Settings entry points, a widget microphone, pull request notification actions, and monthly spend on the
@@ -30,8 +32,6 @@
   related word like "colour" or "money". Searching for a pull request switch finds your repos, where those live now.
 - An experimental Steering-wheel buttons switch in Settings, under In the car and off by default. While the car
   screen is open, the wheel's play or pause button starts Talk, and next or previous repeats the last update.
-
-## v0.8.0
 
 - The phone app is voice first. The New task screen and each task's chat drop the text box for a floating microphone
   at the bottom right. It turns into a Stop button while listening, sends as soon as you stop talking, and with Keep
