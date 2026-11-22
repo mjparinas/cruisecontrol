@@ -55,6 +55,14 @@ class VoiceShortcutTest {
         assertIs<VoiceShortcut.Problem>(VoiceShortcut.resolve("bump the version", repos, removed, emptyList(), configured = true))
     }
 
+    @Test fun findsReposTheTokenCanPushToWithoutSavingThem() {
+        val tool = RepoRef("mjparinas", "release-tool")
+        val choices = RepoRef.choices(saved = emptyList(), available = listOf(tool, aiauto), tasks = emptyList())
+        val s = start("bump the version in release tool", all = choices)
+        assertEquals(tool, s.repo)
+        assertEquals("bump the version", s.request)
+    }
+
     @Test fun templateNamesStartTheTemplate() {
         val s = start("fix lint in aiauto")
         assertEquals(TaskTemplate.defaults.first { it.id == "fix-lint" }.prompt, s.request)

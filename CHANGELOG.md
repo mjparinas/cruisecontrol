@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The Google Assistant shortcut now finds any repo your GitHub token can push to, not just saved ones, so it no
+  longer says to add a repo first when you haven't saved any.
 - Bug fixes: spoken answers like "do not merge" no longer count as yes; Ask sessions stay read-only on follow-ups;
   a new conflict isn't overwritten by failing checks; drafts and unread checks aren't offered as ready to merge;
   the same pull request number in two repos asks which one; sync keeps a pull request and spend the other device

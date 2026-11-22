@@ -139,8 +139,9 @@ Tasks, repos and sync:
   Per-repo settings sync as one setting with the rest.
 - A Google Assistant shortcut (App Actions custom intent in `app/src/main/res/xml/shortcuts.xml`) starts a task
   with no taps and no confirmation, so it's truly hands-free. `VoiceShortcut` takes the repo from the start or end of
-  the request, only from saved repos, and otherwise uses the last-used repo. Google only registers it for apps on the
-  Play Console, so it waits on the Play plan for installs from GitHub releases.
+  the request, from the same choices as the pickers (saved repos and every repo the token can push to), and otherwise
+  uses the last-used repo. Google only registers it for apps on the Play Console, so it waits on the Play plan for
+  installs from GitHub releases, and Gemini may not pick up custom App Actions intents at all.
 - The car chat remembers the last 20 exchanges across drives, with a switch to turn it off and a Forget button.
 - A car chat question that fails before any tool runs is kept on the phone (up to 5, for 30 minutes) and answered
   aloud when the phone can get through again: no signal, a timeout, a rate limit, or a brief server error. A turn
@@ -299,6 +300,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- The Google Assistant shortcut finds any repo the token can push to, like the pickers since PR 83, instead of only
+  saved repos. The docs now say Gemini may not pick up custom App Actions intents.
 - Bug fixes: VoiceCommand treats negated yes-phrases as No; Ask follow-ups keep read-only rules and refuse write
   shortcuts; conflict handling always blocks the failing-checks question; car merge preview requires a non-draft with
   readable checks; colliding pull request numbers ask which repo; SyncMerge keeps max spend and known PR fields and

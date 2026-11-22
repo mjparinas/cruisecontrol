@@ -36,7 +36,7 @@ These started on this list and are now in the app. See the README for how they w
 - **Parked mode**: once the car stands still, steps the agent's safety check flags wait for Approve or Deny on the
   car screen instead of being declined.
 - **Google Assistant shortcut**: "Hey Google, start a task to ... on Cruise Control" starts a task with no taps,
-  once the app is uploaded to the Play Console.
+  once the app is uploaded to the Play Console. Gemini may not pick up custom App Actions intents.
 - **Listening and thinking tones**: a tone when the microphone opens and closes, and a soft cue while an answer is slow.
 - **Spoken updates wait while the microphone is open**: `Speaker` holds new speech while `VoiceInput` listens and
   reads it once listening ends, so the car never talks over the driver.

@@ -139,12 +139,15 @@ Start a task without opening the app: say "Hey Google, start a task to add dark 
 task and says "Starting on aiauto: add dark mode" (read aloud in the car, shown on the phone otherwise).
 
 - Name the repo at the end ("... to aiauto", "... in the cruise control site repo") or the start ("in aiauto, add a
-  toggle"). Only saved repos count. Without one, the task goes to the last-used repo.
+  toggle"). Any repo your GitHub token can push to counts, like in the New task picker. Without one, the task goes to
+  the last-used repo.
 - Saying just a template's name, like "fix lint in aiauto", starts that template.
 - If something's missing, such as keys or saved repos, the app says what and opens the screen to fix it.
 - Google only picks up the shortcut for apps uploaded to the Play Console, so it doesn't work on installs from
   GitHub releases until the app is on a Play testing track (see docs/PLAY_STORE_RELEASE.md). Google Assistant and
-  Gemini support only a few kinds of app actions in Android Auto, so it may only work on the phone. For testing,
+  Gemini support only a few kinds of app actions in Android Auto, so it may only work on the phone. On phones where
+  Gemini has replaced Google Assistant, Gemini may not pick up custom app shortcuts like this one at all. Until it
+  does, the launcher's **Talk to Claude** shortcut and the widget microphone are the quickest way in. For testing,
   `adb shell am start -n dev.aiauto/.MainActivity -a dev.aiauto.action.START_TASK --es request "add dark mode to aiauto"`
   does what the Assistant would.
 

@@ -423,9 +423,10 @@ class MainActivity : ComponentActivity() {
     private fun Intent.startFromShortcut(): Screen? {
         if (action != ACTION_START_TASK) return null
         val g = graph
+        val repos = g.repoChoices()
         val result = dev.aiauto.core.VoiceShortcut.resolve(
             spoken = getStringExtra(EXTRA_REQUEST).orEmpty(),
-            repos = g.repos.repos.value,
+            repos = repos,
             lastUsed = g.tasks.all().maxByOrNull { it.createdMillis }?.repo,
             templates = g.templates.templates.value,
             configured = g.isConfigured,
@@ -438,7 +439,7 @@ class MainActivity : ComponentActivity() {
                 TaskService.ensureRunning(this@MainActivity)
                 Screen.Detail(task.id)
             }
-            is dev.aiauto.core.VoiceShortcut.Problem -> if (g.isConfigured && g.repos.repos.value.isNotEmpty()) Screen.NewTask else Screen.Settings
+            is dev.aiauto.core.VoiceShortcut.Problem -> if (g.isConfigured && repos.isNotEmpty()) Screen.NewTask else Screen.Settings
         }
     }
 
