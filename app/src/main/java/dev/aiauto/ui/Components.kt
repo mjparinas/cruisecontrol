@@ -31,10 +31,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -127,7 +129,14 @@ fun Modifier.bottomBarInsets(): Modifier =
  * talking; with it on, pauses don't send and Stop does. Stop always sends what was heard so far.
  */
 @Composable
-fun MicButton(enabled: Boolean = true, listenUntilStop: Boolean = false, disabledReason: String = "", onSend: (String) -> Unit) {
+fun MicButton(
+    enabled: Boolean = true,
+    listenUntilStop: Boolean = false,
+    disabledReason: String = "",
+    autoStart: Boolean = false,
+    onAutoStartHandled: () -> Unit = {},
+    onSend: (String) -> Unit,
+) {
     var listening by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val voice = remember { VoiceInput(context) }
@@ -142,6 +151,18 @@ fun MicButton(enabled: Boolean = true, listenUntilStop: Boolean = false, disable
     }
     val microphone = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) listen() else Toast.makeText(context, VoiceInput.MIC_PERMISSION, Toast.LENGTH_SHORT).show()
+    }
+    var autoStarted by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(autoStart) {
+        if (autoStart && !autoStarted) {
+            autoStarted = true
+            onAutoStartHandled()
+            when {
+                !enabled -> Toast.makeText(context, disabledReason, Toast.LENGTH_SHORT).show()
+                ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> listen()
+                else -> microphone.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
     }
     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (listening) {

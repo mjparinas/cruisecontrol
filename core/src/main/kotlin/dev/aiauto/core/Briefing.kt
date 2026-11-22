@@ -18,6 +18,7 @@ object Briefing {
         spentTodayUsd: Double,
         spentThisMonthUsd: Double = 0.0,
         monthlyLimitUsd: Double? = null,
+        externalUpdates: List<String> = emptyList(),
     ): String? {
         val changed = tasks.filter { !it.archived && it.updatedMillis > sinceMillis }
         val waiting = tasks.filter { !it.archived && it.status == TaskStatus.NeedsInput }
@@ -25,7 +26,7 @@ object Briefing {
         val finished = changed.filter { it.status == TaskStatus.Done && it.prState != PrState.Merged }
         val failed = changed.filter { it.status == TaskStatus.Failed && !it.interrupted }
         val working = tasks.filter { !it.archived && it.isActive }
-        if (merged.isEmpty() && finished.isEmpty() && failed.isEmpty() && waiting.isEmpty()) return null
+        if (merged.isEmpty() && finished.isEmpty() && failed.isEmpty() && waiting.isEmpty() && externalUpdates.isEmpty()) return null
 
         val parts = mutableListOf("Welcome back.")
         if (merged.isNotEmpty()) parts += sentence(merged, "pull request merged", "pull requests merged")
@@ -33,6 +34,8 @@ object Briefing {
         if (failed.isNotEmpty()) parts += sentence(failed, "task failed", "tasks failed")
         if (waiting.isNotEmpty()) parts += sentence(waiting, "task needs your answer", "tasks need your answer")
         if (working.isNotEmpty()) parts += "${count(working.size)} still working."
+        externalUpdates.take(MAX_NAMED).forEach { parts += it }
+        if (externalUpdates.size > MAX_NAMED) parts += "And ${externalUpdates.size - MAX_NAMED} more repo updates."
         spend(spentTodayUsd, spentThisMonthUsd, monthlyLimitUsd)?.let { parts += it }
         return parts.joinToString(" ")
     }

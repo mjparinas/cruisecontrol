@@ -29,6 +29,7 @@ import dev.aiauto.ui.ProjectsScreen
 import dev.aiauto.ui.ReviewScreen
 import dev.aiauto.ui.SettingsScreen
 import dev.aiauto.ui.SettingsState
+import dev.aiauto.ui.SetupChecklistScreen
 import dev.aiauto.ui.TaskScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -40,6 +41,8 @@ private sealed interface Screen {
     data object Settings : Screen
     data object Projects : Screen
     data object Review : Screen
+    data object Setup : Screen
+    data object Talk : Screen
     data class Detail(val taskId: String) : Screen
 }
 
@@ -47,6 +50,7 @@ class MainActivity : ComponentActivity() {
     private var screen by mutableStateOf<Screen>(Screen.Home)
     private var sharedRequest by mutableStateOf<String?>(null)
     private var confirmMergeTask by mutableStateOf<String?>(null)
+    private var autoListen by mutableStateOf(false)
 
     /**
      * Asks once to lift battery limits. Without it, Android (Samsung especially) can stop the app soon after
@@ -77,9 +81,11 @@ class MainActivity : ComponentActivity() {
         // A recreated activity or one reopened from Recents still carries the shortcut, which already started its task.
         val fresh = savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
         sharedRequest = intent.sharedRequest()
+        autoListen = intent.action == ACTION_WIDGET_MIC
         confirmMergeTask = intent.getStringExtra(EXTRA_TASK)?.takeIf { intent.getBooleanExtra(EXTRA_CONFIRM_MERGE, false) }
         screen = intent.taskTarget() ?: intent.takeIf { fresh }?.startFromShortcut() ?: if (sharedRequest != null) Screen.NewTask else if (g.isConfigured) Screen.Home else Screen.Settings
-        if (intent.action == ACTION_OPEN_NEW_TASK) screen = Screen.NewTask
+        if (intent.action == ACTION_OPEN_NEW_TASK || intent.action == ACTION_WIDGET_MIC) screen = Screen.NewTask
+        if (intent.action == ACTION_TALK_TO_CLAUDE) { screen = Screen.Talk; autoListen = true }
         installLauncherShortcuts()
 
         setContent {
@@ -160,6 +166,20 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                     )
+                    Screen.Setup -> SetupChecklistScreen(
+                        hasAnthropicKey = g.secrets.anthropicKey != null,
+                        hasGithubToken = g.secrets.githubToken != null,
+                        githubToken = g.secrets.githubToken,
+                        repos = repos,
+                        onBack = { screen = Screen.Settings },
+                        onSettings = { screen = Screen.Settings },
+                    )
+                    Screen.Talk -> TalkScreen(
+                        onBack = { screen = Screen.Home },
+                        autoListen = autoListen,
+                        onAutoListenHandled = { autoListen = false },
+                        onAsk = { text -> g.assistant.ask(text) },
+                    )
                     Screen.NewTask -> NewTaskScreen(
                         repos = repoChoices,
                         lastUsed = tasks.maxByOrNull { it.createdMillis }?.repo,
@@ -173,16 +193,19 @@ class MainActivity : ComponentActivity() {
                         },
                         listenUntilStop = g.settings.listenUntilStop,
                         sharedText = sharedRequest,
+                        autoListen = autoListen,
+                        onAutoListenHandled = { autoListen = false },
                         onStartShared = { repo, text ->
                             val task = g.engine.start(repo, text)
                             TaskService.ensureRunning(this)
                             sharedRequest = null
                             screen = Screen.Detail(task.id)
                         },
-                        onBack = { screen = Screen.Home },
+                        onBack = { sharedRequest = null; screen = Screen.Home },
                         onStart = { repo, text ->
                             val task = g.engine.start(repo, text)
                             TaskService.ensureRunning(this)
+                            sharedRequest = null
                             screen = Screen.Detail(task.id)
                         },
                     )
@@ -224,6 +247,7 @@ class MainActivity : ComponentActivity() {
                     Screen.Settings -> SettingsScreen(
                         state = settingsState(repos).copy(busy = settings.busy, message = settings.message, themeMode = themeMode, accent = accent),
                         onBack = { screen = Screen.Home },
+                        onSetupChecklist = { screen = Screen.Setup },
                         onSaveKeys = { anthropic, github ->
                             val saved = runCatching {
                                 if (anthropic.isNotBlank()) {
@@ -348,6 +372,8 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.sharedRequest()?.let { sharedRequest = it; screen = Screen.NewTask }
+        if (intent.action == ACTION_WIDGET_MIC) { autoListen = true; screen = Screen.NewTask }
+        if (intent.action == ACTION_TALK_TO_CLAUDE) { autoListen = true; screen = Screen.Talk }
         confirmMergeTask = intent.getStringExtra(EXTRA_TASK)?.takeIf { intent.getBooleanExtra(EXTRA_CONFIRM_MERGE, false) }
         (intent.taskTarget() ?: intent.startFromShortcut())?.let { screen = it }
         if (intent.action == ACTION_OPEN_NEW_TASK) screen = Screen.NewTask
@@ -356,7 +382,7 @@ class MainActivity : ComponentActivity() {
     private fun installLauncherShortcuts() {
         if (Build.VERSION.SDK_INT < 25) return
         val manager = getSystemService(android.content.pm.ShortcutManager::class.java) ?: return
-        val base = Intent(this, MainActivity::class.java).setAction(ACTION_OPEN_NEW_TASK)
+        val base = Intent(this, MainActivity::class.java).setAction(ACTION_WIDGET_MIC)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         manager.dynamicShortcuts = listOf(
             ShortcutInfo.Builder(this, "new_task")
@@ -370,6 +396,13 @@ class MainActivity : ComponentActivity() {
                 .setLongLabel("Start a task in your last used repo")
                 .setIcon(Icon.createWithResource(this, R.drawable.ic_glyph))
                 .setIntent(Intent(base).putExtra(EXTRA_LAST_REPO, true))
+                .build(),
+            ShortcutInfo.Builder(this, "talk_to_claude")
+                .setShortLabel("Talk to Claude")
+                .setLongLabel("Talk to Claude by voice")
+                .setIcon(Icon.createWithResource(this, R.drawable.ic_glyph))
+                .setIntent(Intent(this, MainActivity::class.java).setAction(ACTION_TALK_TO_CLAUDE)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
                 .build(),
         )
     }
@@ -452,6 +485,8 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_CONFIRM_MERGE = "confirm_merge"
         const val EXTRA_LAST_REPO = "last_repo"
         const val ACTION_OPEN_NEW_TASK = "dev.aiauto.action.OPEN_NEW_TASK"
+        const val ACTION_WIDGET_MIC = "dev.aiauto.action.WIDGET_MIC"
+        const val ACTION_TALK_TO_CLAUDE = "dev.aiauto.action.TALK_TO_CLAUDE"
 
         /** The Google Assistant shortcut's action and spoken request, declared in res/xml/shortcuts.xml. */
         const val ACTION_START_TASK = "dev.aiauto.action.START_TASK"

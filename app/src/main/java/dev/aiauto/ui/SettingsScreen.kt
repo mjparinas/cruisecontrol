@@ -152,6 +152,7 @@ fun SettingsScreen(
     onSyncNow: () -> Unit = {},
     onSaveChatKey: (ChatProvider, String) -> Unit = { _, _ -> },
     onRepoSettings: (RepoRef, RepoSettings) -> Unit = { _, _ -> },
+    onSetupChecklist: () -> Unit = {},
 ) {
     fun hasKey(provider: ChatProvider) = when (provider) {
         ChatProvider.Anthropic -> state.hasAnthropicKey
@@ -185,6 +186,10 @@ fun SettingsScreen(
                     .padding(bottom = 24.dp),
             ) {
                 SettingsSearchField(query) { query = it }
+                SectionHeader("Setup")
+                SettingsCard {
+                    SettingRow(Icons.Rounded.Check, BadgeHue.Green, "Setup checklist", "Check keys, repos and phone permissions.", onClick = onSetupChecklist)
+                }
                 if (search.nothingFound) Note("No settings match \"${query.trim()}\".")
 
                 // Up top, so the result of a dialog's Save is in view without scrolling.

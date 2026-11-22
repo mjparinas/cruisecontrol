@@ -166,15 +166,40 @@ class Graph(context: Context) {
     private fun prepareBriefing() {
         if (!settings.briefingOnConnect || !isConfigured) return
         val since = maxOf(settings.lastDriveEndedMillis, System.currentTimeMillis() - BRIEFING_WINDOW_MILLIS)
-        val text = dev.aiauto.core.Briefing.since(
-            tasks.all(), since, settings.spentTodayUsd, settings.spentThisMonthUsd, settings.monthlyLimitUsd,
-        ) ?: return
-        synchronized(this) { briefing = text }
-        scope.launch {
+        scope.launch(Dispatchers.IO) {
+            val currentTasks = tasks.all()
+            val external = mutableListOf<String>()
+            val token = secrets.githubToken
+            if (token != null) {
+                val github = GitHub(token)
+                val taskPulls = currentTasks.mapNotNull { task -> task.repo.fullName to task.prNumber }.toSet()
+                repos.repos.value.forEach { repo ->
+                    runCatching {
+                        val latest = github.latestCommit(repo)
+                        if (latest?.timeMillis?.let { it > since } == true) {
+                            val checks = github.checks(repo, latest.sha)
+                            if (checks.state == dev.aiauto.core.Checks.Failing) external += "${repo.name}'s main branch checks failed."
+                        }
+                        github.openPulls(repo, 10).filter { pull ->
+                            (pull.updatedAt?.let(::millis) ?: 0L) > since && (repo.fullName to pull.number) !in taskPulls
+                        }.forEach { pull -> external += "Pull request ${pull.number} in ${repo.name} needs review: ${pull.title}." }
+                        github.issuesUpdatedSince(repo, since).filter { it.pullRequest == null }.forEach { issue ->
+                            external += "Issue ${issue.number} in ${repo.name} changed: ${issue.title}."
+                        }
+                    }.onFailure { Log.w("AiAuto", "Couldn't widen the drive briefing for ${repo.fullName}", it) }
+                }
+            }
+            val text = dev.aiauto.core.Briefing.since(
+                currentTasks, since, settings.spentTodayUsd, settings.spentThisMonthUsd, settings.monthlyLimitUsd,
+                externalUpdates = external,
+            ) ?: return@launch
+            synchronized(this@Graph) { briefing = text }
             kotlinx.coroutines.delay(BRIEFING_DELAY_MILLIS)
             takeBriefing()?.let { if (settings.readAloudInCar && speaker.inCar) speaker.speak(it) }
         }
     }
+
+    private fun millis(value: String): Long = runCatching { java.time.Instant.parse(value).toEpochMilli() }.getOrDefault(0L)
 
     /** Every repo a new task can start in: saved ones plus the ones the token can push to, most recently used first. */
     fun repoChoices(): List<RepoRef> = RepoRef.choices(repos.repos.value, availableRepos.repos.value, tasks.all())

@@ -154,6 +154,9 @@ Look and accessibility:
 - Text and accents meet WCAG AA contrast (4.5:1 for text, 3:1 for outlines), touch targets are at least 48 dp, and
   TalkBack gets labels and custom actions for anything done by swiping.
 - The app icon is a cruise control speedometer (PR 38).
+- Home and widget spending summaries show both today's and this month's totals, with each configured limit.
+- The phone task list searches active and archived tasks by request, message, repo or pull request number.
+- The welcome-back briefing also checks recent issue and pull request activity and failed main-branch checks across saved repos.
 - Important phone task, pull request, template and shared-request text wraps instead of being cut off; template Start
   and Delete are separate controls.
 
@@ -289,14 +292,16 @@ Each line is checked against the code by `AgentsDocTest`.
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
 - Accessibility review: task, pull request, template and shared-request text wraps; template actions are separate.
+- Ask mode uses a read-only session prompt, and new pull requests announce their title and diff counts. The welcome-back
+  briefing checks saved repos for changed issues, pull requests and failed main-branch checks. The phone now
+  has a diff review list, a setup checklist, shared-request handling, task history search, launcher and Quick Settings
+  entry points, a widget microphone, task notification actions, and monthly spend on the home screen and widget.
+- The owner does not want task read-back, car-chat repeat/quiet, longer car lists or a parking hand-off notification.
 - Clickable settings and project rows expose button actions to screen readers; repository settings rows show a delete icon, status text enforces 4.5:1 contrast, and accent swatch checkmarks use a contrasting shade.
-- The owner wants to pursue Ask mode, spoken pull request summaries, a wider briefing, monthly spend on the home
-  screen and widget, and the listed phone features. The owner does not want task read-back, car-chat repeat/quiet,
-  longer car lists or a parking hand-off notification; these are marked in `docs/FEATURE_IDEAS.md`.
 - Feature ideas checked against the code again: held speech while listening, the steering-wheel experiment and
   "undo that" and "start over" moved from Still missing to Already built.
 - The welcome-back briefing says this month's spend, and the monthly limit when one is set, after today's. The
-  home screen and widget still only show today's spend.
+  home screen and widget now show both totals.
 - PR 93: Parked mode. While the car is parked, steps the agent's safety check flags wait for Approve or Deny on the
   car screen instead of being declined; driving off denies any still waiting.
 - PR 92: A search box at the top of Settings filters the page as you type. Pull request and repo-rule words find
