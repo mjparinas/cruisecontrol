@@ -69,6 +69,12 @@ Driving safety comes first:
   restarts, and then reads it. `core/src/main/kotlin/dev/aiauto/core/SpeechHold.kt` holds the logic.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences, or one line while a
   step waits for approval.
+- The full history of a task, or of every task in a repo, is on the car's History screens
+  (`app/src/main/java/dev/aiauto/car/TaskHistoryScreen.kt`, logic in `core/src/main/kotlin/dev/aiauto/core/RepoHistory.kt`).
+  They use the standard list template with at most six rows, each cut to a glance, and deliver the rest by voice:
+  tap a row to hear it, or Read all for everything. Paging back to older rows only works while parked, so the driver
+  never scrolls through text on the move. The history comes from what the phone keeps, so archived tasks stay hidden
+  and cleared tasks are gone.
 - Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet, undo that, start over) are handled by the app without starting a Claude turn.
   Anything longer goes to Claude.
 - A merge the driver asks for always asks for confirmation first, and the car assistant only merges on a yes in a
@@ -304,6 +310,11 @@ Each line is checked against the code by `AgentsDocTest`.
 ## Decision log
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
+
+- Full conversation history per task and per repo on the car, on list screens of at most six glanceable rows, with
+  Read all for the rest and older pages only while parked. Archived tasks stay off the car. The car repo screen shows
+  four pull requests instead of five to make room for Task history, and a task's Clear moves to its History screen
+  when the task screen's two strip actions are taken.
 
 - Bug review: Claude's question from an earlier turn no longer counts for a later turn; GitHub auto-merge isn't
   reported as merged; spoken repo names match a capitalized "Slash"; the Accent colour row uses Canadian spelling.

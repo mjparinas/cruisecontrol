@@ -50,6 +50,15 @@ pick a repo if you have more than one, and speak your request. The repo list hol
 push to, not just the ones saved in Settings, with the ones you used most recently at the top; the car shows the
 first six. The phone **New task** screen uses the same list.
 
+The car keeps each task's whole conversation, including Claude's earlier messages. Open a task in **Tasks** and tap
+**History** for every message, newest first, each cut to a short line; tap a message to hear it in full, or tap
+**Read all** to hear the whole conversation from the start (tap **Stop reading** to stop). **All tasks in** the repo,
+at the top of that list, or **Task history** on a repo in **Projects**, lists every task in that repo the same way,
+and its **Read all** gives each task's request with Claude's latest message. Following Android Auto's driver
+distraction rules, the car shows six rows at a time and **Older messages** only scrolls back while you're parked;
+while driving, **Read all** is how you hear the rest. When a task's own screen has no room for **Clear**, it's on
+its History screen. Archived tasks stay off the car, and a cleared task's history is gone.
+
 The phone app is voice first too: the **New task** screen and each task's chat have no text box, just a floating
 microphone at the bottom right. Tap it and say your request. While it listens it turns into a **Stop** button. With
 **Keep listening until Stop** off, it sends as soon as you stop talking, and Stop sends what it heard so far; with it

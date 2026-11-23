@@ -25,6 +25,8 @@ These started on this list and are now in the app. See the README for how they w
 - **Wider welcome-back briefing**, including changed issues and pull requests across saved repos and failed main-branch checks.
 - **Ready to review** phone screen with pull request diffs, conversation, approve and merge actions.
 - **Task history search** across active and archived tasks.
+- **Full history in the car**: History screens per task and per repo, read aloud with Read all, scrolling back only
+  while parked.
 - **Setup checklist** for keys, repo access, phone permissions and Android Auto's Unknown sources setting.
 - **Share to Cruise Control** to start from text shared by another app.
 - **Launcher shortcuts and Quick Settings tile** for New task, Talk to Claude, and the last-used repo.
@@ -59,6 +61,19 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 - Add “repeat that” or “quiet” to car chat.
 - Show more than six rows in car lists.
 - Notify about unfinished work when parking.
+
+### Message history beyond this phone
+
+The car's History screens show what the phone keeps. Three gaps remain, from simplest to most work:
+
+- **Archived tasks in the car's repo history.** One filter in `RepoHistory.tasks`, but it reverses the decision
+  that archived tasks stay off the car, so it's the owner's call.
+- **History from Claude's session.** Each task's Managed Agents session keeps every event, so an `AgentClient`
+  call that lists them (the same list `ClaudeAgents.follow` already reads on reconnect) could fill in messages a
+  synced copy trimmed to 60, or progress notes that were replaced. The first user message is the long first prompt,
+  so it would show the task's request instead. Recommended next step if trimmed history turns out to matter.
+- **Keeping history after a clear.** Clearing deletes the task. Keeping a read-only copy would need its own store
+  and a limit on its size, and it would have to stay out of sync.
 
 ### Close the loop by voice
 

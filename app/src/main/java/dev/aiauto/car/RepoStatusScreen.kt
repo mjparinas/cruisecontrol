@@ -11,12 +11,13 @@ import androidx.car.app.model.Template
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import dev.aiauto.core.RepoHistory
 import dev.aiauto.core.RepoRef
 import dev.aiauto.core.SpokenStatus
 import dev.aiauto.graph
 import kotlinx.coroutines.launch
 
-/** One repo: what landed last on its main branch, whether that's green, and its open pull requests. */
+/** One repo: what landed last on its main branch, whether that's green, its open pull requests and its task history. */
 class RepoStatusScreen(carContext: CarContext, private val repo: RepoRef) : Screen(carContext) {
     private val g = carContext.graph
 
@@ -46,7 +47,8 @@ class RepoStatusScreen(carContext: CarContext, private val repo: RepoRef) : Scre
                 .addText(latest?.let { c -> c.message + (c.timeMillis?.let { " · " + SpokenStatus.ago(System.currentTimeMillis() - it) } ?: "") } ?: "No commits yet")
                 .build(),
         )
-        status.pulls.take(5).forEach { p ->
+        // Car lists hold six rows: the branch, up to four pull requests and the history.
+        status.pulls.take(4).forEach { p ->
             items.addItem(
                 Row.Builder()
                     .setTitle("#${p.pull.number} ${p.pull.title}")
@@ -57,6 +59,14 @@ class RepoStatusScreen(carContext: CarContext, private val repo: RepoRef) : Scre
             )
         }
         if (status.pulls.isEmpty()) items.addItem(Row.Builder().setTitle("No open pull requests").build())
+        items.addItem(
+            Row.Builder()
+                .setTitle("Task history")
+                .addText(RepoHistory.tasks(g.tasks.tasks.value, repo).size.let { if (it == 1) "1 task" else "$it tasks" })
+                .setOnClickListener { screenManager.push(RepoHistoryScreen(carContext, repo)) }
+                .setBrowsable(true)
+                .build(),
+        )
 
         val readAloud = Action.Builder()
             .setTitle("Read aloud")

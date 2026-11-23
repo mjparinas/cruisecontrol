@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The car has History screens for each task and each repo with the whole conversation, Claude's earlier messages
+  included. Tap a message to hear it, or Read all to hear everything; older messages scroll back only while parked.
 - Bug fixes: a question Claude asked in an earlier turn no longer marks a finished turn as waiting on you or alerts
   again; turning on GitHub's auto-merge is no longer announced as merged; a spoken repo name with a capitalized
   "Slash" still finds the repo; the Accent colour setting uses Canadian spelling.
