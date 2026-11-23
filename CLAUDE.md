@@ -37,6 +37,8 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     `VoiceShortcut.kt` turns a Google Assistant shortcut request into a repo and task (`MainActivity` runs it).
     `SteeringWheel.kt` maps the experimental steering-wheel buttons to actions; the app's `car/WheelButtons.kt`
     media session feeds it while the car screen shows.
+  - `RepoHistory.kt` pages and reads aloud a task's or a repo's whole conversation for the car's
+    `TaskHistoryScreen` and `RepoHistoryScreen` (six rows at most, older pages only while parked).
   - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases
     (the highest recent release with an APK) and picks release-on-merge tags.
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the
