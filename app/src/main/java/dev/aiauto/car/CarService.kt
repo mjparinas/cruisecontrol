@@ -1,10 +1,10 @@
 package dev.aiauto.car
 
+import dev.aiauto.AppLog
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
-import android.util.Log
 import androidx.car.app.CarAppService
 import androidx.car.app.Screen
 import androidx.car.app.ScreenManager
@@ -81,7 +81,7 @@ class AiAutoCarAppService : CarAppService() {
             MessageDigest.getInstance("SHA-256").digest(sig.toByteArray()).joinToString("") { "%02x".format(it) }
         }
     }.getOrElse {
-        if (it !is PackageManager.NameNotFoundException) Log.w("AiAuto", "Couldn't read $pkg signature", it)
+        if (it !is PackageManager.NameNotFoundException) AppLog.w("Couldn't read $pkg signature", it)
         emptyList()
     }
 

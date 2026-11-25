@@ -1,12 +1,12 @@
 package dev.aiauto.widget
 
+import dev.aiauto.AppLog
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
 import dev.aiauto.MainActivity
@@ -29,7 +29,7 @@ class TasksWidget : AppWidgetProvider() {
                 val manager = AppWidgetManager.getInstance(context)
                 val ids = manager.getAppWidgetIds(ComponentName(context, TasksWidget::class.java))
                 if (ids.isNotEmpty()) render(context, manager, ids)
-            }.onFailure { Log.w("AiAuto", "Couldn't update the widget", it) }
+            }.onFailure { AppLog.w("Couldn't update the widget", it) }
         }
 
         private fun render(context: Context, manager: AppWidgetManager, ids: IntArray) {

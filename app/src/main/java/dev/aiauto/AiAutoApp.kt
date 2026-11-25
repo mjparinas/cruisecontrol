@@ -2,10 +2,10 @@ package dev.aiauto
 
 import android.app.Application
 import android.os.Looper
-import android.util.Log
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import dev.aiauto.data.ErrorStore
 import dev.aiauto.update.Updater
 
 class AiAutoApp : Application() {
@@ -16,6 +16,8 @@ class AiAutoApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // First, so errors from the rest of startup reach the Recent errors screen too.
+        runCatching { AppLog.store = ErrorStore(this) }
         keepBackgroundCrashesFromKillingTheApp()
         graph = Graph(this)
         updater = Updater(this, graph.scope)
@@ -41,16 +43,18 @@ class AiAutoApp : Application() {
 
     /**
      * An uncaught error on a background thread normally kills the whole app, which would also stop every
-     * running task. Log it and let only that thread end instead. Errors on the main thread still go to
+     * running task. Record it and let only that thread end instead. Errors on the main thread still go to
      * Android, because the UI can't safely keep going after one.
      */
     private fun keepBackgroundCrashesFromKillingTheApp() {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, e ->
             if (thread === Looper.getMainLooper().thread || e is OutOfMemoryError) {
+                // Saved before the crash, so it's on the Recent errors screen when the app opens again.
+                if (e !is OutOfMemoryError) AppLog.e("App crashed on ${thread.name}", e)
                 previous?.uncaughtException(thread, e)
             } else {
-                Log.e(TAG, "Uncaught error on ${thread.name}", e)
+                AppLog.e("Uncaught error on ${thread.name}", e)
             }
         }
     }
@@ -59,12 +63,8 @@ class AiAutoApp : Application() {
         try {
             block()
         } catch (e: Throwable) {
-            Log.e(TAG, "Startup step failed: $step", e)
+            AppLog.e("Startup step failed: $step", e)
         }
-    }
-
-    private companion object {
-        const val TAG = "AiAuto"
     }
 }
 

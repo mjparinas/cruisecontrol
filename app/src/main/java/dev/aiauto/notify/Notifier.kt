@@ -117,6 +117,23 @@ class Notifier(private val context: Context, private val settings: Settings, pri
         if (kind != AlertKind.Question && settings.readAloudInCar && speaker.inCar) speaker.speak(text)
     }
 
+    /** Says and shows that spending is close to a limit. Like other alerts, quiet mode doesn't hold it back. */
+    fun spendWarning(text: String) {
+        if (settings.readAloudInCar && speaker.inCar) speaker.speak(text)
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return
+        val notification = NotificationCompat.Builder(context, CH_ALERTS)
+            .setSmallIcon(R.drawable.ic_glyph)
+            .setContentTitle("Spending limit nearly reached")
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setAutoCancel(true)
+            .setContentIntent(openApp(null))
+            .build()
+        runCatching { manager.notify(SPEND_ID, notification) }
+    }
+
     /** Opens a fresh conversation asking what to do in [repo]. Replying by voice starts a task. */
     @Synchronized
     fun askForNewTask(repo: RepoRef) {
@@ -328,6 +345,7 @@ class Notifier(private val context: Context, private val settings: Settings, pri
         const val CH_ALERTS = "alerts"
         const val CH_PARKED = "parked"
         const val WORKING_ID = 1
+        private const val SPEND_ID = 5
         private const val PARKED_ID = 3
         const val NEW_PREFIX = "new:"
         const val CHAT_TARGET = "chat"

@@ -103,6 +103,7 @@ class MainActivity : ComponentActivity() {
                 val repoChoices = remember(repos, availableRepos, tasks) { RepoRef.choices(repos, availableRepos, tasks) }
                 val templates by g.templates.templates.collectAsStateWithLifecycle()
                 val views by g.projects.repos.collectAsStateWithLifecycle()
+                val errors by g.errors.errors.collectAsStateWithLifecycle()
                 var projectMessage by remember { mutableStateOf<String?>(null) }
                 val scope = rememberCoroutineScope()
                 var settings by remember { mutableStateOf(settingsState(repos)) }
@@ -257,9 +258,12 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     Screen.Settings -> SettingsScreen(
-                        state = settingsState(repos).copy(busy = settings.busy, message = settings.message, themeMode = themeMode, accent = accent),
+                        state = settingsState(repos).copy(
+                            busy = settings.busy, message = settings.message, themeMode = themeMode, accent = accent, errors = errors,
+                        ),
                         onBack = { screen = Screen.Home },
                         onSetupChecklist = { screen = Screen.Setup },
+                        onClearErrors = { g.errors.clear() },
                         onSaveKeys = { anthropic, github ->
                             val saved = runCatching {
                                 if (anthropic.isNotBlank()) {

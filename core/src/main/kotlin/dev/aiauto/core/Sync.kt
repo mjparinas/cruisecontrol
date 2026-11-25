@@ -22,6 +22,8 @@ data class SyncSnapshot(
     val chatForgottenMillis: Long = 0,
     /** When each repo was last added and removed on any device, so a removal syncs and a later add wins over it. */
     val repoChanges: List<RepoChange> = emptyList(),
+    /** What each device has spent today and this month, so the spending limits count every device. */
+    val spend: List<DeviceSpend> = emptyList(),
 )
 
 /** When a repo was last added and last removed. Times are 0 when that never happened, or happened before sync knew. */
@@ -38,9 +40,10 @@ object SyncMerge {
     const val REMOVED_KEPT = 300
 
     /**
-     * Combines two snapshots. Repos are a union, minus any removed later than it was added. Each task comes from whichever side changed it last, keeping every
-     * message either side has. Settings come from whichever side changed them last. The car chat keeps the newest
-     * exchanges from both. A task cleared on either side stays cleared, and so does car chat forgotten on either side.
+     * Combines two snapshots. Repos are a union, minus any removed later than it was added. Each task comes from
+     * whichever side changed it last, keeping every message either side has. Settings come from whichever side
+     * changed them last. The car chat keeps the newest exchanges from both, and each device's spend keeps its larger
+     * total. A task cleared on either side stays cleared, and so does car chat forgotten on either side.
      */
     fun merge(local: SyncSnapshot, remote: SyncSnapshot): SyncSnapshot {
         val (repos, repoChanges) = mergeRepos(local.repos, local.repoChanges, remote.repos, remote.repoChanges)
@@ -93,6 +96,7 @@ object SyncMerge {
             removedTasks = removed,
             chatForgottenMillis = forgotten,
             repoChanges = repoChanges,
+            spend = SpendLedger.merge(local.spend, remote.spend),
         )
     }
 

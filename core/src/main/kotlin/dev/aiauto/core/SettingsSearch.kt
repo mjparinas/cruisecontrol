@@ -82,6 +82,7 @@ class SettingsSearch(query: String) {
             "About" to listOf(
                 Setting("Cruise Control", "version"),
                 Setting("Check for updates", "update upgrade release new version"),
+                Setting("Recent errors", "error crash bug report log problem copy diagnostics"),
             ),
         )
     }

@@ -111,7 +111,8 @@ Claude and cost:
 - A daily spending limit (default $20) stops Claude when the day's total reaches it. An optional monthly limit (off
   by default) adds up every day's spend in the calendar month and stops Claude when that reaches it. Both apply at
   once, to tasks and the car chat, and the tighter one is also set as each session's budget on Anthropic's side so
-  it holds even when the phone loses signal. Costs are list prices.
+  it holds even when the phone loses signal. Costs are list prices. Passing 80% of either limit is said once and
+  shown as an alert (`SpendWarning`), the same point where the home screen's bar turns amber.
 - Claude writes in Canadian spelling (colour, centre, cancelled, organize) in app text, spoken answers, commit
   messages and pull requests (PR 54).
 
@@ -148,7 +149,10 @@ Tasks, repos and sync:
   a separate yes, and the task's pull request closes that issue when merged. Review comments on task pull requests
   are announced once; replying includes the comment and the driver's response in the prompt to Claude.
 - Sync across devices is opt-in and lives in a private repo named cruise-control-sync on the token owner's account.
-  It never holds the API keys, GitHub token, voice, spending total or agent setup. Sync refuses to write to a public
+  It never holds the API keys, GitHub token, voice or agent setup. Each device's own spend for today and this month
+  syncs as its own entry (`core/src/main/kotlin/dev/aiauto/core/SpendLedger.kt`), and the limits add every
+  device's entries together, so they hold across devices. A device only ever adds to its own entry, so merging
+  keeps the larger total and never counts spend twice. Sync refuses to write to a public
   repo. It replaced a secret gist (PR 58) because anyone with a gist's link can read it.
 - Synced tasks keep their last 60 messages. A task runs on the device that started it until you reply to it or
   retry it from another device. The newer side wins for tasks and settings, and removals sync through tombstones.
@@ -236,7 +240,9 @@ Reliability on the phone:
   Release builds trust Android Auto's known signing keys plus the Android Auto actually installed from Play or
   preinstalled.
 - Unexpected errors fail the task instead of leaving it stuck on Working, and background-thread errors are logged
-  instead of crashing the app.
+  instead of crashing the app. Every caught error goes through `AppLog` (`app/src/main/java/dev/aiauto/AppLog.kt`),
+  which also keeps the last 50 on the phone for Settings' Recent errors screen (`ErrorLog` in core), since Android's
+  own log can't be read on the phone. They never sync or leave the phone, and keys and tokens are blanked out.
 
 Security:
 
@@ -326,6 +332,9 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- Spending limits hold across synced devices: each device's own daily and monthly totals sync and are added up,
+  reversing "the total stays per device" from PR 73. Passing 80% of a limit is said once. Caught errors are kept on
+  the phone for a Recent errors screen with Copy.
 - "Fix it" and automatic check fixes include the last lines of each failed Actions job's log when the token has
   Actions: read, and fall back to check names only when it doesn't. The car chat can close or reopen a pull request
   with the same two-turn confirmation as merge.

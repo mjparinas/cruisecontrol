@@ -1,9 +1,9 @@
 package dev.aiauto.car
 
+import dev.aiauto.AppLog
 import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import androidx.car.app.CarContext
 import androidx.car.app.hardware.CarHardwareManager
 import androidx.car.app.hardware.common.CarValue
@@ -41,7 +41,7 @@ class ParkedWatcher(private val carContext: CarContext) : DefaultLifecycleObserv
         if (carContext.checkSelfPermission(PERMISSION) == PackageManager.PERMISSION_GRANTED) return listen()
         runCatching {
             carContext.requestPermissions(listOf(PERMISSION)) { granted, _ -> if (PERMISSION in granted) listen() }
-        }.onFailure { Log.w("AiAuto", "Couldn't ask for the car speed permission", it) }
+        }.onFailure { AppLog.w("Couldn't ask for the car speed permission", it) }
     }
 
     override fun onDestroy(owner: LifecycleOwner) {
@@ -53,7 +53,7 @@ class ParkedWatcher(private val carContext: CarContext) : DefaultLifecycleObserv
     private fun listen() {
         runCatching { carInfo().addSpeedListener(ContextCompat.getMainExecutor(carContext), listener) }
             .onSuccess { listening = true }
-            .onFailure { Log.w("AiAuto", "Couldn't read the car's speed", it) }
+            .onFailure { AppLog.w("Couldn't read the car's speed", it) }
     }
 
     private fun onSpeed(metersPerSecond: Float?) {
