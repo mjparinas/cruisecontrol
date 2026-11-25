@@ -10,7 +10,8 @@ val releaseKeystore = System.getenv("RELEASE_KEYSTORE_FILE")?.let(::file)?.takeI
 
 android {
     namespace = "dev.aiauto"
-    // Compose needs API 37.2 to compile against. targetSdk stays put, so runtime behavior doesn't change.
+    // Compose needs API 37.2 to compile against. targetSdk is 36 (Android 16), which Google Play requires for updates
+    // from August 31, 2026; the app has no code that Android 16's behaviour changes for apps targeting it affect.
     compileSdk {
         version = release(37) { minorApiLevel = 2 }
     }
@@ -18,7 +19,7 @@ android {
     defaultConfig {
         applicationId = "dev.aiauto"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // Releases pass an increasing build number and the tag, so Android accepts each one as an update.
         versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1
         versionName = System.getenv("VERSION_NAME")?.removePrefix("v") ?: "0.1.0"

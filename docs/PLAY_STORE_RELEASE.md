@@ -88,10 +88,9 @@ Each item is a small, separate pull request with tests, in roughly this order.
 1. **Flavours.** Add `github`, `play` and `playPhone` as above. Move the updater behind a flag the flavour sets,
    and test that the Play flavours have no update entry point. Keep `github` as the default so CI and the README
    instructions don't change.
-2. **Target API 36.** Since August 31, 2026, new apps and updates must target Android 16 (API 36); the app targets
-   35. Raise `targetSdk`, check Android 16's behaviour changes (predictive back, orientation and resizability on
-   large screens, job quotas), and update the pinned version in AGENTS.md. This one is required even for the
-   testing tracks.
+2. **Target API 36.** Done: since August 31, 2026, new apps and updates must target Android 16 (API 36), even on
+   the testing tracks. The app now targets 36, and Android 16's behaviour changes (predictive back, orientation
+   and resizability on large screens, job quotas) were checked against it; AGENTS.md says what was looked at.
 3. **Reporting AI answers.** Play's AI-Generated Content policy requires a way to report or flag offensive output
    without leaving the app. Add a Report action on Claude's messages in the task screen and the chat, which records
    the message and opens a prefilled email or GitHub issue to the developer. Say in Settings that answers come from

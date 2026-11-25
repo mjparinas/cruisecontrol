@@ -301,7 +301,7 @@ say why if the reason below no longer holds.
 - Kotlin: 2.4.21
 - JDK: 17
 - compileSdk: 37.2
-- targetSdk: 35
+- targetSdk: 36
 - minSdk: 26
 - anthropic-java: 3.12.0
 - OkHttp: 5.5.1
@@ -312,8 +312,11 @@ say why if the reason below no longer holds.
 
 Why these are where they are (PR 69): everything was moved to its latest stable release. Android Gradle Plugin 9 has
 Kotlin built in, so the app has no kotlin-android plugin and names kotlin-test-junit for its unit tests. Compose
-needs compileSdk 37.2. targetSdk stays on 35 so the app's runtime behaviour doesn't change; raising it is a separate
-decision. CI uses setup-gradle v5, not v6, because v6 puts its caching under Gradle's proprietary Terms of Use, which
+needs compileSdk 37.2. targetSdk moved from 35 to 36 (Android 16) because Google Play requires it for new apps and
+updates from August 31, 2026, even on the testing tracks. Android 16's changes for apps targeting it were checked:
+the app already draws edge to edge, its back handling goes through Compose's `BackHandler` and the car library's own
+screen stack (no `onBackPressed` or back key handling), it fixes no orientation or resizability, and it uses no
+JobScheduler, ordered broadcasts or `elegantTextHeight`. CI uses setup-gradle v5, not v6, because v6 puts its caching under Gradle's proprietary Terms of Use, which
 upgrading accepts; that's the owner's call. Car App 1.7 deprecates the title and header setters the car screens use;
 they still work, and moving to `Header` is left for a separate change.
 
@@ -341,6 +344,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- targetSdk raised to 36 (Android 16) for Google Play's August 2026 rule, after checking Android 16's behaviour
+  changes against the app; compileSdk stays 37.2.
 - Screenshots shared into the app go with the next task, kept only on that device. Tasks can be saved for later
   from the phone's confirmation or by voice, and start from an inexact alarm.
 - Spending limits hold across synced devices: each device's own daily and monthly totals sync and are added up,
