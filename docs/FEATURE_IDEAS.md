@@ -37,8 +37,19 @@ These started on this list and are now in the app. See the README for how they w
   repo the GitHub token can push to, not only saved ones, with repos you've used most recently at the top.
 - **Parked mode**: once the car stands still, steps the agent's safety check flags wait for Approve or Deny on the
   car screen instead of being declined.
-- **Google Assistant shortcut**: "Hey Google, start a task to ... on Cruise Control" starts a task with no taps,
-  once the app is uploaded to the Play Console. Gemini may not pick up custom App Actions intents.
+- **Read back and confirm a task before starting** on the phone, car screen, Google Assistant shortcut and
+  Android Auto messaging reply. A separate yes is required.
+- **Repeat and quiet in car chat**: repeat the last answer or turn on quiet mode without starting a model turn.
+- **More car list rows**: lists show up to ten rows, with history pages still gated on parked mode.
+- **Parked-work reminder**: one phone notification when the car first becomes parked with unfinished tasks.
+- **Issues to tasks**: list open issues or start a task from an issue; its body is included and the pull request says
+  `Closes #number`.
+- **Pull request review comments**: new comments are read aloud, and replying sends the comment and response to the
+  same Claude session. The last seen comment id syncs between devices.
+- **Deeper car history**: archived tasks appear in repo history; Claude's session fills older events trimmed from a
+  synced copy; the last 100 cleared task histories remain available locally and do not sync.
+- **Google Assistant shortcut**: "Hey Google, start a task to ... on Cruise Control" opens the request for a separate
+  confirmation before starting, once the app is uploaded to the Play Console. Gemini may not pick up custom App Actions intents.
 - **Listening and thinking tones**: a tone when the microphone opens and closes, and a soft cue while an answer is slow.
 - **Spoken updates wait while the microphone is open**: `Speaker` holds new speech while `VoiceInput` listens and
   reads it once listening ends, so the car never talks over the driver.
@@ -55,42 +66,7 @@ the `AgentClient` interface, with the same budget and token protections, rather 
 
 ## Still missing
 
-### Not planned by the owner
+### In a separate open pull request
 
-- Read back a new task before starting.
-- Add “repeat that” or “quiet” to car chat.
-- Show more than six rows in car lists.
-- Notify about unfinished work when parking.
-
-### Message history beyond this phone
-
-The car's History screens show what the phone keeps. Three gaps remain, from simplest to most work:
-
-- **Archived tasks in the car's repo history.** One filter in `RepoHistory.tasks`, but it reverses the decision
-  that archived tasks stay off the car, so it's the owner's call.
-- **History from Claude's session.** Each task's Managed Agents session keeps every event, so an `AgentClient`
-  call that lists them (the same list `ClaudeAgents.follow` already reads on reconnect) could fill in messages a
-  synced copy trimmed to 60, or progress notes that were replaced. The first user message is the long first prompt,
-  so it would show the task's request instead. Recommended next step if trimmed history turns out to matter.
-- **Keeping history after a clear.** Clearing deletes the task. Keeping a read-only copy would need its own store
-  and a limit on its size, and it would have to stay out of sync.
-
-### Close the loop by voice
-
-- **Failing log tail in "fix it".** Today "fix it" sends Claude only the names of the failing checks, so Claude has to
-  find and rerun the failure itself. Fetching the last lines of the failed job's log (the Actions jobs and logs
-  endpoints) and adding them to `TaskEngine.fixChecksPrompt` would make fixes faster and cheaper. It needs the token's
-  **Actions: read** permission, and the prompt should fall back to names only when the log can't be read.
-- **Review comments as prompts.** Watch the task's pull request for new review comments, alongside the checks that
-  `PullRequests` already follows, and read them out: "Sam commented on PR 12: rename this function". Replying sends the
-  comment and your reply to the same session. It needs a `GitHub.reviewComments()` call, a "last seen comment" field on
-  the task so nothing is read twice, and a new alert kind.
-- **Close or reopen a pull request by voice.** The car chat can merge but not close a pull request it got wrong. A
-  close tool with the same two-turn confirmation as `MergeConfirmation` would cover it.
-
-### Start work without typing
-
-- **Issues to tasks.** "Fix issue 34 in aiauto" fetches the issue's title and body and starts a task with them, then
-  adds "Closes #34" to the pull request body so GitHub closes the issue on merge. It needs `GitHub.issue()`, a
-  `start_coding_task` option for an issue number in `Assistant`, and **Issues: read** on the token. A follow-up could read
-  the newest open issues aloud so you can pick one.
+- **Failing Actions log context and voice close/reopen controls** are already being implemented in PR #116. They are
+  intentionally not duplicated in this branch.

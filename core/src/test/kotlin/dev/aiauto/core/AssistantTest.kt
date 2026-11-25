@@ -14,6 +14,8 @@ import kotlin.test.fail
 
 class AssistantTest {
     private val started = mutableListOf<Pair<String, String>>()
+    private val startedIssues = mutableListOf<Pair<String, Int>>()
+    private val issue = GitHubIssue(34, "Fix login", "2026-01-02T03:04:05Z", body = "The login fails.")
 
     private val actions = object : AssistantActions {
         override fun context() = "none"
@@ -21,6 +23,16 @@ class AssistantTest {
             started += repo to request
             return "Started task ab12 in $repo."
         }
+        override fun startIssue(repo: String, issue: GitHubIssue): String {
+            startedIssues += repo to issue.number
+            return "Started issue ${issue.number} in $repo."
+        }
+        override fun issue(repo: String, number: Int): GitHubIssue {
+            assertEquals(34, number)
+            return issue
+        }
+        override fun openIssues(repo: String) = "Open issues in $repo: Issue 34: Fix login."
+        override fun quiet() = "Quiet mode is on."
         override fun replyToTask(taskId: String, text: String) = fail("not expected")
         override fun addRepo(name: String) = fail("not expected")
     }
@@ -39,11 +51,18 @@ class AssistantTest {
         }
     }
 
-    private fun assistant(model: ChatModel, http: ChatHttp, spent: MutableList<Double> = mutableListOf(), effort: EffortChoice = EffortChoice.Low) = Assistant(
+    private fun assistant(
+        model: ChatModel,
+        http: ChatHttp,
+        spent: MutableList<Double> = mutableListOf(),
+        effort: EffortChoice = EffortChoice.Low,
+        now: () -> Long = { 0L },
+    ) = Assistant(
         apiKey = { "key-${it.name}" },
         actions = actions,
         onSpend = { spent += it },
         profile = { ChatProfile(model, effort) },
+        clock = now,
         clientFactory = { fail("Claude isn't the chosen model") },
         http = http,
     )
@@ -80,29 +99,69 @@ class AssistantTest {
                 {"type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "start_coding_task",
                  "arguments": "{\"repo\": \"me/app\", \"request\": \"Add dark mode\"}"}
             ], "usage": {"input_tokens": 1000000, "output_tokens": 0}}""",
-            """{"output": [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Started dark mode in app."}]}],
-                "usage": {"input_tokens": 0, "output_tokens": 1000000}}""",
         )
         val spent = mutableListOf<Double>()
-        val answer = assistant(ChatModel.GptSol, http, spent).ask("Add dark mode to app")
+        val assistant = assistant(ChatModel.GptSol, http, spent)
+        val answer = assistant.ask("Add dark mode to app")
 
-        assertEquals("Started dark mode in app.", answer)
+        assertEquals("I heard: Add dark mode in me/app. Say yes to start, or no to cancel.", answer)
+        assertTrue(started.isEmpty(), "the task must wait for a separate confirmation")
+        assertEquals("Started task ab12 in me/app.", assistant.ask("yes"))
         assertEquals(listOf("me/app" to "Add dark mode"), started)
-        assertEquals(listOf(2.0, 10.0), spent)
+        assertEquals(listOf(2.0), spent)
         val (provider, first) = http.sent[0]
         assertEquals(ChatProvider.OpenAI, provider)
         assertEquals("gpt-6.2-sol", first["model"]!!.jsonPrimitive.content)
         assertEquals("low", first["reasoning"]!!.jsonObject["effort"]!!.jsonPrimitive.content)
         assertEquals("false", first["store"]!!.jsonPrimitive.content)
         assertTrue(first["instructions"]!!.jsonPrimitive.content.startsWith("You are ChatGPT,"))
-        assertEquals(6, first["tools"]!!.jsonArray.size)
-        // The second request carries the reasoning and the call back, followed by the tool's answer.
-        val input = http.sent[1].second["input"]!!.jsonArray.map { it.jsonObject }
-        assertEquals(listOf("user", null, null, null), input.map { it["role"]?.jsonPrimitive?.content })
-        assertEquals("secret", input[1]["encrypted_content"]!!.jsonPrimitive.content)
-        assertEquals("function_call_output", input[3]["type"]!!.jsonPrimitive.content)
-        assertEquals("call_1", input[3]["call_id"]!!.jsonPrimitive.content)
-        assertEquals("Started task ab12 in me/app.", input[3]["output"]!!.jsonPrimitive.content)
+        assertEquals(7, first["tools"]!!.jsonArray.size)
+        assertEquals(1, http.sent.size, "confirmation should not start another model turn")
+    }
+
+    @Test
+    fun anIssueTaskWaitsForConfirmation() {
+        val http = FakeHttp(
+            """{"output": [{"type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "start_coding_task",
+                "arguments": "{\"repo\":\"me/app\",\"issue_number\":34}"}], "usage": {}}""",
+        )
+        val assistant = assistant(ChatModel.GptSol, http)
+
+        assertEquals(
+            "I heard: fix issue 34, Fix login in me/app. Say yes to start, or no to cancel.",
+            assistant.ask("Fix issue 34 in app"),
+        )
+        assertTrue(startedIssues.isEmpty())
+        assertEquals("Started issue 34 in me/app.", assistant.ask("yes"))
+        assertEquals(listOf("me/app" to 34), startedIssues)
+    }
+
+    @Test
+    fun repeatAndQuietAreHandledWithoutAnotherChatTurn() {
+        val http = FakeHttp(
+            """{"output": [{"type": "message", "content": [{"type": "output_text", "text": "The build is running."}]}], "usage": {}}""",
+        )
+        val assistant = assistant(ChatModel.GptLuna, http)
+
+        assertEquals("The build is running.", assistant.ask("What's happening?"))
+        assertEquals("The build is running.", assistant.ask("repeat that"))
+        assertEquals("Quiet mode is on.", assistant.ask("quiet"))
+        assertEquals(1, http.sent.size)
+    }
+
+    @Test
+    fun aTaskConfirmationExpiresInsteadOfStartingLater() {
+        val http = FakeHttp(
+            """{"output": [{"type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "start_coding_task",
+                "arguments": "{\"repo\":\"me/app\",\"request\":\"Fix the build\"}"}], "usage": {}}""",
+        )
+        var now = 0L
+        val assistant = assistant(ChatModel.GptLuna, http, now = { now })
+        assistant.ask("Fix the build in app")
+        now = 60_001L
+
+        assertEquals("That confirmation expired. Ask me to start the task again.", assistant.ask("yes"))
+        assertTrue(started.isEmpty())
     }
 
     @Test
@@ -112,25 +171,22 @@ class AssistantTest {
                 {"id": "c1", "type": "function", "function": {"name": "start_coding_task", "arguments": "{\"repo\":\"me/app\",\"request\":\"Fix the build\"}"},
                  "extra_content": {"google": {"thought_signature": "sig"}}}
             ]}}], "usage": {"prompt_tokens": 100, "completion_tokens": 10, "total_tokens": 150}}""",
-            """{"choices": [{"finish_reason": "stop", "message": {"role": "assistant", "content": "On it."}}],
-                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}}""",
         )
         val spent = mutableListOf<Double>()
-        val answer = assistant(ChatModel.GeminiHydrogen, http, spent, EffortChoice.Max).ask("Fix the build in app")
+        val assistant = assistant(ChatModel.GeminiHydrogen, http, spent, EffortChoice.Max)
+        val answer = assistant.ask("Fix the build in app")
 
-        assertEquals("On it.", answer)
+        assertEquals("I heard: Fix the build in me/app. Say yes to start, or no to cancel.", answer)
+        assertTrue(started.isEmpty(), "the task must wait for a separate confirmation")
+        assertEquals("Started task ab12 in me/app.", assistant.ask("yes"))
         assertEquals(listOf("me/app" to "Fix the build"), started)
         // Thinking counts as output: 150 total minus 100 prompt is 50, not the 10 completion tokens.
         assertEquals(ChatModel.GeminiHydrogen.costUsd(100, 50), spent[0])
         val first = http.sent[0].second
         assertEquals("high", first["reasoning_effort"]!!.jsonPrimitive.content)
         assertEquals("gemini-4-hydrogen", first["model"]!!.jsonPrimitive.content)
-        val messages = http.sent[1].second["messages"]!!.jsonArray.map { it.jsonObject }
-        assertEquals(listOf("system", "user", "assistant", "tool"), messages.map { it["role"]!!.jsonPrimitive.content })
-        assertTrue(messages[0]["content"]!!.jsonPrimitive.content.startsWith("You are Gemini,"))
-        val call = (messages[2]["tool_calls"] as JsonArray)[0].jsonObject
-        assertEquals("sig", call["extra_content"]!!.jsonObject["google"]!!.jsonObject["thought_signature"]!!.jsonPrimitive.content)
-        assertEquals("c1", messages[3]["tool_call_id"]!!.jsonPrimitive.content)
+        assertEquals(1, http.sent.size, "confirmation should not start another model turn")
+        assertEquals("gemini-4-hydrogen", http.sent[0].second["model"]!!.jsonPrimitive.content)
     }
 
     @Test
@@ -213,7 +269,7 @@ class AssistantTest {
     }
 
     @Test
-    fun aTurnThatAlreadyStartedATaskIsNotQueued() {
+    fun aTaskStartWaitsForConfirmationWithoutRetryingTheChatRequest() {
         var calls = 0
         val http = ChatHttp { _, _, _ ->
             if (calls++ > 0) throw java.io.IOException("connection reset")
@@ -224,9 +280,12 @@ class AssistantTest {
         }
         val assistant = offlineAssistant(http)
 
-        assertEquals("Lost the connection.", assistant.ask("Add dark mode to app"))
+        assertEquals("I heard: Add dark mode in me/app. Say yes to start, or no to cancel.", assistant.ask("Add dark mode to app"))
         assertFalse(assistant.hasQueued(), "sending it again would start the task twice")
+        assertTrue(started.isEmpty())
+        assertEquals("Started task ab12 in me/app.", assistant.ask("yes"))
         assertEquals(listOf("me/app" to "Add dark mode"), started)
+        assertEquals(1, calls, "the confirmation is handled locally")
     }
 
     @Test

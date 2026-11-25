@@ -52,9 +52,11 @@ private class JsonListFile<T>(private val file: File, private val serializer: KS
 
 class FileTaskStore(context: Context) : TaskStore {
     private val list = JsonListFile(File(context.filesDir, "tasks.json"), Task.serializer())
+    private val clearedFile = JsonListFile(File(context.filesDir, "cleared_tasks.json"), Task.serializer())
     /** Ids of tasks cleared here or on another device, so sync doesn't bring them back. */
     private val removed = JsonListFile(File(context.filesDir, "removed_tasks.json"), kotlinx.serialization.serializer<String>())
     val tasks: StateFlow<List<Task>> = list.flow
+    val clearedTasks: StateFlow<List<Task>> = clearedFile.flow
 
     /** Cleared task ids, oldest first. */
     fun removedIds(): List<String> = removed.flow.value
@@ -69,6 +71,8 @@ class FileTaskStore(context: Context) : TaskStore {
     override fun get(id: String): Task? = list.flow.value.firstOrNull { it.id == id }
     override fun all(): List<Task> = list.flow.value
 
+    fun cleared(): List<Task> = clearedFile.flow.value
+
     @Synchronized
     override fun put(task: Task) {
         val others = list.flow.value.filter { it.id != task.id }
@@ -77,6 +81,13 @@ class FileTaskStore(context: Context) : TaskStore {
 
     @Synchronized
     override fun remove(id: String) {
+        list.flow.value.firstOrNull { it.id == id }?.let { task ->
+            clearedFile.set(
+                dev.aiauto.core.RepoHistory.keepCleared(
+                    (clearedFile.flow.value.filterNot { it.id == id } + task.copy(cleared = true, clearedAtMillis = System.currentTimeMillis())),
+                ),
+            )
+        }
         list.set(list.flow.value.filter { it.id != id })
         rememberRemoved(listOf(id))
     }

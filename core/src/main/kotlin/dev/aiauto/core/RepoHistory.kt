@@ -2,12 +2,14 @@ package dev.aiauto.core
 
 /**
  * The conversation history kept on this phone, for the car's History screens: every message of a task, and every
- * task in a repo. Archived tasks stay hidden from the car, cleared tasks are gone for good, and progress notes replace
- * each other, so only the latest one stays. While driving the car shows one short page and the rest is read aloud.
+ * task in a repo. Archived and recently cleared tasks remain available, and progress notes replace each other, so
+ * only the latest one stays. While driving the car shows one short page and the rest is read aloud.
  */
 object RepoHistory {
     /** The most rows a car list shows, the same as the other car lists. */
-    const val CAR_ROWS = 6
+    const val CAR_ROWS = 10
+    /** Cleared task history is local and bounded so it can't grow without limit. */
+    const val CLEARED_TASKS_KEEP = 100
 
     /** Text-to-speech engines refuse long input (about 4,000 characters), so read-aloud lines stay under this. */
     const val SPOKEN_CHARS = 3_000
@@ -15,12 +17,26 @@ object RepoHistory {
     /** One page of a newest-first list: what to show, and how many items are newer or older than it. */
     data class Page<T>(val items: List<T>, val newer: Int, val older: Int)
 
-    /** Every task in [repo] that isn't archived, matched on its full name ignoring case, newest first. */
+    /** Every task in [repo], including archived and cleared history, newest first. */
     fun tasks(all: List<Task>, repo: RepoRef): List<Task> =
-        all.filter { !it.archived && it.repo.fullName.equals(repo.fullName, ignoreCase = true) }.sortedByDescending { it.createdMillis }
+        all.filter { it.repo.fullName.equals(repo.fullName, ignoreCase = true) }.sortedByDescending { it.createdMillis }
+
+    /** Keeps the most recently cleared tasks, ordered by when they were cleared. */
+    fun keepCleared(tasks: List<Task>): List<Task> =
+        tasks.sortedBy { it.clearedAtMillis ?: 0L }.takeLast(CLEARED_TASKS_KEEP)
 
     /** A task's messages, newest first, so the car's first page shows the latest. */
     fun messages(task: Task): List<TaskMessage> = task.messages.asReversed()
+
+    /**
+     * Adds session messages older than the local history. Recent local entries remain authoritative because they
+     * include app status and pull-request updates that aren't part of Claude's session.
+     */
+    fun mergeSessionMessages(local: List<TaskMessage>, session: List<TaskMessage>): List<TaskMessage> {
+        val oldestLocal = local.minOfOrNull { it.timeMillis } ?: Long.MAX_VALUE
+        val earlier = session.filter { it.timeMillis < oldestLocal }
+        return (earlier + local).distinctBy { it.id }.sortedBy { it.timeMillis }
+    }
 
     /**
      * The page of [newestFirst] that starts after skipping [skip] items. When there's more on either side, a row is
@@ -62,7 +78,12 @@ object RepoHistory {
         val intro = count(tasks.size, "task") + " in ${repo.name}, newest first."
         return listOf(intro) + tasks.flatMap { task ->
             val last = task.messages.lastOrNull { it.speaker == Speaker.Claude }
-            chunks("${task.title}." + (last?.let { " Claude said: ${it.text}" } ?: " No reply from Claude yet."))
+            val state = when {
+                task.cleared -> " Cleared."
+                task.archived -> " Archived."
+                else -> ""
+            }
+            chunks("${task.title}.$state" + (last?.let { " Claude said: ${it.text}" } ?: " No reply from Claude yet."))
         }
     }
 

@@ -44,23 +44,28 @@ chat button: it stays in the list for the whole drive, and if you dismiss it, it
 by voice, and Claude's answer arrives in the same conversation and is read aloud. In this view Android Auto asks you to confirm with a
 **Send** button after you stop talking; apps can't turn that off. The app screen doesn't ask: **Talk** and **Reply**
 send your words as soon as you stop speaking, so turn on **Unknown sources** to talk without pressing anything.
+If you start a task by replying to a **New task** message instead, Cruise Control reads your request back and waits
+for a separate yes before it starts.
 
 Voice input also works inside tasks: open **Tasks**, then tap **Talk to Claude** at the top of the list (or **New task**),
-pick a repo if you have more than one, and speak your request. The repo list holds every repo your GitHub token can
-push to, not just the ones saved in Settings, with the ones you used most recently at the top; the car shows the
-first six. The phone **New task** screen uses the same list.
+pick a repo if you have more than one, and speak your request. The app reads the request back and waits for a separate
+yes before starting. The repo list holds every repo your GitHub token can push to, not just the ones saved in Settings,
+with the ones you used most recently at the top; the car shows up to ten. The phone **New task** screen uses the same list.
 
 The car keeps each task's whole conversation, including Claude's earlier messages. Open a task in **Tasks** and tap
 **History** for every message, newest first, each cut to a short line; tap a message to hear it in full, or tap
 **Read all** to hear the whole conversation from the start (tap **Stop reading** to stop). **All tasks in** the repo,
 at the top of that list, or **Task history** on a repo in **Projects**, lists every task in that repo the same way,
 and its **Read all** gives each task's request with Claude's latest message. Following Android Auto's driver
-distraction rules, the car shows six rows at a time and **Older messages** only scrolls back while you're parked;
+distraction rules, the car shows up to ten rows at a time and **Older messages** only scrolls back while you're parked;
 while driving, **Read all** is how you hear the rest. When a task's own screen has no room for **Clear**, it's on
-its History screen. Archived tasks stay off the car, and a cleared task's history is gone.
+its History screen. Repo history includes archived tasks and the last 100 tasks cleared on this device. Cleared
+history stays local and does not sync. When you open a task's History, the app can fill older messages trimmed from a
+synced copy by reading them from Claude's hosted session.
 
 The phone app is voice first too: the **New task** screen and each task's chat have no text box, just a floating
-microphone at the bottom right. Tap it and say your request. While it listens it turns into a **Stop** button. With
+microphone at the bottom right. Tap it and say your request. New task reads it back and waits for yes or a tap on
+**Start** before doing any work. While the microphone listens it turns into a **Stop** button. With
 **Keep listening until Stop** off, it sends as soon as you stop talking, and Stop sends what it heard so far; with it
 on, pauses don't send and Stop does. The app keeps the last list it got from GitHub, so it
 shows up right away even with no signal. To answer Claude, open a task and tap **Reply**, then
@@ -73,7 +78,8 @@ Claude works on an answer to **Talk**, a soft tone plays after 3 seconds and eve
 times. The tones use the same assistant audio as the microphone, so music ducks for them like it does for speech.
 
 **Projects** shows each repo straight from GitHub: whether its main branch is passing, the last change, and its
-open pull requests with their checks. Tap a pull request to hear its checks or merge it (the app asks first).
+open pull requests with their checks. Tap a pull request to hear its checks or merge it (the app asks first). New
+review comments on task pull requests are read aloud; replying sends the comment and your response to Claude together.
 
 When a task's pull request opens, the app follows its checks and tells you when they pass or fail. Until they
 finish, the task's status pill on the phone says **Checks running** in amber instead of **Done**. If Claude finished
@@ -125,7 +131,8 @@ as the car moves again, or Android Auto disconnects, any step still waiting is d
 
 The app knows the car is parked from the speed the car reports, so the first time the car screen opens it asks for the
 car speed permission on the phone. Without it, or on a car that doesn't report speed, every flagged step is declined as
-before.
+before. When the car first becomes parked, Cruise Control also shows one phone notification if any tasks still need
+attention.
 
 ## Voice commands
 
@@ -146,15 +153,19 @@ When you reply to a task, the app handles a few short phrases itself without wai
 
 Anything longer goes to Claude as usual, so "merge the two settings screens" is still a coding request.
 
+The same **"Repeat that"** and **"Quiet"** shortcuts work in the car's Talk to Claude conversation.
+You can also ask it to list a repo's open issues or start a task from a numbered issue. It reads the issue back and
+waits for a separate yes; the pull request it opens will close that issue when merged.
+
 ## Google Assistant shortcut
 
 Start a task without opening the app: say "Hey Google, start a task to add dark mode to aiauto on Cruise Control".
-"Ask Cruise Control to", "tell Cruise Control to" and "have Cruise Control" work in place of "start a task to". The app opens on the new
-task and says "Starting on aiauto: add dark mode" (read aloud in the car, shown on the phone otherwise).
+"Ask Cruise Control to", "tell Cruise Control to" and "have Cruise Control" work in place of "start a task to". The
+app opens New task and reads the request back, then waits for a separate yes before starting (you can also tap Start).
 
 - Name the repo at the end ("... to aiauto", "... in the cruise control site repo") or the start ("in aiauto, add a
-  toggle"). Any repo your GitHub token can push to counts, like in the New task picker. Without one, the task goes to
-  the last-used repo.
+  toggle"). Any repo your GitHub token can push to counts, like in the New task picker. Without one, the request goes
+  to the last-used repo and is read back for confirmation before starting.
 - Saying just a template's name, like "fix lint in aiauto", starts that template.
 - If something's missing, such as keys or saved repos, the app says what and opens the screen to fix it.
 - Google only picks up the shortcut for apps uploaded to the Play Console, so it doesn't work on installs from
@@ -176,7 +187,7 @@ task and says "Starting on aiauto: add dark mode" (read aloud in the car, shown 
 2. **Claude API key.** Create one at [platform.claude.com](https://platform.claude.com). Usage is billed to that
    account. Tasks use Claude Opus 5.5 by default, and each task is a Managed Agents session.
 3. **GitHub token.** Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new) for
-   the repos you want to use. Set **Contents** and **Pull requests** to read and write, and **Checks** and
+   the repos you want to use. Set **Contents** and **Pull requests** to read and write, and **Issues**, **Checks** and
    **Commit statuses** to read. For sync across devices, the token also needs the private `cruise-control-sync` repo
    (see below). To let GitHub merge on its own, turn on **Allow auto-merge** in the repo's settings.
 4. **Settings in the app.** Paste both, then add repos as `owner/name`. Tap a repo for its own settings, or to

@@ -83,6 +83,8 @@ enum class AlertKind {
     Question,
     /** Claude has been working without a single update for a long time. */
     Stuck,
+    /** A reviewer left a new comment on the task's pull request. */
+    ReviewComment,
 }
 
 /**
@@ -163,6 +165,15 @@ data class Task(
      * watches the pull request; another device takes it over when you reply or retry from it. Null means this device.
      */
     val device: String? = null,
+    /** GitHub issue this task was created to fix, if any. */
+    val issueNumber: Int? = null,
+    /** Latest review-comment id checked for this task's pull request. */
+    val lastReviewCommentId: Long? = null,
+    /** A reviewer comment awaiting the driver's reply, passed along with that reply to Claude. */
+    val pendingReviewComment: String? = null,
+    /** Kept only in this device's local history after the task is cleared. */
+    val cleared: Boolean = false,
+    val clearedAtMillis: Long? = null,
 ) {
     /** A pull request exists and hasn't been merged or closed yet. */
     val hasOpenPr: Boolean get() = prNumber != null && (prState ?: PrState.Open) == PrState.Open

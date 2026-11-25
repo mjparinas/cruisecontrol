@@ -101,6 +101,8 @@ class EngineControlsTest {
         var pr = PullRequest(7, "https://github.com/me/app/pull/7", nodeId = "PR_7", head = PullRequest.Head("abc"))
         var checksResult = ChecksSummary(Checks.Pending, total = 1)
         var autoMergeAllowed = false
+        var reviewCommentsResult = emptyList<ReviewComment>()
+        var openedPullBody: String? = null
         val merges = mutableListOf<Int>()
         var refuseMerge: String? = null
         val releases = mutableListOf<Pair<String, String>>()
@@ -113,8 +115,13 @@ class EngineControlsTest {
 
         override fun branchExists(repo: RepoRef, branch: String) = this.branch
         override fun findPull(repo: RepoRef, branch: String): PullRequest? = null
-        override fun openPull(repo: RepoRef, branch: String, title: String, body: String) = pr
+        override fun openPull(repo: RepoRef, branch: String, title: String, body: String): PullRequest {
+            openedPullBody = body
+            return pr
+        }
         override fun pull(repo: RepoRef, number: Int) = pr
+        override fun reviewComments(repo: RepoRef, number: Int, afterId: Long?) =
+            reviewCommentsResult.filter { afterId == null || it.id > afterId }.sortedBy { it.id }
         override fun checks(repo: RepoRef, sha: String) = checksResult
         override fun enableAutoMerge(pull: PullRequest) = autoMergeAllowed
         override fun merge(repo: RepoRef, number: Int): MergeResult {
@@ -382,6 +389,46 @@ class EngineControlsTest {
         assertEquals(PrState.Open, done.prState)
         assertTrue(done.githubAutoMerge)
         assertTrue(said.any { it.contains("GitHub will merge it when checks pass") })
+    }
+
+    @Test fun issueTasksMentionTheIssueInThePullRequestBody() {
+        val issue = GitHubIssue(34, "Fix login", "2026-01-02T03:04:05Z", body = "Login fails after sign out.")
+        val task = engine().startIssue(repo, issue)
+        assertEquals(34, store.get(task.id)!!.issueNumber)
+        assertTrue(github.openedPullBody!!.contains("Closes #34"))
+        assertTrue(github.openedPullBody!!.contains("Fix issue #34: Fix login"))
+    }
+
+    @Test fun announcesEachNewReviewCommentOnce() {
+        github.reviewCommentsResult = listOf(ReviewComment(10, "Existing", user = ReviewComment.User("reviewer")))
+        val engine = engine()
+        val task = engine.start(repo, "fix it")
+        assertEquals(10, store.get(task.id)!!.lastReviewCommentId)
+        assertTrue(alerts.isEmpty())
+
+        github.reviewCommentsResult = listOf(
+            ReviewComment(10, "Existing", user = ReviewComment.User("reviewer")),
+            ReviewComment(11, "Please rename this.", "src/Main.kt", ReviewComment.User("reviewer")),
+        )
+        engine.refreshPullRequest(task.id)
+        engine.refreshPullRequest(task.id)
+
+        assertEquals(11, store.get(task.id)!!.lastReviewCommentId)
+        assertEquals(listOf(AlertKind.ReviewComment), alerts)
+        assertTrue(said.any { it.contains("reviewer commented on pull request 7 on src/Main.kt: Please rename this.") })
+    }
+
+    @Test fun aReplyToAReviewCommentIncludesTheCommentInThePrompt() {
+        val engine = engine()
+        val task = engine.start(repo, "fix it")
+        github.reviewCommentsResult = listOf(ReviewComment(11, "Please rename this.", "src/Main.kt", ReviewComment.User("reviewer")))
+        engine.refreshPullRequest(task.id)
+
+        engine.prompt(task.id, "I'll rename it.")
+
+        assertTrue(claude.sent.last().contains("reviewer commented on pull request 7 on src/Main.kt: Please rename this."))
+        assertTrue(claude.sent.last().contains("The driver's response is:\nI'll rename it."))
+        assertNull(store.get(task.id)!!.pendingReviewComment)
     }
 
     @Test fun mergesOnceChecksPassWhenGitHubAutoMergeIsUnavailable() {

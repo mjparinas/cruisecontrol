@@ -15,8 +15,8 @@ import dev.aiauto.graph
 import kotlinx.coroutines.launch
 
 /**
- * Every task in one repo on this phone, newest first, except archived ones. Tapping a task opens its history, and
- * Read all reads each task with Claude's latest message. Older pages only open while parked.
+ * Every task in one repo on this phone, including archived and cleared history. Tapping a task opens its history,
+ * and Read all reads each task with Claude's latest message. Older pages only open while parked.
  */
 class RepoHistoryScreen(carContext: CarContext, private val repo: RepoRef) : Screen(carContext) {
     private val g = carContext.graph
@@ -29,7 +29,7 @@ class RepoHistoryScreen(carContext: CarContext, private val repo: RepoRef) : Scr
     }
 
     override fun onGetTemplate(): Template {
-        val all = g.tasks.tasks.value
+        val all = g.tasks.tasks.value + g.tasks.cleared()
         val page = RepoHistory.page(RepoHistory.tasks(all, repo), RepoHistory.CAR_ROWS, skip)
         val items = ItemList.Builder().setNoItemsMessage("No tasks in ${repo.name} on this phone yet.")
         if (page.newer > 0) items.addItem(historyPageRow(this, "Newer tasks", page.newer) { skip = earlierSkips.removeLastOrNull() ?: 0 })
@@ -37,7 +37,13 @@ class RepoHistoryScreen(carContext: CarContext, private val repo: RepoRef) : Scr
             items.addItem(
                 Row.Builder()
                     .setTitle(task.title)
-                    .addText("${TasksScreen.statusLabel(task)} · ${task.messages.size} messages")
+                    .addText(
+                        "${when {
+                            task.cleared -> "Cleared"
+                            task.archived -> "Archived"
+                            else -> TasksScreen.statusLabel(task)
+                        }} · ${task.messages.size} messages",
+                    )
                     .setOnClickListener { screenManager.push(TaskHistoryScreen(carContext, task.id)) }
                     .setBrowsable(true)
                     .build(),

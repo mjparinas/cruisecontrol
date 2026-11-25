@@ -44,6 +44,7 @@ class TaskEngineTest {
         /** Each follow() call takes the next step: an exception to throw, or updates to emit. */
         val followSteps = ArrayDeque<Any>()
         val sent = mutableListOf<String>()
+        var historyMessages = emptyList<TaskMessage>()
         var sessionsCreated = 0
         var setupsCreated = 0
 
@@ -65,6 +66,7 @@ class TaskEngineTest {
             sendFailures.removeFirstOrNull()?.let { throw it }
             sent += prompt
         }
+        override fun history(sessionId: String) = historyMessages
         override fun follow(
             sessionId: String,
             seenEventIds: MutableSet<String>,
@@ -108,6 +110,44 @@ class TaskEngineTest {
         assertEquals(1, claude.sessionsCreated)
         assertEquals(1, claude.sent.size)
         assertTrue(done.messages.any { it.text == "All done." })
+    }
+
+    @Test fun startsAnIssueTaskWithItsBodyAndTracksTheIssueNumber() {
+        val issue = GitHubIssue(34, "Fix login", "2026-01-02T03:04:05Z", body = "Login fails after sign out.")
+        val task = engine().startIssue(repo, issue)
+        val request = task.messages.first { it.speaker == Speaker.You }.text
+        assertEquals(34, task.issueNumber)
+        assertTrue(request.startsWith("Fix issue #34: Fix login"))
+        assertTrue(request.contains("Login fails after sign out."))
+    }
+
+    @Test fun refreshesOlderMessagesFromTheManagedSession() {
+        val task = engine().start(repo, "add a test")
+        store.put(
+            task.copy(
+                messages = listOf(TaskMessage("local-latest", Speaker.Claude, "Latest answer", 300)),
+            ),
+        )
+        claude.historyMessages = listOf(
+            TaskMessage("remote-old", Speaker.You, "Original request", 100),
+            TaskMessage("remote-latest", Speaker.Claude, "Latest answer", 400),
+        )
+
+        engine().refreshHistory(task.id)
+
+        assertEquals(
+            listOf("Original request", "Latest answer"),
+            store.get(task.id)!!.messages.map { it.text },
+        )
+        assertEquals("local-latest", store.get(task.id)!!.messages.last().id)
+    }
+
+    @Test fun truncatesVeryLongIssueBodies() {
+        val body = "x".repeat(13_000)
+        val task = engine().startIssue(repo, GitHubIssue(34, "Fix login", "2026-01-02T03:04:05Z", body = body))
+        val request = task.messages.first { it.speaker == Speaker.You }.text
+        assertTrue(request.endsWith("[Issue body truncated.]"))
+        assertEquals(12_000, request.substringAfter("\n\n").substringBefore("\n\n[Issue body truncated.]").length)
     }
 
     @Test fun quietModeAnnouncesOnlyTheResult() {

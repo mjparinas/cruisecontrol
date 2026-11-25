@@ -102,14 +102,39 @@ class Graph(context: Context) {
             }
 
             override fun startTask(repo: String, request: String): String {
-                val all = repoChoices()
-                val match = all.firstOrNull { it.fullName.equals(repo, ignoreCase = true) }
-                    ?: all.filter { it.name.equals(repo.substringAfter('/'), ignoreCase = true) }.singleOrNull()
-                    ?: throw IllegalArgumentException("No repo matches \"$repo\". Recent ones: ${all.take(CHAT_REPOS).joinToString { it.fullName }}")
                 require(request.isNotBlank()) { "The request is empty." }
+                val match = repoBySpokenName(repo)
                 val task = engine.start(match, request)
                 TaskService.ensureRunning(appContext)
                 return "Started task ${task.id} in ${match.fullName}."
+            }
+
+            override fun startIssue(repo: String, issue: dev.aiauto.core.GitHubIssue): String {
+                val match = repoBySpokenName(repo)
+                val task = engine.startIssue(match, issue)
+                TaskService.ensureRunning(appContext)
+                return "Started issue ${issue.number} in ${match.fullName}."
+            }
+
+            override fun issue(repo: String, number: Int): dev.aiauto.core.GitHubIssue {
+                val token = secrets.githubToken ?: throw IllegalStateException("Add a GitHub token in the app on your phone first.")
+                return GitHub(token).issue(repoBySpokenName(repo), number)
+            }
+
+            override fun openIssues(repo: String): String {
+                val token = secrets.githubToken ?: throw IllegalStateException("Add a GitHub token in the app on your phone first.")
+                val target = repoBySpokenName(repo)
+                val issues = GitHub(token).openIssues(target)
+                return if (issues.isEmpty()) "There are no open issues in ${target.name}."
+                else "Open issues in ${target.name}: " +
+                    issues.joinToString(". ") { "Issue ${it.number}: ${dev.aiauto.core.SpokenStatus.clean(it.title)}" } +
+                    ". Say which issue to start."
+            }
+
+            override fun quiet(): String {
+                if (settings.quietMode) return "Quiet mode is already on."
+                settings.quietMode = true
+                return "Quiet mode is on. I'll only read out results and alerts."
             }
 
             override fun replyToTask(taskId: String, text: String): String {
@@ -203,6 +228,15 @@ class Graph(context: Context) {
 
     /** Every repo a new task can start in: saved ones plus the ones the token can push to, most recently used first. */
     fun repoChoices(): List<RepoRef> = RepoRef.choices(repos.repos.value, availableRepos.repos.value, tasks.all())
+
+    private fun repoBySpokenName(spoken: String): RepoRef {
+        val all = repoChoices()
+        return all.firstOrNull { it.fullName.equals(spoken, ignoreCase = true) }
+            ?: RepoRef.matchSpoken(spoken, all).singleOrNull()
+            ?: throw IllegalArgumentException(
+                "No unique repo matches \"$spoken\". Recent ones: ${all.take(CHAT_REPOS).joinToString { it.fullName }}",
+            )
+    }
 
     /** Fetches the repos the token can push to in the background. On failure the last list stays. */
     fun refreshAvailableRepos() {

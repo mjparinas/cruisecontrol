@@ -10,6 +10,8 @@ import androidx.car.app.model.ListTemplate
 import androidx.car.app.model.MessageTemplate
 import androidx.car.app.model.Row
 import androidx.car.app.model.Template
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import dev.aiauto.core.RepoHistory
 import dev.aiauto.core.SpokenStatus
@@ -29,10 +31,15 @@ class TaskHistoryScreen(carContext: CarContext, private val taskId: String) : Sc
 
     init {
         lifecycleScope.launch { g.tasks.tasks.collect { invalidate() } }
+        lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onStart(owner: LifecycleOwner) {
+                g.engine.refreshHistory(taskId)
+            }
+        })
     }
 
     override fun onGetTemplate(): Template {
-        val task = g.tasks.get(taskId)
+        val task = g.tasks.get(taskId) ?: g.tasks.cleared().firstOrNull { it.id == taskId }
             ?: return MessageTemplate.Builder("This task was cleared.").setTitle("History").setHeaderAction(Action.BACK).build()
 
         // One row goes to the repo's history, so the messages share what's left of the car's list.
@@ -62,7 +69,12 @@ class TaskHistoryScreen(carContext: CarContext, private val taskId: String) : Sc
             .setTitle(task.title)
             .setHeaderAction(Action.BACK)
             .setSingleList(items.build())
-            .setActionStrip(ActionStrip.Builder().addAction(reader.action { RepoHistory.spokenTask(task) }).addAction(clear()).build())
+            .setActionStrip(
+                ActionStrip.Builder()
+                    .addAction(reader.action { RepoHistory.spokenTask(task) })
+                    .apply { if (!task.cleared) addAction(clear()) }
+                    .build(),
+            )
             .build()
     }
 

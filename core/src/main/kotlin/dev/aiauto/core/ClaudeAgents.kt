@@ -30,6 +30,13 @@ import com.anthropic.models.beta.sessions.events.BetaManagedAgentsSessionEvent
 import com.anthropic.models.beta.sessions.events.BetaManagedAgentsSessionStatusIdleEvent
 import java.time.Duration
 import java.util.Optional
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /** What a running session reports back to the app. */
 sealed interface AgentUpdate {
@@ -75,6 +82,9 @@ interface AgentClient : AutoCloseable {
         canReview: () -> Boolean = { false },
         onUpdate: (AgentUpdate) -> Unit,
     ): Boolean
+
+    /** Lists the conversation kept by the hosted session, including history trimmed from a synced task copy. */
+    fun history(sessionId: String): List<TaskMessage> = emptyList()
 
     /** Answers a step reported as [AgentUpdate.NeedsApproval]. */
     fun confirm(sessionId: String, toolUseId: String, allow: Boolean) {}
@@ -275,6 +285,36 @@ class ClaudeAgents(apiKey: String) : AgentClient {
         return false
     }
 
+    override fun history(sessionId: String): List<TaskMessage> {
+        var firstUserMessage = true
+        return client.beta().sessions().events().list(sessionId).autoPager().withIndex().mapNotNull { (index, event) ->
+            val id = eventId(event._json()) ?: "session-event-$index"
+            val time = eventMillis(event._json())
+            when {
+                event.isUserMessage() -> {
+                    if (firstUserMessage) {
+                        firstUserMessage = false
+                        null
+                    } else {
+                        val text = eventText(event._json())
+                        TaskMessage(id, Speaker.You, text, time).takeIf { text.isNotBlank() }
+                    }
+                }
+                event.isAgentMessage() -> {
+                    val text = SpokenStatus.clean(agentMessageText(event.asAgentMessage()))
+                    TaskMessage(id, Speaker.Claude, text, time).takeIf { text.isNotBlank() }
+                }
+                event.isAgentToolUse() -> {
+                    val call = event.asAgentToolUse()
+                    val input = call.input()._additionalProperties()
+                    val command = input["command"]?.asString()?.orElse(null)
+                    SpokenStatus.forToolUse(call.name(), command)?.let { TaskMessage(id, Speaker.Status, it, time) }
+                }
+                else -> null
+            }
+        }.toList()
+    }
+
     /** Reports a stop that happened before we connected. Returns true when the turn is over. */
     private fun catchUp(
         sessionId: String,
@@ -427,6 +467,28 @@ class ClaudeAgents(apiKey: String) : AgentClient {
 
     private fun eventId(json: Optional<com.anthropic.core.JsonValue>): String? =
         json.flatMap { it.asObject() }.flatMap { obj -> Optional.ofNullable(obj["id"]).flatMap { it.asString() } }.orElse(null)
+
+    private fun eventMillis(json: Optional<com.anthropic.core.JsonValue>): Long {
+        val raw = json.map { it.toString() }.orElse(null) ?: return 0L
+        val timestamp = runCatching {
+            kotlinx.serialization.json.Json.parseToJsonElement(raw).jsonObject["created_at"]?.jsonPrimitive?.contentOrNull
+        }.getOrNull() ?: return 0L
+        return runCatching { java.time.Instant.parse(timestamp).toEpochMilli() }.getOrDefault(0L)
+    }
+
+    private fun eventText(json: Optional<com.anthropic.core.JsonValue>): String {
+        val raw = json.map { it.toString() }.orElse(null) ?: return ""
+        val content = runCatching {
+            kotlinx.serialization.json.Json.parseToJsonElement(raw).jsonObject["content"]
+        }.getOrNull() ?: return ""
+        return when (content) {
+            is JsonArray -> content.mapNotNull { (it as? JsonObject)?.get("text")?.stringValue() }.joinToString(" ")
+            is JsonObject -> content["text"]?.stringValue().orEmpty()
+            is JsonPrimitive -> content.contentOrNull.orEmpty()
+        }
+    }
+
+    private fun JsonElement.stringValue(): String? = (this as? JsonPrimitive)?.contentOrNull
 
     private fun agentMessageText(message: com.anthropic.models.beta.sessions.events.BetaManagedAgentsAgentMessageEvent): String =
         message.content()

@@ -23,7 +23,7 @@ class PickRepoScreen(carContext: CarContext, private val template: TaskTemplate?
 
     override fun onGetTemplate(): Template {
         val items = ItemList.Builder().setNoItemsMessage("Add a repo on your phone first.")
-        g.repoChoices().take(6).forEach { repo ->
+        g.repoChoices().take(dev.aiauto.core.RepoHistory.CAR_ROWS).forEach { repo ->
             items.addItem(
                 Row.Builder()
                     .setTitle(repo.name)
@@ -59,10 +59,7 @@ class PickRepoScreen(carContext: CarContext, private val template: TaskTemplate?
         }
 
         private fun runTemplate(carContext: CarContext, screenManager: ScreenManager, repo: RepoRef, template: TaskTemplate) {
-            val task = carContext.graph.engine.start(repo, template.prompt)
-            TaskService.ensureRunning(carContext)
-            CarToast.makeText(carContext, "Started ${template.name} in ${repo.name}", CarToast.LENGTH_SHORT).show()
-            screenManager.push(TaskDetailScreen(carContext, task.id))
+            confirmTask(carContext, screenManager, repo, template.prompt, template.name)
         }
 
         private fun listenForTask(carContext: CarContext, screenManager: ScreenManager, repo: RepoRef) {
@@ -76,8 +73,23 @@ class PickRepoScreen(carContext: CarContext, private val template: TaskTemplate?
                         CarToast.makeText(carContext, "Reply to the Cruise Control message with your request", CarToast.LENGTH_LONG).show()
                     },
                 ) { text ->
-                    val task = g.engine.start(repo, text)
+                    confirmTask(carContext, screenManager, repo, text)
+                },
+            )
+        }
+
+        private fun confirmTask(
+            carContext: CarContext,
+            screenManager: ScreenManager,
+            repo: RepoRef,
+            request: String,
+            label: String? = null,
+        ) {
+            screenManager.push(
+                ConfirmTaskScreen(carContext, repo, request) {
+                    val task = carContext.graph.engine.start(repo, request)
                     TaskService.ensureRunning(carContext)
+                    label?.let { CarToast.makeText(carContext, "Started $it in ${repo.name}", CarToast.LENGTH_SHORT).show() }
                     screenManager.push(TaskDetailScreen(carContext, task.id))
                 },
             )

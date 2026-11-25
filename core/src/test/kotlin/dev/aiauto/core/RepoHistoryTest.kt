@@ -30,12 +30,31 @@ class RepoHistoryTest {
     }
 
     @Test
-    fun archivedTasksStayHiddenFromTheCar() {
+    fun archivedAndClearedTasksRemainInCarRepoHistory() {
         val archived = task("a", app, 100, Speaker.You to "Fix the build", archived = true)
         val active = task("b", app, 200, Speaker.You to "Add dark mode")
+        val cleared = task("c", app, 300, Speaker.You to "Fix login").copy(cleared = true, clearedAtMillis = 400)
 
-        assertEquals(listOf("b"), RepoHistory.tasks(listOf(archived, active), app).map { it.id })
-        assertEquals(listOf("There are no tasks in app on this phone."), RepoHistory.spokenRepo(listOf(archived), app))
+        assertEquals(listOf("c", "b", "a"), RepoHistory.tasks(listOf(archived, active, cleared), app).map { it.id })
+        assertEquals(
+            listOf("1 task in app, newest first.", "Task a. Archived. No reply from Claude yet."),
+            RepoHistory.spokenRepo(listOf(archived), app),
+        )
+        assertEquals(
+            listOf("1 task in app, newest first.", "Task c. Cleared. No reply from Claude yet."),
+            RepoHistory.spokenRepo(listOf(cleared), app),
+        )
+    }
+
+    @Test
+    fun clearedHistoryKeepsTheMostRecentlyClearedHundredTasks() {
+        val tasks = (1..(RepoHistory.CLEARED_TASKS_KEEP + 5)).map { id ->
+            task("$id", app, id.toLong()).copy(cleared = true, clearedAtMillis = id.toLong())
+        }
+        val kept = RepoHistory.keepCleared(tasks)
+        assertEquals(RepoHistory.CLEARED_TASKS_KEEP, kept.size)
+        assertEquals("6", kept.first().id)
+        assertEquals("105", kept.last().id)
     }
 
     @Test
@@ -48,6 +67,25 @@ class RepoHistoryTest {
     fun messagesAreNewestFirstSoTheCarShowsTheLatest() {
         val t = task("a", app, 100, Speaker.You to "Fix it", Speaker.Claude to "On it.", Speaker.Claude to "Done.")
         assertEquals(listOf("Done.", "On it.", "Fix it"), RepoHistory.messages(t).map { it.text })
+    }
+
+    @Test
+    fun sessionHistoryFillsOlderGapsWithoutReplacingLocalStatus() {
+        val local = listOf(
+            TaskMessage("local-1", Speaker.You, "Follow-up", 30),
+            TaskMessage("local-2", Speaker.Status, "Pull request opened", 40),
+        )
+        val session = listOf(
+            TaskMessage("remote-1", Speaker.You, "Original request", 10),
+            TaskMessage("remote-2", Speaker.Claude, "Earlier answer", 20),
+            TaskMessage("remote-3", Speaker.You, "Follow-up", 30),
+            TaskMessage("remote-4", Speaker.Claude, "Latest answer", 50),
+        )
+
+        assertEquals(
+            listOf("Original request", "Earlier answer", "Follow-up", "Pull request opened"),
+            RepoHistory.mergeSessionMessages(local, session).map { it.text },
+        )
     }
 
     @Test
