@@ -105,7 +105,9 @@ limit** (default $20, set in Settings) stops Claude when the day's total reaches
 An optional **monthly limit** (off until you set it in Settings) adds up every day's spend in the calendar month
 and stops Claude when that reaches it, so a run of busy days can't add up past it. Both limits apply at once:
 whichever is reached first stops Claude and the car chat. The tighter of the two is also set as the session's
-budget on Anthropic's side, so it holds even if the phone loses signal.
+budget on Anthropic's side, so it holds even if the phone loses signal. When spending passes 80% of either limit,
+the app says so once (and shows an alert), so Claude stopping never comes as a surprise mid-drive. With sync on,
+the limits count what every synced device has spent.
 
 The task list can search all active and archived conversations by request, message, repo or pull request number. Its
 search box looks like the one in Settings, a rounded pill with a clear button once you type. A
@@ -276,8 +278,8 @@ values you had. Per-repo settings sync with the other settings.
 
 Turn on **Sync across devices** in Settings on each phone or tablet. They share the file `cruise-control-sync.json` in a
 private repo named `cruise-control-sync` on the GitHub account of the token, which holds your repos, tasks (with their last 60
-messages), settings and the car chat's memory. The API keys, GitHub token, voice, spending total and agent setup stay
-on each device. The app makes the repo the first time if the token has **Administration: read and write**.
+messages), settings, the car chat's memory and what each device has spent today and this month, so the spending
+limits count every device. The API keys, GitHub token, voice and agent setup stay on each device. The app makes the repo the first time if the token has **Administration: read and write**.
 Otherwise make an empty private repo with that name yourself. Either way, give the token **Contents: read and write**
 on it. Sync stops if the repo is ever made public. Earlier versions kept sync in a secret gist, which anyone with its
 link can read; the app moves that gist into the repo and then deletes it.
@@ -334,7 +336,12 @@ has the Contents permission this needs.
   It also covers four honest ways to go further: open the closed track to everyone through a Google Group, keep the
   production app hands-free over Bluetooth, add real person-to-person messaging, or wait for new car categories.
 - Costs are list prices as each session reports them, so they can differ a little from your invoice. The daily
-  and monthly totals are counted on this phone and reset at local midnight and on the first of the month.
+  and monthly totals reset at local midnight and on the first of the month. With sync on, other devices' spend
+  arrives with each sync round, every few minutes, so two devices spending at the same moment can briefly go a
+  little past a limit between rounds.
+- **Recent errors** in Settings, under About, lists the last 50 errors the app caught, with Copy to paste them into a
+  bug report. They stay on the phone and are never synced or sent anywhere; anything that looks like a key or token
+  is blanked out.
 - The app's own merge-when-green only works while the app is alive, for up to three hours after a pull request
   opens. GitHub's auto-merge has no such limit, but it only waits for checks the repo marks as required.
 - While you're driving, the agent declines any step that its safety check flags for review. You'll hear that it

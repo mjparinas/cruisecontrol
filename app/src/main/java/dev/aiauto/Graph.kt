@@ -14,6 +14,7 @@ import dev.aiauto.core.RepoRef
 import dev.aiauto.core.Projects
 import dev.aiauto.core.TaskEngine
 import dev.aiauto.data.AvailableRepoStore
+import dev.aiauto.data.ErrorStore
 import dev.aiauto.data.FileChatMemory
 import dev.aiauto.core.VoiceControls
 import dev.aiauto.data.FileTaskStore
@@ -24,7 +25,6 @@ import dev.aiauto.data.TemplateStore
 import dev.aiauto.notify.Notifier
 import dev.aiauto.notify.Speaker
 import dev.aiauto.notify.TonePlayer
-import android.util.Log
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,12 +41,14 @@ class Graph(context: Context) {
     val repos = RepoStore(context)
     val availableRepos = AvailableRepoStore(context)
     val chatMemory = FileChatMemory(context)
+    /** Recent errors for Settings. The app makes it before anything else; this covers a Graph made without it. */
+    val errors: ErrorStore = AppLog.store ?: ErrorStore(context).also { AppLog.store = it }
     val templates = TemplateStore(context)
     val speaker = Speaker(context, settings)
     val tones = TonePlayer(context)
     val notifier = Notifier(context, settings, speaker)
     // Anything that slips past the engine's own error handling is logged instead of crashing the app.
-    val scope = CoroutineScope(SupervisorJob() + CoroutineExceptionHandler { _, e -> Log.e("AiAuto", "Background work failed", e) })
+    val scope = CoroutineScope(SupervisorJob() + CoroutineExceptionHandler { _, e -> AppLog.e("Background work failed", e) })
 
     val engine = TaskEngine(
         store = tasks,
@@ -63,7 +65,7 @@ class Graph(context: Context) {
             override fun spentTodayUsd() = settings.spentTodayUsd
             override fun monthlyLimitUsd() = settings.monthlyLimitUsd
             override fun spentThisMonthUsd() = settings.spentThisMonthUsd
-            override fun addSpend(usd: Double) = settings.addSpend(usd)
+            override fun addSpend(usd: Double) = this@Graph.addSpend(usd)
             override fun repoSettings(repo: RepoRef) = settings.repoSettings(repo)
         },
         scope = scope,
@@ -183,10 +185,25 @@ class Graph(context: Context) {
             override fun reopen(repo: RepoRef, number: Int) = voiceControls.reopen(repo, number)
         },
         canSpend = { engine.canSpend() },
-        onSpend = { settings.addSpend(it) },
+        onSpend = { addSpend(it) },
         profile = { settings.chatProfile },
         memory = { if (settings.rememberChats) chatMemory else dev.aiauto.core.NoChatMemory },
     )
+
+    /**
+     * Adds to today's and this month's spend, and warns once when a total passes 80% of its limit, so the driver
+     * hears it coming before Claude stops.
+     */
+    @Synchronized
+    private fun addSpend(usd: Double) {
+        val dayBefore = settings.spentTodayUsd
+        val monthBefore = settings.spentThisMonthUsd
+        settings.addSpend(usd)
+        dev.aiauto.core.SpendWarning.after(
+            dayBefore, dayBefore + usd, settings.dailyLimitUsd,
+            monthBefore, monthBefore + usd, settings.monthlyLimitUsd,
+        )?.let(notifier::spendWarning)
+    }
 
     private var briefing: String? = null
 
@@ -218,7 +235,7 @@ class Graph(context: Context) {
                         github.issuesUpdatedSince(repo, since).filter { it.pullRequest == null }.forEach { issue ->
                             external += "Issue ${issue.number} in ${repo.name} changed: ${issue.title}."
                         }
-                    }.onFailure { Log.w("AiAuto", "Couldn't widen the drive briefing for ${repo.fullName}", it) }
+                    }.onFailure { AppLog.w("Couldn't widen the drive briefing for ${repo.fullName}", it) }
                 }
             }
             val text = dev.aiauto.core.Briefing.since(
@@ -251,7 +268,7 @@ class Graph(context: Context) {
         scope.launch(Dispatchers.IO) {
             runCatching { GitHub(token).myRepos() }
                 .onSuccess { availableRepos.set(it) }
-                .onFailure { Log.w("AiAuto", "Couldn't list the token's repos", it) }
+                .onFailure { AppLog.w("Couldn't list the token's repos", it) }
         }
     }
 
@@ -291,11 +308,11 @@ class Graph(context: Context) {
                     // so work started from the car keeps going on the phone until it's done.
                     if (now != connected && hasActiveWork()) TaskService.ensureRunning(context)
                 } catch (e: Throwable) {
-                    Log.w("AiAuto", "Car connection change failed", e)
+                    AppLog.w("Car connection change failed", e)
                 }
                 connected = now
             }
-        }.onFailure { Log.w("AiAuto", "Couldn't watch the car connection", it) }
+        }.onFailure { AppLog.w("Couldn't watch the car connection", it) }
     }
 
     /** True while a task is running or waiting to reconnect, so the foreground service should be up. */
@@ -326,13 +343,13 @@ class Graph(context: Context) {
                         engine.onNetworkAvailable()
                         if (hasActiveWork()) TaskService.ensureRunning(context)
                     } catch (e: Throwable) {
-                        Log.w("AiAuto", "Couldn't resume tasks after the network came back", e)
+                        AppLog.w("Couldn't resume tasks after the network came back", e)
                     }
                     sync.syncSoon()
                     scope.launch(Dispatchers.IO) { sendQueuedChat() }
                 }
             })
-        }.onFailure { Log.w("AiAuto", "Couldn't watch the network", it) }
+        }.onFailure { AppLog.w("Couldn't watch the network", it) }
     }
 
     /** Answers the car chat questions kept while there was no signal, in the chat conversation and out loud in the car. */

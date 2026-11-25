@@ -7,7 +7,6 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
-import android.util.Log
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CancellationException
@@ -60,7 +59,7 @@ class TaskService : Service() {
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Throwable) {
-                        Log.w("AiAuto", "Task watcher round failed", e)
+                        AppLog.w("Task watcher round failed", e)
                     }
                     delay(5_000)
                     sinceRefresh += 5_000
@@ -76,7 +75,7 @@ class TaskService : Service() {
     private fun stillNeeded(): Boolean = try {
         graph.tasks.all().any { graph.engine.isRunning(it.id) } || graph.engine.isReconnecting() || graph.engine.isWatchingPullRequests()
     } catch (e: Throwable) {
-        Log.w("AiAuto", "Couldn't read task state", e)
+        AppLog.w("Couldn't read task state", e)
         false
     }
 
@@ -95,7 +94,7 @@ class TaskService : Service() {
      * stop within seconds, or Android crashes the app. Tasks keep running while the app is open, and resume on restart.
      */
     override fun onTimeout(startId: Int, fgsType: Int) {
-        Log.w("AiAuto", "Foreground time ran out; stopping the task service")
+        AppLog.w("Foreground time ran out; stopping the task service")
         watcher?.cancel()
         stopSelf()
     }
@@ -112,7 +111,7 @@ class TaskService : Service() {
 
         fun ensureRunning(context: Context) {
             runCatching { ContextCompat.startForegroundService(context, Intent(context, TaskService::class.java)) }
-                .onFailure { Log.w("AiAuto", "Couldn't start the task service", it) }
+                .onFailure { AppLog.w("Couldn't start the task service", it) }
         }
 
         /** True when Android lets the app keep working in the background without battery limits. */

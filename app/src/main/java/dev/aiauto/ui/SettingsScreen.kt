@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Code
@@ -109,6 +110,8 @@ data class SettingsState(
     val syncStatus: String = "",
     val busy: Boolean = false,
     val message: String? = null,
+    /** Recent errors kept on this phone, newest first. */
+    val errors: List<dev.aiauto.core.ErrorEntry> = emptyList(),
 )
 
 /**
@@ -150,6 +153,7 @@ fun SettingsScreen(
     onSaveChatKey: (ChatProvider, String) -> Unit = { _, _ -> },
     onRepoSettings: (RepoRef, RepoSettings) -> Unit = { _, _ -> },
     onSetupChecklist: () -> Unit = {},
+    onClearErrors: () -> Unit = {},
 ) {
     fun hasKey(provider: ChatProvider) = when (provider) {
         ChatProvider.Anthropic -> state.hasAnthropicKey
@@ -311,6 +315,13 @@ fun SettingsScreen(
                             enabled = !state.busy,
                             onClick = onCheckUpdate,
                         )
+                        SettingRow(
+                            Icons.Rounded.BugReport, BadgeHue.Red, "Recent errors",
+                            state.errors.firstOrNull()?.let {
+                                "${state.errors.size} kept on this phone, the latest ${dev.aiauto.core.ErrorLog.time(it.timeMillis)}"
+                            } ?: "None so far",
+                            onClick = { dialog = SettingsDialog.Errors },
+                        )
                     }
                 }
             }
@@ -376,6 +387,12 @@ fun SettingsScreen(
             filter = { it.filter { c -> c.isDigit() || c == '.' } },
             onDismiss = { dialog = null },
         ) { onMonthlyLimit(it.toDoubleOrNull()?.takeIf { v -> v > 0 }) }
+        SettingsDialog.Errors -> ErrorsDialog(
+            errors = state.errors,
+            version = state.version,
+            onDismiss = { dialog = null },
+            onClear = { dialog = null; onClearErrors() },
+        )
         SettingsDialog.Theme -> ChoiceDialog(
             title = "Theme",
             options = ThemeMode.entries,
@@ -408,6 +425,56 @@ fun SettingsScreen(
     }
 }
 
+/**
+ * The errors the app caught recently, newest first, with Copy so they can go straight into a bug report. They stay on
+ * this phone; nothing is sent anywhere.
+ */
+@Composable
+private fun ErrorsDialog(errors: List<dev.aiauto.core.ErrorEntry>, version: String, onDismiss: () -> Unit, onClear: () -> Unit) {
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(28.dp),
+        title = { Text("Recent errors") },
+        text = {
+            Column(
+                Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                if (errors.isEmpty()) {
+                    Text("Nothing has gone wrong yet. Errors the app catches show up here, so you can copy them into a bug report.")
+                }
+                errors.forEach { e ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            "${dev.aiauto.core.ErrorLog.time(e.timeMillis)}: ${e.where}",
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Text(e.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                if (copied) Text("Copied, with the top of each stack trace.", color = MaterialTheme.colorScheme.primary)
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = errors.isNotEmpty(),
+                onClick = {
+                    clipboard.setText(androidx.compose.ui.text.AnnotatedString(dev.aiauto.core.ErrorLog.report(errors, version)))
+                    copied = true
+                },
+            ) { Text("Copy") }
+        },
+        dismissButton = {
+            Row {
+                if (errors.isNotEmpty()) TextButton(onClick = onClear) { Text("Clear") }
+                TextButton(onClick = onDismiss) { Text("Close") }
+            }
+        },
+    )
+}
+
 /** Shows a section only when the search matches it, and tells its rows which section they're in. */
 @Composable
 private fun SearchableSection(name: String, content: @Composable () -> Unit) {
@@ -415,7 +482,7 @@ private fun SearchableSection(name: String, content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalSettingsSection provides name) { content() }
 }
 
-private enum class SettingsDialog { AnthropicKey, GithubToken, OpenAiKey, GeminiKey, PickRepos, AddRepo, DailyLimit, MonthlyLimit, Theme }
+private enum class SettingsDialog { AnthropicKey, GithubToken, OpenAiKey, GeminiKey, PickRepos, AddRepo, DailyLimit, MonthlyLimit, Theme, Errors }
 
 /** Accent colour: a row of round swatches, the chosen one ticked. Each shrinks a little on a narrow phone rather than being cut off. */
 @Composable

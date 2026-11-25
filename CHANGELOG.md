@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The daily and monthly spending limits count every synced device: each device's spend for today and this month
+  now syncs, so two phones can't each spend the full limit.
+- The app says once, and shows an alert, when spending passes 80% of the daily or monthly limit, before Claude
+  stops.
+- Settings has a Recent errors screen under About with the last 50 errors the app caught, and a Copy button for bug
+  reports. Keys and tokens are blanked out, and nothing leaves the phone.
 - "Fix it" and automatic check fixes send Claude the last lines of each failed Actions job's log when the GitHub
   token can read Actions, and still fall back to check names alone when it can't.
 - The car chat can close a pull request without merging, or reopen one that was closed without merging, with the same

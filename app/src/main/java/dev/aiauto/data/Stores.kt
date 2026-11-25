@@ -5,10 +5,12 @@ import dev.aiauto.core.AgentProfile
 import dev.aiauto.core.AgentSetup
 import dev.aiauto.core.ChatModel
 import dev.aiauto.core.ChatProfile
+import dev.aiauto.core.DeviceSpend
 import dev.aiauto.core.EffortChoice
 import dev.aiauto.core.RepoChange
 import dev.aiauto.core.RepoRef
 import dev.aiauto.core.RepoSettings
+import dev.aiauto.core.SpendLedger
 import dev.aiauto.core.SyncMerge
 import dev.aiauto.core.Task
 import dev.aiauto.core.TaskStore
@@ -358,25 +360,46 @@ class Settings(context: Context) {
             .apply()
     }
 
-    /** What Claude has cost today, by the phone's local date. Resets at midnight. */
+    /** What Claude has cost today on this phone alone, by its local date. Resets at midnight. */
     @get:Synchronized
-    val spentTodayUsd: Double
+    val ownSpentTodayUsd: Double
         get() = if (prefs.getString("spend_day", null) == today()) prefs.getFloat("spend_usd", 0f).toDouble() else 0.0
 
-    /** What Claude has cost this calendar month, by the phone's local date: every day's spend added up. */
+    /** What Claude has cost this calendar month on this phone alone: every day's spend added up. */
     @get:Synchronized
-    val spentThisMonthUsd: Double
+    val ownSpentThisMonthUsd: Double
         get() = when (prefs.getString("spend_month", null)) {
             thisMonth() -> prefs.getFloat("spend_month_usd", 0f).toDouble()
             // Builds before the monthly total only kept today's, so the month starts from that.
-            null -> spentTodayUsd
+            null -> ownSpentTodayUsd
             else -> 0.0
         }
 
+    /** What Claude has cost today on every device: this phone's own spend plus what synced devices reported. */
+    val spentTodayUsd: Double
+        get() = ownSpentTodayUsd + SpendLedger.othersOnDay(otherDevicesSpend, deviceId, today())
+
+    /** What Claude has cost this month on every device, so the monthly limit holds across them. */
+    val spentThisMonthUsd: Double
+        get() = ownSpentThisMonthUsd + SpendLedger.othersInMonth(otherDevicesSpend, deviceId, thisMonth())
+
+    /** This phone's own entry for the synced spending list. */
+    val ownSpend: DeviceSpend
+        get() = DeviceSpend(deviceId, today(), ownSpentTodayUsd, thisMonth(), ownSpentThisMonthUsd)
+
+    /** What other devices last reported spending, from sync. Never includes this phone. */
+    var otherDevicesSpend: List<DeviceSpend>
+        get() = prefs.getString("other_spend", null)
+            ?.let { runCatching { json.decodeFromString(deviceSpendSerializer, it) }.getOrNull() } ?: emptyList()
+        set(value) = prefs.edit()
+            .putString("other_spend", json.encodeToString(deviceSpendSerializer, value.filter { it.device != deviceId }))
+            .apply()
+
+    /** Adds to this phone's own totals. Other devices' spend only arrives through sync. */
     @Synchronized
     fun addSpend(usd: Double) {
-        val day = spentTodayUsd + usd
-        val month = spentThisMonthUsd + usd
+        val day = ownSpentTodayUsd + usd
+        val month = ownSpentThisMonthUsd + usd
         prefs.edit()
             .putString("spend_day", today()).putFloat("spend_usd", day.toFloat())
             .putString("spend_month", thisMonth()).putFloat("spend_month_usd", month.toFloat())
@@ -433,8 +456,8 @@ class Settings(context: Context) {
         const val DEFAULT_DAILY_LIMIT = 20.0
 
         /**
-         * Settings that are the same on every device. Left out: the voice (each phone has its own), spending and
-         * drive times (counted per device), the agent setup (tied to each device's key), and sync itself.
+         * Settings that are the same on every device. Left out: the voice (each phone has its own), spending (each
+         * device syncs its own totals separately) and drive times (counted per device), the agent setup (tied to each device's key), and sync itself.
          */
         val SYNCED_KEYS = setOf(
             "read_aloud", "theme_mode", "accent", "quiet_mode", "daily_limit", "monthly_limit", "repo_settings",
@@ -446,5 +469,23 @@ class Settings(context: Context) {
         private val LEGACY_REPO_KEYS = listOf("auto_merge", "auto_fix_checks", "auto_fix_conflicts", "auto_release_since")
 
         private val repoSettingsSerializer = MapSerializer(String.serializer(), RepoSettings.serializer())
+        private val deviceSpendSerializer = ListSerializer(DeviceSpend.serializer())
     }
+}
+
+/**
+ * The recent errors kept on this phone for the Recent errors screen in Settings. Saving is synchronous, so an error
+ * recorded just before a crash is still there after the restart. It never syncs.
+ */
+class ErrorStore(context: Context) {
+    private val list = JsonListFile(File(context.filesDir, "errors.json"), dev.aiauto.core.ErrorEntry.serializer())
+    val errors: StateFlow<List<dev.aiauto.core.ErrorEntry>> = list.flow
+
+    @Synchronized
+    fun record(where: String, error: Throwable?) {
+        list.set(dev.aiauto.core.ErrorLog.add(list.flow.value, dev.aiauto.core.ErrorLog.entry(System.currentTimeMillis(), where, error)))
+    }
+
+    @Synchronized
+    fun clear() = list.set(emptyList())
 }

@@ -1,10 +1,11 @@
 package dev.aiauto.data
 
-import android.util.Log
+import dev.aiauto.AppLog
 import dev.aiauto.core.Failures
 import dev.aiauto.core.GitHub
 import dev.aiauto.core.GitHubException
 import dev.aiauto.core.RepoSync
+import dev.aiauto.core.SpendLedger
 import dev.aiauto.core.SyncRepoNotPrivate
 import dev.aiauto.core.SyncSnapshot
 import kotlinx.coroutines.CoroutineScope
@@ -19,7 +20,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * Syncs repos, tasks, settings and the car chat's memory through a private repo on the user's GitHub account.
+ * Syncs repos, tasks, settings, each device's spending and the car chat's memory through a private repo on the user's GitHub account.
  * Runs every few minutes while the app is alive, shortly after tasks change, and when asked from Settings.
  */
 class SyncManager(
@@ -55,7 +56,7 @@ class SyncManager(
 
     private suspend fun syncQuietly() {
         if (!settings.syncEnabled) return
-        runCatching { syncNow() }.onFailure { Log.w("AiAuto", "Sync failed", it) }
+        runCatching { syncNow() }.onFailure { AppLog.w("Sync failed", it) }
     }
 
     /** One sync round. Returns a sentence for Settings saying how it went. */
@@ -88,6 +89,7 @@ class SyncManager(
             removedTasks = tasks.removedIds(),
             chatForgottenMillis = chat.forgottenMillis,
             repoChanges = repos.changes(),
+            spend = SpendLedger.merge(listOf(settings.ownSpend), settings.otherDevicesSpend),
         )
         // The first round since the app started also moves an old sync gist into the repo and deletes it, in case a
         // device still on an older version made one again.
@@ -107,6 +109,8 @@ class SyncManager(
         repos.applySynced(merged.repos, merged.repoChanges)
         if (merged.settingsChangedMillis > local.settingsChangedMillis) settings.importSynced(merged.settings, merged.settingsChangedMillis)
         if (settings.rememberChats) chat.replaceAll(merged.chat, merged.chatForgottenMillis)
+        // This phone's own total is counted here; only the other devices' totals come from sync.
+        settings.otherDevicesSpend = merged.spend.filter { it.device != me }
     }
 
     private fun describe(e: Exception): String = when {
