@@ -34,8 +34,7 @@ class TemplatesScreen(carContext: CarContext) : Screen(carContext) {
             )
         }
         return ListTemplate.Builder()
-            .setTitle("Templates")
-            .setHeaderAction(Action.BACK)
+            .setHeader(carHeader("Templates"))
             .setSingleList(items.build())
             .build()
     }

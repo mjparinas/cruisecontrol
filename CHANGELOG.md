@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Fixed the Quick Settings tile: tapping it no longer crashes on Android 14 and later, and adding it no longer crashes
+  on Android 8 and 9.
+- Under the hood: the car screens use the Car App Library's current header, Android Lint errors now fail the build,
+  and the app has unit tests for the car templates.
 - The app targets Android 16 (API 36), which Google Play requires for updates from August 31, 2026. Back gestures
   now show Android's predictive back preview.
 - Share screenshots or other pictures into Cruise Control, up to four, and they go with the next task you start, so

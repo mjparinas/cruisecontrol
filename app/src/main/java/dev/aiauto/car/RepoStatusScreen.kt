@@ -3,7 +3,6 @@ package dev.aiauto.car
 import androidx.car.app.CarContext
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
-import androidx.car.app.model.ActionStrip
 import androidx.car.app.model.ItemList
 import androidx.car.app.model.ListTemplate
 import androidx.car.app.model.Row
@@ -31,11 +30,11 @@ class RepoStatusScreen(carContext: CarContext, private val repo: RepoRef) : Scre
     override fun onGetTemplate(): Template {
         val view = g.projects.view(repo)
         val status = view.status
-        val template = ListTemplate.Builder().setTitle(repo.name).setHeaderAction(Action.BACK)
+        val template = ListTemplate.Builder()
         if (status == null) {
-            if (view.error == null) return template.setLoading(true).build()
-            return template.setSingleList(ItemList.Builder().setNoItemsMessage(view.error!!).build())
-                .setActionStrip(ActionStrip.Builder().addAction(refresh()).build())
+            if (view.error == null) return template.setHeader(carHeader(repo.name)).setLoading(true).build()
+            return template.setHeader(carHeader(repo.name, end = listOf(refresh())))
+                .setSingleList(ItemList.Builder().setNoItemsMessage(view.error!!).build())
                 .build()
         }
 
@@ -73,8 +72,8 @@ class RepoStatusScreen(carContext: CarContext, private val repo: RepoRef) : Scre
             .setOnClickListener { g.speaker.speak(SpokenStatus.forRepo(status)) }
             .build()
         return template
+            .setHeader(carHeader(repo.name, end = listOf(readAloud, refresh())))
             .setSingleList(items.build())
-            .setActionStrip(ActionStrip.Builder().addAction(readAloud).addAction(refresh()).build())
             .build()
     }
 

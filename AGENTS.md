@@ -280,8 +280,9 @@ Security:
   `./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug`. The Build workflow
   (`.github/workflows/build.yml`) runs that on every push and pull request, cancels superseded runs, uploads the
   debug APK, then runs Android Lint and prints its text report in the log.
-- Android Lint only reports for now (`abortOnError = false` in `app/build.gradle.kts`) until the issues it found in
-  existing code are fixed.
+- Android Lint errors fail the build (`abortOnError = true` in `app/build.gradle.kts`); warnings are only reported.
+  The five errors it found in existing code were fixed first: two were real crashes in the Quick Settings tile
+  (its subtitle needs Android 10, and Android 14 throws for the Intent form of `startActivityAndCollapse`).
 - Releases come from the Release workflow (`.github/workflows/release.yml`), started from the Actions tab or by
   pushing a tag like v0.8.0. Run from the Actions tab with the version left empty, it releases the next patch after
   the latest tag, picked by `.github/scripts/next-version.sh` with the same rule as `Versions.nextPatch`, so
@@ -317,8 +318,9 @@ updates from August 31, 2026, even on the testing tracks. Android 16's changes f
 the app already draws edge to edge, its back handling goes through Compose's `BackHandler` and the car library's own
 screen stack (no `onBackPressed` or back key handling), it fixes no orientation or resizability, and it uses no
 JobScheduler, ordered broadcasts or `elegantTextHeight`. CI uses setup-gradle v5, not v6, because v6 puts its caching under Gradle's proprietary Terms of Use, which
-upgrading accepts; that's the owner's call. Car App 1.7 deprecates the title and header setters the car screens use;
-they still work, and moving to `Header` is left for a separate change.
+upgrading accepts; that's the owner's call. Car App 1.7 deprecated each template's own title, header action and
+action strip; every car screen now builds a `Header` through `carHeader` (`app/src/main/java/dev/aiauto/car/CarHeader.kt`),
+with the old strip's actions as its end actions, and `CarHeaderTest` keeps the old setters out.
 
 ## Numbers the code depends on
 
@@ -344,6 +346,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- Lint errors now fail the build, after fixing the five it found. The car screens moved to Car App 1.7's `Header`,
+  and app unit tests build the car templates on the JVM.
 - targetSdk raised to 36 (Android 16) for Google Play's August 2026 rule, after checking Android 16's behaviour
   changes against the app; compileSdk stays 37.2.
 - Screenshots shared into the app go with the next task, kept only on that device. Tasks can be saved for later

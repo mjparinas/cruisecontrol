@@ -40,14 +40,14 @@ class PullScreen(carContext: CarContext, private val repo: RepoRef, private val 
         val title = "Pull request $number"
         if (status == null || merging) {
             return if (view.error != null && !merging) {
-                MessageTemplate.Builder(view.error!!).setTitle(title).setHeaderAction(Action.BACK).build()
+                MessageTemplate.Builder(view.error!!).setHeader(carHeader(title)).build()
             } else {
-                MessageTemplate.Builder(if (merging) "Merging…" else "Loading…").setTitle(title).setHeaderAction(Action.BACK).build()
+                MessageTemplate.Builder(if (merging) "Merging…" else "Loading…").setHeader(carHeader(title)).build()
             }
         }
         val entry = status.pulls.firstOrNull { it.pull.number == number }
             ?: return MessageTemplate.Builder("Pull request $number isn't open anymore. It may have been merged or closed.")
-                .setTitle(title).setHeaderAction(Action.BACK).build()
+                .setHeader(carHeader(title)).build()
         val pull = entry.pull
         val checks = entry.checks
 
@@ -76,7 +76,7 @@ class PullScreen(carContext: CarContext, private val repo: RepoRef, private val 
                 .setOnClickListener { g.speaker.speak(SpokenStatus.forPull(pull, checks)) }
                 .build(),
         )
-        return PaneTemplate.Builder(pane.build()).setTitle(title).setHeaderAction(Action.BACK).build()
+        return PaneTemplate.Builder(pane.build()).setHeader(carHeader(title)).build()
     }
 
     private fun confirmText(state: Checks) = when (state) {

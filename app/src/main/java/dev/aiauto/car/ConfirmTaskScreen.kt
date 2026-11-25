@@ -71,8 +71,7 @@ class ConfirmTaskScreen(
 
     override fun onGetTemplate(): Template {
         val template = MessageTemplate.Builder(message)
-            .setTitle("Confirm task")
-            .setHeaderAction(Action.BACK)
+            .setHeader(carHeader("Confirm task"))
         if (g.settings.listenUntilStop) {
             template.addAction(Action.Builder().setTitle("Stop listening").setOnClickListener(voice::finish).build())
         } else {

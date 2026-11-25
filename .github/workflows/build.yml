@@ -38,7 +38,7 @@ jobs:
           name: cruise-control-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           compression-level: 0
-      # Android Lint runs last and only reports for now (see the lint block in app/build.gradle.kts).
+      # Android Lint runs last; errors fail the build and warnings are only reported (see app/build.gradle.kts).
       - name: Android Lint
         run: |
           ./gradlew :app:lintDebug --stacktrace

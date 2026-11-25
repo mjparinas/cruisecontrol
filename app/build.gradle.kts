@@ -50,11 +50,16 @@ android {
 
     buildFeatures { compose = true }
 
-    // Lint reports in CI without failing the build until the issues it finds in existing code are fixed.
-    // The Build workflow prints its text report in the build log and uploads it as the lint-report artifact.
+    // Lint errors fail the build; warnings are only reported. The Build workflow prints the text report in the build
+    // log and uploads it as the lint-report artifact.
     lint {
-        abortOnError = false
+        abortOnError = true
+        warningsAsErrors = false
     }
+
+    // Car App Library models are plain classes, so their builders run in unit tests; Android stubs they touch
+    // return defaults instead of throwing.
+    testOptions { unitTests.isReturnDefaultValues = true }
 
     packaging {
         resources {

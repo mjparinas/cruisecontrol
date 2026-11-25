@@ -68,7 +68,7 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
 - The agent sandbox starts without an Android SDK (see below to install one). The first run downloads from Maven
   Central, which sometimes answers 429 Too Many Requests; just run it again.
 - `./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug` is what CI runs (needs the Android SDK,
-  API 37.2). Lint only reports. Without an SDK, install the command-line tools from dl.google.com, run
+  API 37.2). Lint errors fail the build; warnings only report. Without an SDK, install the command-line tools from dl.google.com, run
   sdkmanager for `platforms;android-37.2` and set `ANDROID_HOME`. Maven Central may answer 429; just rerun.
 - The Release workflow keeps a release made on merge a draft until its APK is attached; `ReleaseWorkflowTest` checks
   the order of those steps.
