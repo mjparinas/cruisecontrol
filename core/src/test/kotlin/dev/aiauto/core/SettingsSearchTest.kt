@@ -19,13 +19,14 @@ class SettingsSearchTest {
         val search = SettingsSearch("THEME")
         assertTrue(search.showsSection("Appearance"))
         assertTrue(search.showsRow("Appearance", "Theme"))
-        assertFalse(search.showsRow("Appearance", "Accent color"))
+        assertFalse(search.showsRow("Appearance", "Accent colour"))
         assertFalse(search.showsSection("Spending"))
     }
 
     @Test fun matchesKeywords() {
         val search = SettingsSearch("colour")
-        assertTrue(search.showsRow("Appearance", "Accent color"))
+        assertTrue(search.showsRow("Appearance", "Accent colour"))
+        assertTrue(SettingsSearch("color").showsRow("Appearance", "Accent colour"))
         assertFalse(search.showsRow("Appearance", "Theme"))
         assertTrue(SettingsSearch("money").showsRow("Spending", "Monthly limit"))
         assertTrue(SettingsSearch("gemini").showsRow("Accounts", "Gemini API key"))

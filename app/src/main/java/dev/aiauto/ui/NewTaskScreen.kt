@@ -36,6 +36,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,7 +46,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import dev.aiauto.core.RepoRef
+import dev.aiauto.core.SpokenStatus
 import dev.aiauto.core.TaskTemplate
+import dev.aiauto.core.VoiceCommand
+
+private data class PendingTaskStart(val repo: RepoRef, val request: String, val ask: Boolean, val shared: Boolean = false)
 
 @Composable
 fun NewTaskScreen(
@@ -62,17 +67,84 @@ fun NewTaskScreen(
     onStartShared: ((RepoRef, String) -> Unit)? = null,
     autoListen: Boolean = false,
     onAutoListenHandled: () -> Unit = {},
+    initialRequest: Pair<RepoRef, String>? = null,
+    onReadBack: (String, () -> Unit) -> Unit = { _, done -> done() },
 ) {
     var selected by remember { mutableStateOf(lastUsed?.takeIf { it in repos } ?: repos.firstOrNull()) }
     var askMode by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
+    var pendingStart by remember(initialRequest) {
+        mutableStateOf(initialRequest?.let { PendingTaskStart(it.first, it.second, ask = false) })
+    }
+    var waitingForConfirmation by remember(initialRequest) { mutableStateOf(initialRequest != null) }
+    var autoConfirmListen by remember(initialRequest) { mutableStateOf(false) }
+    fun readBack(start: PendingTaskStart, done: () -> Unit = {}) {
+        val request = SpokenStatus.clean(start.request)
+        onReadBack("I heard: $request in ${start.repo.name}. Say yes to start, or no to cancel.", done)
+    }
+    fun requestStart(repo: RepoRef, request: String, ask: Boolean = false, shared: Boolean = false) {
+        val start = PendingTaskStart(repo, request, ask, shared)
+        pendingStart = start
+        waitingForConfirmation = true
+        readBack(start)
+    }
+    fun startPending() {
+        val start = pendingStart ?: return
+        pendingStart = null
+        waitingForConfirmation = false
+        when {
+            start.ask -> onStartAsk(start.repo, start.request)
+            start.shared -> onStartShared?.invoke(start.repo, start.request)
+            else -> onStart(start.repo, start.request)
+        }
+    }
+    LaunchedEffect(initialRequest) {
+        initialRequest?.let { readBack(PendingTaskStart(it.first, it.second, ask = false)) { autoConfirmListen = true } }
+    }
     if (adding) AddTemplateDialog(onDismiss = { adding = false }, onSave = onAddTemplate)
+    pendingStart?.let { start ->
+        AlertDialog(
+            onDismissRequest = { pendingStart = null; waitingForConfirmation = false },
+            shape = RoundedCornerShape(28.dp),
+            title = { Text(if (start.ask) "Ask Claude about this?" else "Start this task?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("In ${start.repo.fullName}")
+                    Text(start.request)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = ::startPending) { Text(if (start.ask) "Ask Claude" else "Start task") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingStart = null; waitingForConfirmation = false }) { Text("Cancel") }
+            },
+        )
+    }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { ScreenTopBar("New task", onBack) },
         floatingActionButton = {
-            MicButton(enabled = selected != null, listenUntilStop = listenUntilStop, disabledReason = "Add a repo in Settings first.", autoStart = autoListen, onAutoStartHandled = onAutoListenHandled) { text ->
-                selected?.let { if (askMode) onStartAsk(it, text) else onStart(it, text) }
+            MicButton(
+                enabled = selected != null,
+                listenUntilStop = listenUntilStop,
+                disabledReason = "Add a repo in Settings first.",
+                autoStart = autoListen || autoConfirmListen,
+                onAutoStartHandled = {
+                    if (autoConfirmListen) autoConfirmListen = false else onAutoListenHandled()
+                },
+            ) { text ->
+                if (waitingForConfirmation) {
+                    when (VoiceCommand.confirmation(text)) {
+                        VoiceCommand.Yes -> startPending()
+                        VoiceCommand.No -> { pendingStart = null; waitingForConfirmation = false }
+                        else -> readBack(checkNotNull(pendingStart)) {
+                            autoConfirmListen = true
+                        }
+                    }
+                } else {
+                    selected?.let { requestStart(it, text, askMode) }
+                }
             }
         },
     ) { padding ->
@@ -83,7 +155,7 @@ fun NewTaskScreen(
                 SettingsCard {
                     Text(sharedText, Modifier.fillMaxWidth().padding(16.dp))
                     if (onStartShared != null) SettingRow(Icons.Rounded.PlayArrow, BadgeHue.Accent, "Start this request", "Starts a task in the selected repo.") {
-                        selected?.let { onStartShared(it, sharedText) }
+                        selected?.let { requestStart(it, sharedText, shared = true) }
                     }
                 }
             }
@@ -110,7 +182,7 @@ fun NewTaskScreen(
                     TemplateRow(
                         template,
                         enabled = selected != null,
-                        onRun = { selected?.let { onStart(it, template.prompt) } },
+                        onRun = { selected?.let { requestStart(it, template.prompt) } },
                         onDelete = { onDeleteTemplate(template) },
                     )
                 }

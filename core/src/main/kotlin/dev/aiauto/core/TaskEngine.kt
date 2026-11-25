@@ -52,6 +52,8 @@ class TaskEngine(
 
     private val running = ConcurrentHashMap<String, Job>()
     private val seenEvents = ConcurrentHashMap<String, MutableSet<String>>()
+    private val historyRefreshing = ConcurrentHashMap.newKeySet<String>()
+    private val historyRefreshed = ConcurrentHashMap<String, Long>()
 
     fun isRunning(taskId: String) = running[taskId]?.isActive == true
 
@@ -70,13 +72,29 @@ class TaskEngine(
 
     /** Starts a new task on [repo] from a spoken or typed [request]. Returns the new task. */
     fun start(repo: RepoRef, request: String): Task {
-        return start(repo, request, readOnly = false)
+        return start(repo, request, readOnly = false, issueNumber = null)
     }
 
     /** Starts a repository question session whose prompt forbids edits, commits and pushes. */
-    fun startAsk(repo: RepoRef, request: String): Task = start(repo, request, readOnly = true)
+    fun startAsk(repo: RepoRef, request: String): Task = start(repo, request, readOnly = true, issueNumber = null)
 
-    private fun start(repo: RepoRef, request: String, readOnly: Boolean): Task {
+    /** Starts a coding task with an issue's title and body as its request. */
+    fun startIssue(repo: RepoRef, issue: GitHubIssue): Task {
+        require(issue.pullRequest == null) { "Pull request ${issue.number} isn't an issue." }
+        val body = issue.body.orEmpty().trim()
+        val boundedBody = body.take(MAX_ISSUE_BODY_CHARS)
+        val request = buildString {
+            append("Fix issue #${issue.number}: ${issue.title.trim()}")
+            if (boundedBody.isNotEmpty()) {
+                append("\n\n")
+                append(boundedBody)
+                if (body.length > boundedBody.length) append("\n\n[Issue body truncated.]")
+            }
+        }
+        return start(repo, request, readOnly = false, issueNumber = issue.number)
+    }
+
+    private fun start(repo: RepoRef, request: String, readOnly: Boolean, issueNumber: Int?): Task {
         val now = clock()
         val id = UUID.randomUUID().toString().take(8)
         val task = Task(
@@ -85,6 +103,7 @@ class TaskEngine(
             title = titleFrom(request),
             branch = "claude/${slug(request)}-$id",
             readOnly = readOnly,
+            issueNumber = issueNumber,
             createdMillis = now,
             updatedMillis = now,
             device = config.deviceId(),
@@ -103,6 +122,9 @@ class TaskEngine(
     fun prompt(taskId: String, text: String) {
         val task = store.get(taskId) ?: return
         val command = VoiceCommand.parse(text)
+        val reviewPrompt = task.pendingReviewComment?.let {
+            "A reviewer left this comment on your pull request:\n$it\n\nThe driver's response is:\n$text"
+        }
         val pending = task.pending
         // Hearing a question again shouldn't cancel it, so "repeat that" then "yes" still answers it.
         if (pending != null && command != VoiceCommand.Repeat) journal.update(taskId) { it.copy(pending = null) }
@@ -167,12 +189,12 @@ class TaskEngine(
                     journal.status(taskId, "Quiet mode is on. I'll only read out results and alerts. Turn it off in Settings.")
                 }
             }
-            else -> send(taskId, text, text)
+            else -> send(taskId, text, reviewPrompt ?: text, includeReviewComment = reviewPrompt != null)
         }
     }
 
     /** Shows [shown] as the driver's line and sends [text] to Claude. With no [shown], the app is sending it on its own. */
-    private fun send(taskId: String, shown: String?, text: String) {
+    private fun send(taskId: String, shown: String?, text: String, includeReviewComment: Boolean = false) {
         val task = store.get(taskId) ?: return
         if (shown != null) {
             journal.append(taskId, Speaker.You, shown)
@@ -186,6 +208,7 @@ class TaskEngine(
         if (task.sessionId != null) {
             journal.update(taskId) { it.copy(pendingPrompt = listOfNotNull(it.pendingPrompt, toSend).joinToString("\n\n")) }
         }
+        if (includeReviewComment) journal.update(taskId) { it.copy(pendingReviewComment = null) }
         launchTurn(taskId)
     }
 
@@ -395,6 +418,7 @@ class TaskEngine(
         val task = store.get(taskId) ?: return
         store.remove(taskId)
         seenEvents.remove(taskId)
+        historyRefreshed.remove(taskId)
         val sessionId = task.sessionId ?: return
         scope.launch(dispatcher) {
             withClaude { claude ->
@@ -507,6 +531,27 @@ class TaskEngine(
 
     /** Fetches one task's pull request and checks, says what changed, and merges it if it's ready. */
     fun refreshPullRequest(taskId: String) = pullRequests.refresh(taskId)
+
+    /** Fills history trimmed from a synced task copy with older events kept by Claude's session. */
+    fun refreshHistory(taskId: String): Job? {
+        val task = store.get(taskId) ?: return null
+        val sessionId = task.sessionId ?: return null
+        historyRefreshed[taskId]?.let { if (clock() - it < HISTORY_REFRESH_MILLIS) return null }
+        if (!historyRefreshing.add(taskId)) return null
+        return scope.launch(dispatcher) {
+            try {
+                val key = config.anthropicKey() ?: return@launch
+                val history = claudeFactory(key).use { it.history(sessionId) }
+                val current = store.get(taskId) ?: return@launch
+                if (current.sessionId != sessionId) return@launch
+                val merged = RepoHistory.mergeSessionMessages(current.messages, history)
+                if (merged != current.messages) store.put(current.copy(messages = merged))
+                historyRefreshed[taskId] = clock()
+            } finally {
+                historyRefreshing.remove(taskId)
+            }
+        }
+    }
 
     /** Merges a task's pull request now, at the user's request. Returns a sentence saying what happened. */
     fun mergeNow(taskId: String): String = pullRequests.mergeNow(taskId)
@@ -675,7 +720,9 @@ class TaskEngine(
                 pullRequests.rewatch(taskId)
             }
         }
-        val question = store.get(taskId)?.messages?.lastOrNull { it.speaker == Speaker.Claude }?.text?.trimEnd()?.takeIf { it.endsWith("?") }
+        // Only this turn's lines count, so a question Claude asked in an earlier turn isn't asked again.
+        val question = store.get(taskId)?.messages?.takeLastWhile { it.speaker != Speaker.You }
+            ?.lastOrNull { it.speaker == Speaker.Claude }?.text?.trimEnd()?.takeIf { it.endsWith("?") }
         journal.update(taskId) { it.copy(status = if (question != null) TaskStatus.NeedsInput else TaskStatus.Done, interruptedSinceMillis = null, approval = null) }
         if (question != null) alert(taskId, AlertKind.Question, question)
     }
@@ -694,6 +741,8 @@ class TaskEngine(
 
         /** How long the car must stand still before it counts as parked, so rolling to a stop doesn't count. */
         const val PARKED_AFTER_MILLIS = 10_000L
+        private const val HISTORY_REFRESH_MILLIS = 5 * 60_000L
+        private const val MAX_ISSUE_BODY_CHARS = 12_000
 
         /** Voice shortcuts that would write to the repo; Ask sessions refuse them. */
         private val READ_ONLY_BLOCKED = setOf(

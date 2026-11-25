@@ -27,6 +27,8 @@ class CoreTest {
         assertEquals(listOf(mine[0]), RepoRef.matchSpoken("mjparinas/aiauto", mine))
         assertEquals(listOf(mine[1]), RepoRef.matchSpoken("mjparinas slash my site", mine))
         assertEquals(mine.drop(1), RepoRef.matchSpoken("my site", mine))
+        // A misheard owner still finds the repo by name, however the recognizer capitalized "slash".
+        assertEquals(listOf(mine[0]), RepoRef.matchSpoken("My Parinas Slash AI auto", mine))
         assertTrue(RepoRef.matchSpoken("nothing", mine).isEmpty())
         assertTrue(RepoRef.matchSpoken("  ", mine).isEmpty())
     }

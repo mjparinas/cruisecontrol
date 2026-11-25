@@ -16,6 +16,7 @@ internal class PullRequests(
     private val alert: (taskId: String, kind: AlertKind, text: String) -> Unit = { _, _, _ -> },
 ) {
     private val mergeRefusals = ConcurrentHashMap<String, String>()
+    private val reviewAccessWarnings = ConcurrentHashMap.newKeySet<String>()
 
     /** True when [task]'s pull request checks or merge are still worth watching. */
     fun needsWatching(task: Task, now: Long): Boolean {
@@ -54,6 +55,9 @@ internal class PullRequests(
         if (!github.branchExists(task.repo, task.branch)) return
         val pr = github.findPull(task.repo, task.branch) ?: github.openPull(task.repo, task.branch, task.title, body(task))
         val open = pr.prState == PrState.Open
+        val reviewBaseline = if (open) runCatching {
+            github.reviewComments(task.repo, pr.number).maxOfOrNull { it.id } ?: 0L
+        }.getOrNull() else null
         val autoMerge = config.repoSettings(task.repo).autoMerge
         // GitHub's own auto-merge keeps working with the phone off. It needs the repo setting
         // and required checks; otherwise the app merges once it sees the checks pass.
@@ -62,6 +66,7 @@ internal class PullRequests(
             it.copy(
                 prUrl = pr.htmlUrl, prNumber = pr.number, prState = pr.prState,
                 prOpenedMillis = clock(), githubAutoMerge = githubMerges || pr.hasGitHubAutoMerge,
+                lastReviewCommentId = it.lastReviewCommentId ?: reviewBaseline,
             )
         }
         journal.status(
@@ -103,6 +108,7 @@ internal class PullRequests(
         // While GitHub is still working out mergeability, keep what it said last.
         val conflicts = state == PrState.Open && (pr.hasConflicts ?: task.conflicts)
         journal.update(taskId) { it.copy(prState = state, checks = checks, githubAutoMerge = pr.hasGitHubAutoMerge, prUrl = pr.htmlUrl, conflicts = conflicts) }
+        if (state == PrState.Open) announceReviewComments(taskId, github, number)
 
         val willMerge = state == PrState.Open && settings.autoMerge && !pr.draft && !pr.hasGitHubAutoMerge && !conflicts &&
             checks != null && readyToMerge(checks, task, clock())
@@ -151,10 +157,15 @@ internal class PullRequests(
         if (!willMerge) return
         val refusalKey = "$taskId:${pr.head.sha}"
         when (val result = github.merge(task.repo, number)) {
-            MergeResult.Merged, MergeResult.AutoMergeOn -> {
+            MergeResult.Merged -> {
                 journal.update(taskId) { it.copy(prState = PrState.Merged) }
                 journal.status(taskId, "Merged pull request $number.")
-                if (result == MergeResult.Merged) release(taskId, github, clock(), null)
+                release(taskId, github, clock(), null)
+            }
+            // Not merged yet: GitHub merges it later, and the next refresh sees that and announces it.
+            MergeResult.AutoMergeOn -> {
+                journal.update(taskId) { it.copy(githubAutoMerge = true) }
+                journal.status(taskId, "GitHub will merge pull request $number when checks pass.")
             }
             is MergeResult.Refused -> if (mergeRefusals.put(refusalKey, result.reason) == null) {
                 journal.status(taskId, "Couldn't merge pull request $number. ${result.reason}")
@@ -224,11 +235,56 @@ internal class PullRequests(
 
     private fun body(task: Task): String = buildString {
         appendLine("Requested by voice from Cruise Control.")
+        task.issueNumber?.let {
+            appendLine()
+            appendLine("Closes #$it")
+        }
         appendLine()
         task.messages.filter { it.speaker == Speaker.You }.forEach { appendLine("> ${it.text}") }
         task.messages.lastOrNull { it.speaker == Speaker.Claude }?.let {
             appendLine()
             appendLine(it.text)
+        }
+    }
+
+    private fun announceReviewComments(taskId: String, github: GitHub, number: Int) {
+        val task = store.get(taskId) ?: return
+        val comments = try {
+            github.reviewComments(task.repo, number, task.lastReviewCommentId)
+        } catch (e: GitHubException) {
+            if (e.code != 403 && e.code != 404) throw e
+            if (reviewAccessWarnings.add(taskId)) journal.status(
+                taskId,
+                "I couldn't read review comments on pull request $number. Check that your GitHub token can read pull requests.",
+                notify = false,
+            )
+            return
+        }
+        reviewAccessWarnings.remove(taskId)
+        if (task.lastReviewCommentId == null) {
+            val latest = comments.maxOfOrNull { it.id } ?: 0L
+            journal.update(taskId) { it.copy(lastReviewCommentId = latest) }
+            return
+        }
+        comments.forEach { comment ->
+            val latestId = store.get(taskId)?.lastReviewCommentId ?: task.lastReviewCommentId
+            if (comment.id <= latestId) return@forEach
+            val body = SpokenStatus.clean(comment.body).replace(Regex("""https?://\S+"""), "a link")
+            if (body.isNotBlank()) {
+                val author = comment.user?.login?.takeIf { it.isNotBlank() } ?: "Someone"
+                val path = comment.path?.takeIf { it.isNotBlank() }?.let { " on $it" }.orEmpty()
+                val text = "$author commented on pull request $number$path: $body"
+                journal.update(taskId) {
+                    it.copy(
+                        lastReviewCommentId = maxOf(it.lastReviewCommentId ?: 0L, comment.id),
+                        pendingReviewComment = text,
+                    )
+                }
+                journal.status(taskId, text, notify = false)
+                alert(taskId, AlertKind.ReviewComment, text)
+            } else {
+                journal.update(taskId) { it.copy(lastReviewCommentId = maxOf(it.lastReviewCommentId ?: 0L, comment.id)) }
+            }
         }
     }
 

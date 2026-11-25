@@ -24,7 +24,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
- * One task's latest updates, with buttons to reply by voice, stop it, hear it, or go to its pull request. While the car
+ * One task's latest updates, with buttons to reply by voice, stop it, hear it, see its whole history, or go to its
+ * pull request. While the car
  * is parked, a step Claude's safety check flagged shows here with Approve and Deny.
  */
 class TaskDetailScreen(carContext: CarContext, private val taskId: String) : Screen(carContext) {
@@ -64,10 +65,11 @@ class TaskDetailScreen(carContext: CarContext, private val taskId: String) : Scr
         val strip = mutableListOf<Action>()
         when {
             task.approval != null -> { main += approve(); main += deny(); strip += stop(); strip += readAloud(task) }
-            working -> { main += reply(task, primary = true); main += stop(); strip += readAloud(task) }
-            failed -> { main += tryAgain(); main += reply(task, primary = false); strip += readAloud(task); strip += clear() }
-            task.hasOpenPr && task.status != TaskStatus.NeedsInput -> { main += pullRequest(task); main += reply(task, primary = false); strip += readAloud(task); strip += clear() }
-            else -> { main += reply(task, primary = true); main += readAloud(task); strip += clear() }
+            working -> { main += reply(task, primary = true); main += stop(); strip += readAloud(task); strip += history() }
+            // The strip only holds two actions, so Clear moves onto the History screen here.
+            failed -> { main += tryAgain(); main += reply(task, primary = false); strip += readAloud(task); strip += history() }
+            task.hasOpenPr && task.status != TaskStatus.NeedsInput -> { main += pullRequest(task); main += reply(task, primary = false); strip += readAloud(task); strip += history() }
+            else -> { main += reply(task, primary = true); main += readAloud(task); strip += history(); strip += clear() }
         }
         main.forEach { pane.addAction(it) }
         return PaneTemplate.Builder(pane.build())
@@ -149,6 +151,11 @@ class TaskDetailScreen(carContext: CarContext, private val taskId: String) : Scr
                 },
             )
         }
+        .build()
+
+    private fun history() = Action.Builder()
+        .setTitle("History")
+        .setOnClickListener { screenManager.push(TaskHistoryScreen(carContext, taskId)) }
         .build()
 
     private fun readAloud(task: Task) = Action.Builder()

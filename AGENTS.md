@@ -48,7 +48,12 @@ Driving safety comes first:
   An unknown speed, or no speed permission, counts as moving.
 - Voice input sends as soon as the driver stops talking on the app's own car screen. The car screen opens on one big
   Talk button and starts listening when it opens. Android Auto's messaging view always asks for Send, which apps
-  can't turn off, so the app explains how to avoid it. The phone app is voice first: the New task screen and the
+  can't turn off, so the app explains how to avoid it. That view also has no button for starting a chat, so the
+  Talk to Claude conversation posted when the phone connects is the way in, and dismissing it during a drive puts it
+  straight back (`core/src/main/kotlin/dev/aiauto/core/CarChat.kt`). New task requests on the phone, car screen,
+  Google Assistant shortcut and Android Auto messaging reply are read back and require a separate confirmation before
+  work starts. The messaging reply's pending confirmation is held in memory and expires after 60 seconds, so a
+  process restart safely drops it without starting the task. The phone app is voice first: the New task screen and the
   task chat have no text box, only a floating microphone at the bottom right (`MicButton`) that listens in the app
   with `VoiceInput`, turns into a Stop button while listening, and sends when the person stops talking. Keep
   listening until Stop (off by default) makes pauses not send, both on the car screen and on the phone, and Stop
@@ -67,8 +72,15 @@ Driving safety comes first:
   restarts, and then reads it. `core/src/main/kotlin/dev/aiauto/core/SpeechHold.kt` holds the logic.
 - The car's task screen shows only the latest two lines, each cut to a glance of whole sentences, or one line while a
   step waits for approval.
+- The full history of a task, or of every task in a repo, is on the car's History screens
+  (`app/src/main/java/dev/aiauto/car/TaskHistoryScreen.kt`, logic in `core/src/main/kotlin/dev/aiauto/core/RepoHistory.kt`).
+  They use the standard list template with up to ten rows, each cut to a glance, and deliver the rest by voice:
+  tap a row to hear it, or Read all for everything. Paging back to older rows only works while parked, so the driver
+  never scrolls through text on the move. Repo history includes archived tasks and the last 100 tasks cleared on this
+  device. Cleared history stays local and does not sync. Opening a task's History fills older messages trimmed from a
+  synced copy by listing the Claude session's events.
 - Short replies (status, stop, merge it, fix it, yes, no, repeat that, quiet, undo that, start over) are handled by the app without starting a Claude turn.
-  Anything longer goes to Claude.
+  Anything longer goes to Claude. Repeat and Quiet work in the car chat too.
 - A merge the driver asks for always asks for confirmation first, and the car assistant only merges on a yes in a
   later turn. The app only merges on its own when Merge when checks pass is on. Failing checks, conflicting pull
   requests and checks the token can't read are never merged.
@@ -123,7 +135,8 @@ Tasks, repos and sync:
 - On the phone, swiping a task card left archives it with undo, and swiping right clears it after asking (PR 65,
   directions swapped later). On the Archived tab, swiping right clears an archived task after asking; there's no
   left swipe there.
-  Archived tasks are hidden from the car and the voice assistant.
+  Archived tasks are hidden from the car task list and the voice assistant, but remain in car repo history.
+  Clearing a task keeps its history on this device, capped at the most recently cleared 100 tasks; it is not synced.
 - Repos are added from the list of repos the token can push to, several at once, by typing owner/name, or by saying
   the name to the car assistant. Removing a repo needs a confirmation, leaves running tasks alone and changes nothing
   on GitHub.
@@ -131,17 +144,22 @@ Tasks, repos and sync:
   the car chat use `RepoRef.choices`: repos with tasks first, newest task first, then saved repos, then the rest in
   GitHub's most recently pushed order. The token's list is cached on the device so the car picker opens without
   waiting on GitHub; it isn't synced, and saved repos still decide what Projects shows and what syncs.
+- The car assistant can list open issues and start a task from a numbered issue. It reads the issue body, requires
+  a separate yes, and the task's pull request closes that issue when merged. Review comments on task pull requests
+  are announced once; replying includes the comment and the driver's response in the prompt to Claude.
 - Sync across devices is opt-in and lives in a private repo named cruise-control-sync on the token owner's account.
   It never holds the API keys, GitHub token, voice, spending total or agent setup. Sync refuses to write to a public
   repo. It replaced a secret gist (PR 58) because anyone with a gist's link can read it.
 - Synced tasks keep their last 60 messages. A task runs on the device that started it until you reply to it or
   retry it from another device. The newer side wins for tasks and settings, and removals sync through tombstones.
   Per-repo settings sync as one setting with the rest.
-- A Google Assistant shortcut (App Actions custom intent in `app/src/main/res/xml/shortcuts.xml`) starts a task
-  with no taps and no confirmation, so it's truly hands-free. `VoiceShortcut` takes the repo from the start or end of
-  the request, only from saved repos, and otherwise uses the last-used repo. Google only registers it for apps on the
-  Play Console, so it waits on the Play plan for installs from GitHub releases.
+- A Google Assistant shortcut (App Actions custom intent in `app/src/main/res/xml/shortcuts.xml`) opens New task with
+  the request read back and waits for a separate yes before starting. `VoiceShortcut` takes the repo from the start or end of
+  the request, from the same choices as the pickers (saved repos and every repo the token can push to), and otherwise
+  uses the last-used repo. Google only registers it for apps on the Play Console, so it waits on the Play plan for
+  installs from GitHub releases, and Gemini may not pick up custom App Actions intents at all.
 - The car chat remembers the last 20 exchanges across drives, with a switch to turn it off and a Forget button.
+- When the car first becomes parked with unfinished tasks, the phone gets one reminder notification.
 - A car chat question that fails before any tool runs is kept on the phone (up to 5, for 30 minutes) and answered
   aloud when the phone can get through again: no signal, a timeout, a rate limit, or a brief server error. A turn
   that already ran a tool is never queued, so nothing such as a task start can happen twice. The queue lives in
@@ -157,8 +175,11 @@ Look and accessibility:
 - Text and accents meet WCAG AA contrast (4.5:1 for text, 3:1 for outlines), touch targets are at least 48 dp, and
   TalkBack gets labels and custom actions for anything done by swiping.
 - The app icon is a cruise control speedometer (PR 38).
-- Home and widget spending summaries show both today's and this month's totals, with each configured limit.
-- The phone task list searches active and archived tasks by request, message, repo or pull request number.
+- Home and widget spending summaries show both today's and this month's totals, with each configured limit. On the
+  home screen they sit side by side on one compact card (`SpendMeter` in core), each with a bar towards its limit
+  that turns amber from 80% and red at the limit, instead of two stacked section headers.
+- The phone task list searches active and archived tasks by request, message, repo or pull request number. Its
+  search box is the same pill as Settings' (`SearchField` in `app/src/main/java/dev/aiauto/ui/Components.kt`).
 - The welcome-back briefing also checks recent issue and pull request activity and failed main-branch checks across saved repos.
 - Important phone task, pull request, template and shared-request text wraps instead of being cut off; template Start
   and Delete are separate controls.
@@ -186,22 +207,25 @@ Claude:
 - Instructions every task needs go in `ClaudeAgents.firstPrompt`, sent with each task, rather than the system
   prompt baked into the agent, so agents already saved on a phone pick them up without being remade.
 - The car chat uses the Messages API directly with a small set of tools (start a task, reply to a task, add a repo,
-  get status, stop a task, merge a pull request, close or reopen a pull request). The tools are described once in
-  `Assistant` and sent in each provider's format by `core/src/main/kotlin/dev/aiauto/core/ChatProviders.kt`, which
-  keeps each conversation in that provider's own message format so tool calls, OpenAI's encrypted reasoning and
-  Gemini's thought signatures go back exactly as they came. OpenAI requests are sent with store off.
+  list issues, start a task from an issue, get status, stop a task, merge a pull request, close or reopen a pull
+  request, repeat and quiet). The tools are described once in `Assistant` and sent in each provider's format by
+  `core/src/main/kotlin/dev/aiauto/core/ChatProviders.kt`, which keeps each conversation in that provider's own
+  message format so tool calls, OpenAI's encrypted reasoning and Gemini's thought signatures go back exactly as they
+  came. OpenAI requests are sent with store off.
 - Claude car chat requests turn on automatic prompt caching (a top-level `cache_control` with the default 5-minute
   lifetime), so tools, system prompt and earlier turns are read from the cache on each turn. A drive's back and
   forth is well inside five minutes, so the 1-hour lifetime, which costs twice input to write, isn't worth it.
   Cache writes are priced at 1.25 times input and reads at each model's cache hit price (`ModelChoice`).
 - Streams are reconnected by the engine, and past events are listed after reconnecting so nothing is reported
   twice and turns that ended offline are caught up. Agent messages that arrived while the phone was offline are
-  spoken from history on reconnect, not only the final stop reason. Tasks cut off by a lost connection retry every
+  spoken from history on reconnect, not only the final stop reason. Task history can also fetch older messages from
+  the Claude session, filling gaps in the 60-message synced copy. Tasks cut off by a lost connection retry every
   30 seconds for up to two hours.
 - Parked Approve or Deny is sent with short retries; if it never reaches Claude, the choice is put back on the
   screen so the driver can try again instead of leaving the session waiting.
 - The GitHub client uses connect, read, write and call timeouts and retries transient 408/429/5xx replies a few
-  times with the same backoff as the engine, so a one-shot blip doesn't strand a pull request or check refresh.
+  times with the same backoff as the engine, so a one-shot blip doesn't strand a pull request or check refresh. It
+  also lists open issues and polls pull-request review comments, paging back to the last-seen comment.
 
 Reliability on the phone:
 
@@ -226,8 +250,8 @@ Security:
   the workflow turns it back into a draft while it builds and publishes it once the APK is attached
   (`ReleaseWorkflowTest` checks this). A failed build leaves the release a draft.
 - The shortcut's action reaches the exported `MainActivity`, so any app could send it. Android stops background
-  apps from opening activities, the request can only target saved repos, the spending limits still apply, and the
-  new task opens on screen and is announced, with Stop on it.
+  apps from opening activities, the request can only target repos the token can already push to, and the spending
+  limits still apply. The task request is read back and does not start until the user confirms it on screen.
 - The GitHub token is only sent to api.github.com, and to gist.githubusercontent.com when moving an old sync gist,
   never to wherever a URL in a response points.
 
@@ -291,6 +315,9 @@ Each line is checked against the code by `AgentsDocTest`.
 - Stuck task alert (minutes): 15
 - Car chat exchanges remembered: 20
 - Synced messages per task: 60
+- Car history rows: 10
+- Cleared task histories kept locally: 100
+- Issue body included in a task (characters): 12000
 - Sync repo: cruise-control-sync
 - Update source: mjparinas/cruisecontrol
 - Repository notes file: CLAUDE.md
@@ -302,6 +329,29 @@ Newest first. Earlier work (before PR 13) isn't in the history; add older decisi
 - "Fix it" and automatic check fixes include the last lines of each failed Actions job's log when the token has
   Actions: read, and fall back to check names only when it doesn't. The car chat can close or reopen a pull request
   with the same two-turn confirmation as merge.
+- Completing the missing-feature review: task starts now read back and require confirmation across phone, car,
+  shortcut and messaging replies; car chat can repeat or go quiet; issues can start tasks and review comments can
+  prompt fixes; car repo history includes archived and recently cleared tasks, with older Claude messages fetched
+  when available; the car lists ten rows and parked cars get one unfinished-task reminder.
+- Full conversation history per task and per repo on the car, on list screens of at most ten glanceable rows, with
+  Read all for the rest and older pages only while parked. Archived tasks stay off the car task list. The car repo screen shows
+  four pull requests instead of five to make room for Task history, and a task's Clear moves to its History screen
+  when the task screen's two strip actions are taken.
+
+- Bug review: Claude's question from an earlier turn no longer counts for a later turn; GitHub auto-merge isn't
+  reported as merged; spoken repo names match a capitalized "Slash"; the Accent colour row uses Canadian spelling.
+  The Security section now says the shortcut targets any repo the token can push to, matching the code.
+- v0.8.2 cut with the home screen search box restyle as its only note.
+- The home screen's task search box uses the same rounded pill as the Settings search, with a clear button, instead
+  of an outlined field with a floating label.
+- v0.8.1 cut from the notes merged since the v0.8.0 tag (PRs 110, 111 and 113) plus PR 112.
+- The Google Assistant shortcut finds any repo the token can push to, like the pickers since PR 83, instead of only
+  saved repos, and its phrases name Cruise Control rather than Claude ("ask Cruise Control to ..."). The docs now say
+  Gemini may not pick up custom App Actions intents.
+- The Talk to Claude conversation in Android Auto's messaging view comes back when dismissed during a drive, since
+  that view has no button for starting a chat and apps can't add one.
+- The home screen's today and this month spend moved from two widely spaced headers onto one card, side by side,
+  with limit bars.
 - Bug fixes: VoiceCommand treats negated yes-phrases as No; Ask follow-ups keep read-only rules and refuse write
   shortcuts; conflict handling always blocks the failing-checks question; car merge preview requires a non-draft with
   readable checks; colliding pull request numbers ask which repo; SyncMerge keeps max spend and known PR fields and
@@ -314,7 +364,6 @@ Newest first. Earlier work (before PR 13) isn't in the history; add older decisi
   briefing checks saved repos for changed issues, pull requests and failed main-branch checks. The phone now
   has a diff review list, a setup checklist, shared-request handling, task history search, launcher and Quick Settings
   entry points, a widget microphone, task notification actions, and monthly spend on the home screen and widget.
-- The owner does not want task read-back, car-chat repeat/quiet, longer car lists or a parking hand-off notification.
 - Clickable settings and project rows expose button actions to screen readers; repository settings rows show a delete icon, status text enforces 4.5:1 contrast, and accent swatch checkmarks use a contrasting shade.
 - Feature ideas checked against the code again: held speech while listening, the steering-wheel experiment and
   "undo that" and "start over" moved from Still missing to Already built.

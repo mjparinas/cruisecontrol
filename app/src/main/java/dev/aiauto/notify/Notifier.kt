@@ -16,12 +16,14 @@ import androidx.core.graphics.drawable.IconCompat
 import dev.aiauto.MainActivity
 import dev.aiauto.R
 import dev.aiauto.core.AlertKind
+import dev.aiauto.core.CarChat
 import dev.aiauto.core.Checks
 import dev.aiauto.core.PrState
 import dev.aiauto.core.RepoRef
 import dev.aiauto.core.Speaker as Who
 import dev.aiauto.core.Task
 import dev.aiauto.core.TaskMessage
+import dev.aiauto.core.SpokenStatus
 import dev.aiauto.data.Settings
 
 /**
@@ -36,6 +38,7 @@ class Notifier(private val context: Context, private val settings: Settings, pri
         .setKey("claude")
         .setIcon(IconCompat.createWithResource(context, R.drawable.ic_glyph))
         .build()
+    private val pendingNewTasks = mutableMapOf<String, Pair<String, Long>>()
 
     fun createChannels() {
         val nm = context.getSystemService(NotificationManager::class.java)
@@ -44,6 +47,11 @@ class Notifier(private val context: Context, private val settings: Settings, pri
         nm.createNotificationChannel(
             NotificationChannel(CH_ALERTS, "Alerts", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Failed checks, questions from Claude, and tasks that look stuck. Shown even in quiet mode."
+            },
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CH_PARKED, "Unfinished work", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "A reminder when you park with tasks that are still active or have an open pull request."
             },
         )
     }
@@ -89,6 +97,7 @@ class Notifier(private val context: Context, private val settings: Settings, pri
             AlertKind.ChecksFailed -> "Checks failed"
             AlertKind.Question -> "Claude needs your answer"
             AlertKind.Stuck -> "Task looks stuck"
+            AlertKind.ReviewComment -> "New pull request comment"
         }
         val style = NotificationCompat.MessagingStyle(me)
             .setConversationTitle("$title: ${task.repo.name}")
@@ -101,6 +110,7 @@ class Notifier(private val context: Context, private val settings: Settings, pri
             AlertKind.ChecksFailed -> "Fix it" to "yes"
             AlertKind.Stuck -> "Stop" to "stop"
             AlertKind.Question -> null
+            AlertKind.ReviewComment -> null
         }
         notify(task.id.hashCode(), style, replyTo = task.id, channel = CH_ALERTS, quick = quick, onlyAlertOnce = kind == AlertKind.Question, task = task)
         // A question was already read out as Claude's own message; the other alerts are new lines.
@@ -108,10 +118,46 @@ class Notifier(private val context: Context, private val settings: Settings, pri
     }
 
     /** Opens a fresh conversation asking what to do in [repo]. Replying by voice starts a task. */
+    @Synchronized
     fun askForNewTask(repo: RepoRef) {
+        pendingNewTasks.remove(repo.fullName)
         val style = NotificationCompat.MessagingStyle(me)
             .setConversationTitle("New task: ${repo.name}")
             .addMessage("What should I work on in ${repo.name}? Reply with your request.", System.currentTimeMillis(), claude)
+        notify(newTaskId(repo), style, replyTo = NEW_PREFIX + repo.fullName)
+    }
+
+    @Synchronized
+    fun confirmNewTask(repo: RepoRef, request: String) {
+        pendingNewTasks[repo.fullName] = request to System.currentTimeMillis()
+        postNewTaskMessage(
+            repo,
+            "I heard: ${SpokenStatus.clean(request)} in ${repo.name}. Reply yes to start, or no to cancel.",
+        )
+    }
+
+    @Synchronized
+    fun pendingNewTask(repo: RepoRef): String? = pendingNewTasks[repo.fullName]?.first
+
+    @Synchronized
+    fun expireNewTaskConfirmation(repo: RepoRef): Boolean {
+        val pending = pendingNewTasks[repo.fullName] ?: return false
+        if (System.currentTimeMillis() - pending.second <= NEW_TASK_CONFIRMATION_MILLIS) return false
+        pendingNewTasks.remove(repo.fullName)
+        postNewTaskMessage(repo, "That confirmation expired. Reply with your request again.")
+        return true
+    }
+
+    @Synchronized
+    fun answerNewTaskConfirmation(repo: RepoRef, message: String, keepPending: Boolean = false) {
+        if (!keepPending) pendingNewTasks.remove(repo.fullName)
+        postNewTaskMessage(repo, message)
+    }
+
+    private fun postNewTaskMessage(repo: RepoRef, message: String) {
+        val style = NotificationCompat.MessagingStyle(me)
+            .setConversationTitle("New task: ${repo.name}")
+            .addMessage(message, System.currentTimeMillis(), claude)
         notify(newTaskId(repo), style, replyTo = NEW_PREFIX + repo.fullName)
     }
 
@@ -120,7 +166,8 @@ class Notifier(private val context: Context, private val settings: Settings, pri
     /**
      * The "Talk to Claude" conversation for Android Auto's messaging view. Replying to it by voice asks
      * Claude directly, and the answer comes back in the same conversation and is read aloud. This works
-     * even when the car only shows Cruise Control as a messaging app.
+     * even when the car only shows Cruise Control as a messaging app, which has no button to start a chat.
+     * Dismissing it during a drive puts it back (see [CarChat]).
      */
     @Synchronized
     fun postChat(fromClaude: String? = null, fromYou: String? = null) {
@@ -128,7 +175,7 @@ class Notifier(private val context: Context, private val settings: Settings, pri
         fromYou?.let { chat.addLast(Triple(false, it, now)) }
         fromClaude?.let { chat.addLast(Triple(true, it, now)) }
         while (chat.size > MAX_MESSAGES) chat.removeFirst()
-        if (chat.isEmpty()) chat.addLast(Triple(true, CHAT_HELLO, now))
+        if (chat.isEmpty()) chat.addLast(Triple(true, CarChat.GREETING, now))
         val style = NotificationCompat.MessagingStyle(me)
             .setConversationTitle("Talk to Claude")
             .setGroupConversation(false)
@@ -140,12 +187,16 @@ class Notifier(private val context: Context, private val settings: Settings, pri
     @Synchronized
     fun startChat() {
         chat.clear()
-        postChat(fromClaude = CHAT_HELLO)
+        postChat(fromClaude = CarChat.GREETING)
     }
 
     fun clearChat() = manager.cancel(CHAT_ID)
 
-    fun clearNewTask(repo: RepoRef) = manager.cancel(newTaskId(repo))
+    @Synchronized
+    fun clearNewTask(repo: RepoRef) {
+        pendingNewTasks.remove(repo.fullName)
+        manager.cancel(newTaskId(repo))
+    }
 
     fun clear(taskId: String) = manager.cancel(taskId.hashCode())
 
@@ -156,6 +207,25 @@ class Notifier(private val context: Context, private val settings: Settings, pri
         .setOngoing(true)
         .setContentIntent(openApp(null))
         .build()
+
+    /** A single reminder when the car has stopped and tasks or open pull requests still need attention. */
+    fun parkedWithUnfinishedWork(tasks: List<Task>) {
+        val unfinished = tasks.filter { !it.archived && !it.isFinished }
+        if (unfinished.isEmpty()) return
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return
+        val count = unfinished.size
+        val notification = NotificationCompat.Builder(context, CH_PARKED)
+            .setSmallIcon(R.drawable.ic_glyph)
+            .setContentTitle("$count task${if (count == 1) "" else "s"} still need attention")
+            .setContentText("Open Cruise Control to check your unfinished work.")
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setAutoCancel(true)
+            .setContentIntent(openApp(unfinished.first().id))
+            .build()
+        runCatching { manager.notify(PARKED_ID, notification) }
+    }
 
     private fun notify(
         id: Int,
@@ -191,6 +261,13 @@ class Notifier(private val context: Context, private val settings: Settings, pri
             .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ)
             .setShowsUserInterface(false)
             .build()
+
+        // Android Auto's messaging view has no button to start a chat, so a dismissed chat conversation comes back.
+        val dismissed = if (replyTo == CHAT_TARGET) PendingIntent.getBroadcast(
+            context, id + 4,
+            Intent(context, ReplyReceiver::class.java).setAction(ReplyReceiver.ACTION_DISMISS).putExtra(ReplyReceiver.EXTRA_TARGET, replyTo),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        ) else null
 
         val quickAction = quick?.let { (label, text) ->
             val intent = PendingIntent.getBroadcast(
@@ -229,6 +306,7 @@ class Notifier(private val context: Context, private val settings: Settings, pri
             .apply { merge?.let(::addAction) }
             .apply { quickAction?.let(::addAction) }
             .addInvisibleAction(markRead)
+            .apply { dismissed?.let(::setDeleteIntent) }
             .setContentIntent(openApp(replyTo.takeUnless { it.startsWith(NEW_PREFIX) || it == CHAT_TARGET }))
             .build()
         // Notifications can be blocked or throttled; that must never take a running task down with it.
@@ -248,13 +326,14 @@ class Notifier(private val context: Context, private val settings: Settings, pri
         const val CH_TASKS = "tasks"
         const val CH_WORKING = "working"
         const val CH_ALERTS = "alerts"
+        const val CH_PARKED = "parked"
         const val WORKING_ID = 1
+        private const val PARKED_ID = 3
         const val NEW_PREFIX = "new:"
         const val CHAT_TARGET = "chat"
         private const val CHAT_ID = 2
-        private const val CHAT_HELLO = "Hi, it's Claude. Reply to this message and say anything. " +
-            "To skip the Send button, turn on Unknown sources in Android Auto and use Talk on the Cruise Control screen."
         private const val MAX_MESSAGES = 8
         private const val PROGRESS_GAP_MILLIS = 15_000L
+        private const val NEW_TASK_CONFIRMATION_MILLIS = 60_000L
     }
 }

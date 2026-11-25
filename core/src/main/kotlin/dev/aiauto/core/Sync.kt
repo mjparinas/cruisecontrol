@@ -71,6 +71,8 @@ object SyncMerge {
                         checks = newer.checks ?: older.checks,
                         prOpenedMillis = newer.prOpenedMillis ?: older.prOpenedMillis,
                         releaseTag = newer.releaseTag ?: older.releaseTag,
+                        issueNumber = newer.issueNumber ?: older.issueNumber,
+                        lastReviewCommentId = listOfNotNull(newer.lastReviewCommentId, older.lastReviewCommentId).maxOrNull(),
                     )
                 }
             }

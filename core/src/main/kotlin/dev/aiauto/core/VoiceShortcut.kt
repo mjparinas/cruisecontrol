@@ -1,8 +1,9 @@
 package dev.aiauto.core
 
 /**
- * Turns a request said to Google Assistant, like "add dark mode to aiauto", into a task: which saved repo it's for,
- * what Claude is asked to do and what the app says back. The repo can be named at the start ("in aiauto, add a
+ * Turns a request said to Google Assistant, like "add dark mode to aiauto", into a task: which repo it's for,
+ * what Claude is asked to do and what the app says back. The repos are the same choices the pickers offer
+ * ([RepoRef.choices]): saved repos and every repo the token can push to. The repo can be named at the start ("in aiauto, add a
  * toggle") or the end ("add a toggle to aiauto"); otherwise the last-used repo is picked.
  */
 object VoiceShortcut {
@@ -49,7 +50,7 @@ object VoiceShortcut {
         }
     }
 
-    /** The saved repo named at the start or end of [said], and the request without it. Null when none is named. */
+    /** The repo named at the start or end of [said], and the request without it. Null when none is named. */
     private fun splitRepo(said: String, repos: List<RepoRef>): Pair<RepoRef, String>? {
         val words = said.split(Regex("\\s+"))
         fun match(part: List<String>): RepoRef? {

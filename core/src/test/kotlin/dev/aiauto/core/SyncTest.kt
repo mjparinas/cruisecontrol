@@ -34,6 +34,17 @@ class SyncTest {
         assertEquals(TaskStatus.Done, merged.status)
     }
 
+    @Test fun mergedIssueAndReviewCommentTrackingKeepsKnownValues() {
+        val local = task("a", 10).copy(issueNumber = 34, lastReviewCommentId = 12)
+        val remote = task("a", 20).copy(issueNumber = null, lastReviewCommentId = 10)
+        val merged = SyncMerge.merge(
+            SyncSnapshot(tasks = listOf(local)),
+            SyncSnapshot(tasks = listOf(remote)),
+        ).tasks.single()
+        assertEquals(34, merged.issueNumber)
+        assertEquals(12, merged.lastReviewCommentId)
+    }
+
     @Test fun replacedProgressLinesDoNotComeBackFromTheOlderSide() {
         val older = task("a", 10, TaskMessage("p-1", Speaker.Status, "Editing files", 1))
         val newer = task("a", 20, TaskMessage("p-2", Speaker.Status, "Running tests", 2))

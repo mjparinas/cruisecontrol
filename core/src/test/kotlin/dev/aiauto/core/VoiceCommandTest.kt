@@ -98,6 +98,7 @@ class VoiceCommandTest {
         override fun branchExists(repo: RepoRef, branch: String) = true
         override fun findPull(repo: RepoRef, branch: String): PullRequest? = pr
         override fun pull(repo: RepoRef, number: Int) = pr
+        override fun reviewComments(repo: RepoRef, number: Int, afterId: Long?) = emptyList<ReviewComment>()
         override fun checks(repo: RepoRef, sha: String) = checksResult
         override fun failingJobLogs(repo: RepoRef, sha: String, maxJobs: Int, maxLines: Int) = jobLogs
         override fun enableAutoMerge(pull: PullRequest) = false

@@ -69,7 +69,7 @@ class SettingsSearch(query: String) {
             ),
             "Appearance" to listOf(
                 Setting("Theme", "dark light mode night"),
-                Setting("Accent color", "colour palette"),
+                Setting("Accent colour", "color palette"),
             ),
             "Spending" to listOf(
                 Setting("Daily limit", "money cost budget dollars price"),

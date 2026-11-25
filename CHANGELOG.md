@@ -6,6 +6,34 @@
   token can read Actions, and still fall back to check names alone when it can't.
 - The car chat can close a pull request without merging, or reopen one that was closed without merging, with the same
   two-turn confirmation as merge.
+- Before a task starts, the app reads your request back and waits for a separate yes. This works from the phone,
+  Android Auto's car screen and messaging reply, and the Google Assistant shortcut.
+- The car assistant can list a repo's open issues and start work on an issue. The task includes its description, and
+  the pull request closes it when merged. New pull request review comments are read aloud; replying sends the comment
+  and your response to Claude together.
+- The car assistant can repeat its last answer or turn on quiet mode without starting a model turn. Car lists now
+  show up to ten rows, and the phone gets one reminder when the car first becomes parked with unfinished work.
+- Car repo history includes archived tasks and up to 100 recently cleared task histories kept on this device only.
+  When available, Claude's session history fills older messages trimmed from a synced task.
+- The car has History screens for each task and each repo with the whole conversation, Claude's earlier messages
+  included. Tap a message to hear it, or Read all to hear everything; up to ten rows are shown at a time and older
+  messages scroll back only while parked.
+- Bug fixes: a question Claude asked in an earlier turn no longer marks a finished turn as waiting on you or alerts
+  again; turning on GitHub's auto-merge is no longer announced as merged; a spoken repo name with a capitalized
+  "Slash" still finds the repo; the Accent colour setting uses Canadian spelling.
+
+## v0.8.2
+
+- The home screen's task search box now matches the Settings search: a rounded pill on the card colour with a
+  clear button once you type.
+
+## v0.8.1
+
+- The Google Assistant shortcut now finds any repo your GitHub token can push to, not just saved ones, so it no
+  longer says to add a repo first when you haven't saved any. Its phrases say Cruise Control instead of Claude, like
+  "Hey Google, ask Cruise Control to add dark mode to aiauto".
+- The home screen shows today's and this month's spend side by side on one tidy card, each with a bar towards its
+  limit that turns amber near the limit and red once it's reached, instead of two widely spaced headers.
 - Bug fixes: spoken answers like "do not merge" no longer count as yes; Ask sessions stay read-only on follow-ups;
   a new conflict isn't overwritten by failing checks; drafts and unread checks aren't offered as ready to merge;
   the same pull request number in two repos asks which one; sync keeps a pull request and spend the other device
@@ -15,6 +43,8 @@
   when the network returns. Missed Claude messages are spoken from session history after a reconnect. Parked Approve
   or Deny is retried, and put back on screen if it never reaches Claude. Car chat queues brief server errors and rate
   limits as well as no signal. Sync runs when the network comes back. GitHub calls use timeouts and short retries.
+- The Talk to Claude conversation in Android Auto's messaging view stays there for the whole drive, since that view
+  has no button to start a chat: dismiss it and it comes straight back, ready to tap and talk.
 
 ## v0.8.0
 

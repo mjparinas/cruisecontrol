@@ -12,6 +12,22 @@ interface AssistantActions {
     /** Starts a coding task. Returns what to tell Claude, such as "Started task ab12cd34 in owner/repo". */
     fun startTask(repo: String, request: String): String
 
+    /** Starts a task from a previously fetched issue. */
+    fun startIssue(repo: String, issue: GitHubIssue): String =
+        throw UnsupportedOperationException("Starting tasks from issues isn't available.")
+
+    /** Looks up an issue before asking the driver to confirm starting it. */
+    fun issue(repo: String, number: Int): GitHubIssue =
+        throw UnsupportedOperationException("Issues aren't available.")
+
+    /** A short spoken list of the repo's newest open issues. */
+    fun openIssues(repo: String): String =
+        throw UnsupportedOperationException("Issues aren't available.")
+
+    /** Turns on the existing quiet-mode setting from the car chat. */
+    fun quiet(): String =
+        throw UnsupportedOperationException("Quiet mode isn't available.")
+
     /** Sends a follow-up message to an existing task. Returns what to tell Claude. */
     fun replyToTask(taskId: String, text: String): String
 
@@ -68,6 +84,14 @@ class Assistant(
     private var conversation: ChatConversation? = null
     /** The provider and key [conversation] was made for. A new model provider or key starts a new one. */
     private var conversationFor: Pair<ChatProvider, String>? = null
+    private data class PendingStart(
+        val repo: String,
+        val request: String,
+        val issue: GitHubIssue?,
+        val askedMillis: Long,
+    )
+    private var pendingStart: PendingStart? = null
+    private var lastAnswer: String? = null
     /** Questions asked with no signal, oldest first, with when they were asked. */
     private val queued = ArrayDeque<Pair<String, Long>>()
     /** True once a tool ran in the current turn, so a lost connection can't make the turn run twice. */
@@ -75,6 +99,35 @@ class Assistant(
 
     @Synchronized
     fun ask(spoken: String): String {
+        when (VoiceCommand.parse(spoken)) {
+            VoiceCommand.Repeat -> return pendingStart?.let(::confirmationText)
+                ?: lastAnswer
+                ?: "There's nothing to repeat yet."
+            VoiceCommand.Quiet -> return actions.quiet()
+            else -> Unit
+        }
+        pendingStart?.let { pending ->
+            if (clock() - pending.askedMillis > START_CONFIRMATION_MILLIS) {
+                pendingStart = null
+                return "That confirmation expired. Ask me to start the task again."
+            }
+            when (VoiceCommand.confirmation(spoken)) {
+                VoiceCommand.Yes -> {
+                    pendingStart = null
+                    if (apiKey(ChatProvider.Anthropic) == null) return "Add your Claude API key in the app on your phone first."
+                    if (!canSpend()) return "You've reached your daily or monthly spending limit, so I can't start a task right now."
+                    return runCatching {
+                        if (pending.issue != null) actions.startIssue(pending.repo, pending.issue)
+                        else actions.startTask(pending.repo, pending.request)
+                    }.getOrElse { Failures.describe(it) }
+                }
+                VoiceCommand.No -> {
+                    pendingStart = null
+                    return "Okay, I won't start it."
+                }
+                else -> pendingStart = null
+            }
+        }
         val (reply, retryable) = attempt(spoken)
         if (!retryable) return reply
         if (queued.size >= MAX_QUEUED) return "I couldn't get through, and I'm already holding $MAX_QUEUED questions. Try again in a minute."
@@ -127,6 +180,7 @@ class Assistant(
             turn++
             talk.addUser(spoken)
             converse(talk, chat).also { reply ->
+                lastAnswer = reply
                 runCatching { memory().remember(ChatExchange(spoken, reply, clock())) }
             } to false
         } catch (e: Throwable) {
@@ -143,6 +197,8 @@ class Assistant(
         startedMillis = clock()
         merges.clear()
         closes.clear()
+        pendingStart = null
+        lastAnswer = null
     }
 
     private fun converse(talk: ChatConversation, chat: ChatProfile): String {
@@ -156,7 +212,19 @@ class Assistant(
                 talk.trim(MAX_HISTORY)
                 return spoken.ifBlank { "Sorry, I didn't catch an answer. Try again." }.toString()
             }
-            talk.addResults(reply.calls.map(::run))
+            val results = mutableListOf<ToolResult>()
+            for (call in reply.calls) {
+                if (pendingStart != null) {
+                    results += ToolResult(call.id, "The app is waiting for the driver's confirmation before starting a task.", isError = true)
+                } else {
+                    results += run(call)
+                }
+            }
+            talk.addResults(results)
+            pendingStart?.let {
+                talk.trim(MAX_HISTORY)
+                return confirmationText(it)
+            }
         }
         talk.trim(MAX_HISTORY)
         return spoken.ifBlank { "That took too many steps. Try asking again more simply." }.toString()
@@ -169,7 +237,8 @@ class Assistant(
         acted = true
         val (text, error) = runCatching {
             when (call.name) {
-                START_TASK -> actions.startTask(arg("repo"), arg("request"))
+                START_TASK -> confirmTaskStart(arg("repo"), arg("request"), number("issue_number"))
+                LIST_ISSUES -> actions.openIssues(arg("repo"))
                 REPLY_TO_TASK -> actions.replyToTask(arg("task_id"), arg("text"))
                 ADD_REPO -> actions.addRepo(arg("name"))
                 GET_STATUS -> actions.status(arg("repo"), number("pr_number"), arg("task_id"))
@@ -180,6 +249,23 @@ class Assistant(
             }
         }.fold({ it to false }, { (it.message ?: "That didn't work.") to true })
         return ToolResult(call.id, text, error)
+    }
+
+    private fun confirmTaskStart(repo: String, request: String, issueNumber: Int?): String {
+        require(repo.isNotBlank()) { "Name the repository to start a task." }
+        val issue = issueNumber?.let {
+            require(it > 0) { "Issue numbers must be positive." }
+            actions.issue(repo, it)
+        }
+        require(issue != null || request.isNotBlank()) { "Say what you want the task to do." }
+        val pending = PendingStart(repo, request, issue, clock())
+        pendingStart = pending
+        return confirmationText(pending)
+    }
+
+    private fun confirmationText(pending: PendingStart): String {
+        val request = pending.issue?.let { "fix issue ${it.number}, ${it.title}" } ?: pending.request
+        return "I heard: ${SpokenStatus.clean(request)} in ${pending.repo}. Say yes to start, or no to cancel."
     }
 
     private fun system(provider: ChatProvider): String {
@@ -217,6 +303,8 @@ class Assistant(
         private const val STOP_TASK = "stop_task"
         private const val MERGE = "merge_pull_request"
         private const val CLOSE = "close_pull_request"
+        private const val LIST_ISSUES = "list_open_issues"
+        private const val START_CONFIRMATION_MILLIS = 60_000L
 
         private const val MEMORY_INTRO =
             "Your earlier conversations with the driver, from past drives, oldest first. Use them when the driver " +
@@ -228,7 +316,11 @@ class Assistant(
             or emoji. Keep it brief and easy to follow while driving, and never encourage them to look at a screen.
             Use Canadian spelling, such as colour, centre, cancelled and organize.
             You can also start coding tasks in the driver's GitHub repos and reply to running tasks with the tools.
-            Only start a task when the driver clearly asks for one, and say back in one sentence what you started.
+            Only start a task when the driver clearly asks for one. The app reads the request back and requires a
+            separate yes before starting; never claim it started before that confirmation.
+            When asked to find or list issues, call list_open_issues. When asked to fix a numbered issue, use its
+            number in start_coding_task so the issue title and body are included and the pull request closes it.
+            "Repeat that" repeats your last answer. "Quiet" turns on quiet mode without starting a task.
             When the driver names one of the task templates, start a task with that template's request as written,
             adding anything extra they said.
             If the repo is unclear, ask which one, naming at most three.
@@ -248,12 +340,19 @@ class Assistant(
         private val TOOLS = listOf(
             ChatTool(
                 START_TASK,
-                "Start a coding task: an agent works on the repo, pushes a branch and opens a pull request.",
+                "Request a coding task. The app reads the request back and waits for a separate yes before starting it.",
                 listOf(
                     Triple("repo", "string", "The repo as owner/name, from the saved repos list."),
                     Triple("request", "string", "What to do, in the driver's words, made clear and complete."),
+                    Triple("issue_number", "integer", "Optional GitHub issue number to fetch and close on the pull request."),
                 ),
-                required = listOf("repo", "request"),
+                required = listOf("repo"),
+            ),
+            ChatTool(
+                LIST_ISSUES,
+                "Read the newest open issues in a repo aloud so the driver can choose one.",
+                listOf(Triple("repo", "string", "The repo as owner/name or the name the driver said.")),
+                required = listOf("repo"),
             ),
             ChatTool(
                 REPLY_TO_TASK,

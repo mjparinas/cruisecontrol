@@ -4,10 +4,12 @@ import android.text.format.DateUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Archive
@@ -38,8 +41,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -51,6 +54,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -65,12 +69,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.aiauto.core.Checks
 import dev.aiauto.core.PrState
+import dev.aiauto.core.SpendLevel
+import dev.aiauto.core.SpendMeter
 import dev.aiauto.core.SpokenStatus
 import dev.aiauto.core.Task
 import dev.aiauto.core.TaskStatus
@@ -145,14 +153,7 @@ fun HomeScreen(
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                singleLine = true,
-                label = { Text("Search task history") },
-                leadingIcon = { Icon(Icons.Rounded.Search, null) },
-            )
+            SearchField(query, "Search task history") { query = it }
             // A two-way pill switch, as Tuned's segmented choices, rather than tabs with an underline.
             if (normalizedQuery.isEmpty()) SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
                 listOf(if (running == 0) "Active" else "Active ($running)", if (archived.isEmpty()) "Archived" else "Archived (${archived.size})").forEachIndexed { i, label ->
@@ -173,9 +174,8 @@ fun HomeScreen(
             when {
                 shown.isNotEmpty() -> TaskList(shown, spentToday, dailyLimit, spentThisMonth, monthlyLimit, onOpen, onArchive = archive, onClear = { task -> clearing = task })
                 normalizedQuery.isNotEmpty() -> EmptyState(Icons.Rounded.Search, BadgeHue.Blue, "No matching tasks", "Try a request, repo name or pull request number.")
-                else -> Column(Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SectionHeader("Today · ${SpokenStatus.money(spentToday)}" + (dailyLimit?.let { " of ${SpokenStatus.money(it)}" } ?: ""))
-                    SectionHeader("This month · ${SpokenStatus.money(spentThisMonth)}" + (monthlyLimit?.let { " of ${SpokenStatus.money(it)}" } ?: ""))
+                else -> Column(Modifier.fillMaxWidth().padding(16.dp, 8.dp)) {
+                    SpendingCard(SpendMeter("Today", spentToday, dailyLimit), SpendMeter("This month", spentThisMonth, monthlyLimit))
                     EmptyState(
                         if (showArchived) Icons.Rounded.Archive else if (hasRepos) Icons.Rounded.DirectionsCar else Icons.Rounded.Key,
                         if (showArchived) BadgeHue.Blue else if (hasRepos) BadgeHue.Accent else BadgeHue.Amber,
@@ -203,22 +203,59 @@ private fun TaskList(
 ) {
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp, 0.dp, 16.dp, 96.dp),
+        contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 96.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item {
-            // The list is already inset 16 dp, so the header needs only 16 more to line up with the card text.
-            SectionHeader("Today · ${SpokenStatus.money(spentToday)}" + (dailyLimit?.let { " of ${SpokenStatus.money(it)}" } ?: ""), inset = 16.dp)
-        }
-        item {
-            SectionHeader("This month · ${SpokenStatus.money(spentThisMonth)}" + (monthlyLimit?.let { " of ${SpokenStatus.money(it)}" } ?: ""), inset = 16.dp)
-        }
+        item { SpendingCard(SpendMeter("Today", spentToday, dailyLimit), SpendMeter("This month", spentThisMonth, monthlyLimit)) }
         items(tasks, key = { it.id }) { task ->
             val swipes = cardSwipes(task.archived)
             SwipeActions(swipes, onArchive = { onArchive(task) }, onClear = { onClear(task) }) {
                 TaskCard(task, swipes, onArchive = { onArchive(task) }, onClear = { onClear(task) }) { onOpen(task) }
             }
         }
+    }
+}
+
+/** Today's and this month's spend side by side on one card, each with a bar towards its limit when one is set. */
+@Composable
+private fun SpendingCard(today: SpendMeter, month: SpendMeter) {
+    RoundCard {
+        Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
+            SpendColumn(today, Modifier.weight(1f))
+            VerticalDivider(Modifier.padding(horizontal = 16.dp).fillMaxHeight(), color = MaterialTheme.colorScheme.outlineVariant)
+            SpendColumn(month, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun SpendColumn(meter: SpendMeter, modifier: Modifier) {
+    val tint = when (meter.level) {
+        SpendLevel.Fine -> MaterialTheme.colorScheme.primary
+        SpendLevel.Near -> BadgeHue.Amber.colour()
+        SpendLevel.Reached -> MaterialTheme.colorScheme.error
+    }
+    Column(modifier.clearAndSetSemantics { contentDescription = meter.description }) {
+        Text(
+            meter.label.uppercase(),
+            style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(meter.amount, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+        Spacer(Modifier.height(6.dp))
+        meter.share?.let { share ->
+            LinearProgressIndicator(
+                progress = { share },
+                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                color = tint,
+                trackColor = tint.copy(alpha = 0.18f),
+                gapSize = 0.dp,
+                drawStopIndicator = {},
+            )
+            Spacer(Modifier.height(6.dp))
+        }
+        Text(meter.note, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
     }
 }
 

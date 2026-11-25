@@ -27,24 +27,30 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     `runningCount` (the number on the phone's Active tab).
   - `GitHub.kt` is the REST client; `PullRequests.kt` follows checks, merges and auto-fixes; `Projects.kt` is
     the per-repo status view.
+  - `CarChat.kt` decides when the Talk to Claude conversation (Android Auto's messaging view, posted by the app's
+    `notify/Notifier.kt`) comes back after it's dismissed, since that view has no button to start a chat.
   - `Assistant.kt` is the spoken car chat, including the queue of questions asked with no signal, which
     `Graph.watchNetwork` sends when the phone is back online. `ChatProviders.kt` has the car chat models and talks to Claude, OpenAI
     (Responses API) or Gemini (OpenAI-compatible endpoint); tests fake `ChatHttp`. Claude chat requests use
     automatic prompt caching, and `ModelChoice` holds each model's cache hit price. `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
-    replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `Briefing.kt` is the drive briefing;
+    replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `SpendMeter.kt` backs the home screen's spending card; `Briefing.kt` is the drive briefing;
     `VoiceShortcut.kt` turns a Google Assistant shortcut request into a repo and task (`MainActivity` runs it).
     `SteeringWheel.kt` maps the experimental steering-wheel buttons to actions; the app's `car/WheelButtons.kt`
     media session feeds it while the car screen shows.
+  - `RepoHistory.kt` pages and reads aloud a task's or a repo's whole conversation for the car's
+    `TaskHistoryScreen` and `RepoHistoryScreen` (ten rows at most, older pages only while parked); it includes
+    archived tasks and up to 100 locally cleared histories. `TaskEngine.refreshHistory()` can fill older messages
+    from the Claude session when a synced task has been trimmed.
   - `Sync.kt` merges state between devices; `Updates.kt` checks for new app releases
     (the highest recent release with an APK) and picks release-on-merge tags.
 - `app/` is the Android app, package `dev.aiauto`. `Graph.kt` wires everything together. `ui/` is the
   Compose phone UI, `car/` is the Car App Library UI (`ParkedWatcher` reads the car's speed for parked mode; its `VoiceInput` also serves the phone's floating
-  microphone, `MicButton` in `ui/Components.kt`, the only input on the New task and task chat screens;
+  microphone, `MicButton` in `ui/Components.kt` (which also has `SearchField`, the search pill shared by Home and Settings), the only input on the New task and task chat screens;
   `core/Dictation.kt` decides when it listens again, sends or gives up),
   `notify/` holds notifications, text-to-speech (`Speaker` holds new speech while `VoiceInput` listens, using
   `core/SpeechHold.kt`) and `TonePlayer` (listening and thinking tones, made by `core/Tones.kt`),
   `data/` holds the stores (including `AvailableRepoStore`, the cached repos the token can push to that
-  `Graph.repoChoices()` merges with saved repos for the pickers), encrypted secrets and sync, `widget/` is the home-screen widget. `data/Stores.kt`
+  `Graph.repoChoices()` merges with saved repos for the pickers, and the local-only cleared-history store), encrypted secrets and sync, `widget/` is the home-screen widget. `data/Stores.kt`
   `Settings` keeps every setting in SharedPreferences; `SYNCED_KEYS` lists the ones that sync.
 - Settings screen: `ui/SettingsScreen.kt` and `ui/SettingsSections.kt`, built from rows in `ui/Design.kt`. Each section
   is wrapped in `SearchableSection(name)`; when you add or rename a setting row, update `SettingsSearch.CATALOGUE`
@@ -71,7 +77,7 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
   entry and pointing the README's release example at it; `ChangelogTest` checks both. After the pull request merges,
   the owner runs the Release workflow with that version. Left empty, the workflow releases the next patch after
   the latest tag via `.github/scripts/next-version.sh`, which follows the same rule as `Versions.nextPatch`. The agent can't push tags. If the newest changelog
-  version still has no tag (v0.8.0 didn't as of v0.7.20), fold the Unreleased notes into it instead of adding a new one.
+  version still has no tag, fold the Unreleased notes into it instead of adding a new one.
 - Release when a PR is merged is on for this repo, so every merge publishes a patch tag. Check the real latest
   version with `git ls-remote --tags origin`. The local `main` branch can be stale: branch from `origin/main`.
 - Open pull requests usually conflict in CHANGELOG.md, AGENTS.md's decision log and docs/FEATURE_IDEAS.md after

@@ -75,8 +75,22 @@ data class GitHubIssue(
     val number: Int,
     val title: String,
     @SerialName("updated_at") val updatedAt: String,
+    val body: String? = null,
+    val state: String = "open",
     @SerialName("pull_request") val pullRequest: kotlinx.serialization.json.JsonElement? = null,
 )
+
+/** A line-level review comment on a pull request. */
+@Serializable
+data class ReviewComment(
+    val id: Long,
+    val body: String = "",
+    val path: String? = null,
+    val user: User? = null,
+) {
+    @Serializable
+    data class User(val login: String = "")
+}
 
 /** A repo at a glance: what landed last, whether its main branch is green, and what's waiting for review. */
 data class RepoStatus(
@@ -254,6 +268,40 @@ open class GitHub(
     open fun openPulls(repo: RepoRef, limit: Int = 10): List<PullRequest> =
         json.decodeFromString(get("/repos/${repo.fullName}/pulls?state=open&sort=updated&direction=desc&per_page=$limit"))
 
+    /** One issue, rejecting pull requests returned by GitHub's shared issues endpoint. */
+    open fun issue(repo: RepoRef, number: Int): GitHubIssue {
+        require(number > 0) { "Issue numbers must be positive." }
+        val issue = json.decodeFromString<GitHubIssue>(get("/repos/${repo.fullName}/issues/$number"))
+        require(issue.pullRequest == null) { "Pull request $number isn't an issue." }
+        return issue
+    }
+
+    /** Newest open issues, excluding pull requests that GitHub includes in the same endpoint. */
+    open fun openIssues(repo: RepoRef, limit: Int = 5): List<GitHubIssue> {
+        require(limit in 1..100) { "Issue limit must be between 1 and 100." }
+        return json.decodeFromString<List<GitHubIssue>>(
+            get("/repos/${repo.fullName}/issues?state=open&sort=created&direction=desc&per_page=$limit"),
+        ).filter { it.pullRequest == null }.take(limit)
+    }
+
+    /** Review comments newer than [afterId], returned oldest first for announcement. */
+    open fun reviewComments(repo: RepoRef, number: Int, afterId: Long? = null): List<ReviewComment> {
+        val comments = mutableListOf<ReviewComment>()
+        var page = 1
+        while (true) {
+            val current = json.decodeFromString<List<ReviewComment>>(
+                get("/repos/${repo.fullName}/pulls/$number/comments?sort=created&direction=desc&per_page=100&page=$page"),
+            )
+            comments += current
+            if (afterId == null || current.size < 100 || current.any { it.id <= afterId }) break
+            page++
+        }
+        return comments.asSequence()
+            .filter { afterId == null || it.id > afterId }
+            .sortedBy { it.id }
+            .toList()
+    }
+
     /** Issues updated since the previous drive. GitHub includes pull requests in this endpoint too. */
     open fun issuesUpdatedSince(repo: RepoRef, sinceMillis: Long): List<GitHubIssue> {
         val since = java.time.Instant.ofEpochMilli(sinceMillis).toString()
@@ -320,7 +368,7 @@ open class GitHub(
     }
 
     /** Everything the project view shows for [repo]. */
-    open fun status(repo: RepoRef, maxPulls: Int = 6): RepoStatus {
+    open fun status(repo: RepoRef, maxPulls: Int = 10): RepoStatus {
         val latest = latestCommit(repo)
         val branchChecks = latest?.let { checks(repo, it.sha) } ?: ChecksSummary(Checks.None)
         val pulls = openPulls(repo, maxPulls).map { PullStatus(it, checks(repo, it.head.sha)) }

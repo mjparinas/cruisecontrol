@@ -47,7 +47,7 @@ class TasksScreen(carContext: CarContext) : Screen(carContext) {
         val finished = all.count { it.isFinished && !g.engine.isRunning(it.id) }
         val canTalk = g.isConfigured && g.repoChoices().isNotEmpty()
         val hasTemplates = canTalk && g.templates.templates.value.isNotEmpty()
-        // Car lists hold about six rows; keep one each for "Talk to Claude", "Templates" and "Clear finished" when shown.
+        // Keep one row each for "Talk to Claude", "Templates" and "Clear finished" when shown.
         val tasks = all.take(MAX_ROWS - (if (canTalk) 1 else 0) - (if (hasTemplates) 1 else 0) - (if (finished > 0) 1 else 0))
         if (canTalk) {
             items.addItem(
@@ -110,7 +110,7 @@ class TasksScreen(carContext: CarContext) : Screen(carContext) {
     }
 
     companion object {
-        private const val MAX_ROWS = 6
+        private const val MAX_ROWS = 10
 
         fun statusLabel(task: Task): String {
             val pr = SpokenStatus.pullRequest(task)

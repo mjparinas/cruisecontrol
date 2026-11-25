@@ -284,6 +284,59 @@ class GitHubClientTest {
         assertEquals(1, sent.size)
     }
 
+    @Test fun fetchesAnIssueAndRejectsPullRequestsFromTheSharedEndpoint() {
+        on("GET", "/repos/me/app/issues/34", 200, """{"number":34,"title":"Fix login","updated_at":"2026-01-02T03:04:05Z","body":"Details"}""")
+        val issue = github.issue(repo, 34)
+        assertEquals(34, issue.number)
+        assertEquals("Fix login", issue.title)
+        assertEquals("Details", issue.body)
+
+        on("GET", "/repos/me/app/issues/35", 200, """{"number":35,"title":"A pull request","updated_at":"2026-01-02T03:04:05Z","pull_request":{"url":"https://api.github.com/repos/me/app/pulls/35"}}""")
+        assertFailsWith<IllegalArgumentException> { github.issue(repo, 35) }
+        assertFailsWith<IllegalArgumentException> { github.issue(repo, 0) }
+    }
+
+    @Test fun listsOpenIssuesButFiltersPullRequests() {
+        on(
+            "GET", "/repos/me/app/issues?state=open&sort=created&direction=desc&per_page=5", 200,
+            """[
+                {"number":34,"title":"Fix login","updated_at":"2026-01-02T03:04:05Z"},
+                {"number":35,"title":"Pull request","updated_at":"2026-01-02T03:04:05Z","pull_request":{"url":"https://api.github.com/repos/me/app/pulls/35"}}
+            ]""",
+        )
+        assertEquals(listOf(34), github.openIssues(repo).map { it.number })
+        assertFailsWith<IllegalArgumentException> { github.openIssues(repo, 0) }
+    }
+
+    @Test fun returnsNewReviewCommentsOldestFirst() {
+        on(
+            "GET", "/repos/me/app/pulls/7/comments?sort=created&direction=desc&per_page=100&page=1", 200,
+            """[
+                {"id":12,"body":"Second","path":"src/B.kt","user":{"login":"reviewer"}},
+                {"id":11,"body":"First","path":"src/A.kt","user":{"login":"author"}}
+            ]""",
+        )
+        val comments = github.reviewComments(repo, 7, afterId = 11)
+        assertEquals(listOf(12L), comments.map { it.id })
+        assertEquals("reviewer", comments.single().user?.login)
+    }
+
+    @Test fun pagesReviewCommentsUntilTheLastSeenId() {
+        val firstPage = (201 downTo 102).joinToString(",") { """{"id":$it,"body":"Comment $it"}""" }
+        on(
+            "GET", "/repos/me/app/pulls/7/comments?sort=created&direction=desc&per_page=100&page=1", 200,
+            "[$firstPage]",
+        )
+        on(
+            "GET", "/repos/me/app/pulls/7/comments?sort=created&direction=desc&per_page=100&page=2", 200,
+            """[{"id":101,"body":"New"},{"id":100,"body":"Seen"},{"id":50,"body":"Old"}]""",
+        )
+
+        val comments = github.reviewComments(repo, 7, afterId = 100).map { it.id }
+        assertEquals((101L..201L).toList(), comments)
+        assertEquals(listOf(1, 2), sent.map { Regex("[?&]page=(\\d+)").find(it.path)!!.groupValues[1].toInt() })
+    }
+
     @Test fun aReplyWithNoBodyIsReportedByItsStatus() {
         val bare = OkHttpClient.Builder().addInterceptor { chain ->
             Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(502).message("Bad gateway").build()

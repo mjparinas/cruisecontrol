@@ -39,6 +39,21 @@ enum class VoiceCommand {
             return if (core.count { it == ' ' } <= 2 && first in yesWords) Yes else null
         }
 
+        /** True only for a short, unambiguous yes or no, not a longer request that happens to start that way. */
+        fun confirmation(text: String): VoiceCommand? {
+            val phrase = text.lowercase()
+                .replace(Regex("[^a-z' ]"), " ")
+                .split(Regex("\\s+"))
+                .filter { it.isNotBlank() }
+                .joinToString(" ")
+            return when (phrase) {
+                "yes", "yeah", "yep", "sure", "confirm", "do it", "yes start it", "yes go ahead",
+                "yes do it", "okay", "ok", "that's right", "thats right" -> Yes
+                "no", "nope", "don't", "dont", "never mind", "nevermind", "not now", "cancel" -> No
+                else -> null
+            }
+        }
+
         private fun isNegated(phrase: String): Boolean {
             val tokens = phrase.split(' ').filter { it.isNotBlank() }
             return tokens.any {
