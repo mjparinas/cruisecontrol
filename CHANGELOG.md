@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The app targets Android 16 (API 36), which Google Play requires for updates from August 31, 2026. Back gestures
+  now show Android's predictive back preview.
 - Share screenshots or other pictures into Cruise Control, up to four, and they go with the next task you start, so
   Claude can see the bug you mean.
 - Tasks for later: pick Later when confirming a task (in an hour, tonight or tomorrow morning), or ask the car
