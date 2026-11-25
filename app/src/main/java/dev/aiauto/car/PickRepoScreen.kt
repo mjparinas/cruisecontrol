@@ -37,8 +37,7 @@ class PickRepoScreen(carContext: CarContext, private val template: TaskTemplate?
             )
         }
         return ListTemplate.Builder()
-            .setTitle(template?.let { "${it.name} in which repo?" } ?: "Which repo?")
-            .setHeaderAction(Action.BACK)
+            .setHeader(carHeader(template?.let { "${it.name} in which repo?" } ?: "Which repo?"))
             .setSingleList(items.build())
             .build()
     }

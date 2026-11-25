@@ -3,7 +3,6 @@ package dev.aiauto.car
 import androidx.car.app.CarContext
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
-import androidx.car.app.model.ActionStrip
 import androidx.car.app.model.CarColor
 import androidx.car.app.model.CarIcon
 import androidx.car.app.model.MessageTemplate
@@ -151,11 +150,9 @@ class MicScreen(carContext: CarContext) : Screen(carContext) {
             show(State.Idle, HELLO)
         }.build()
         return MessageTemplate.Builder(body)
-            .setTitle("Claude")
-            .setHeaderAction(Action.APP_ICON)
+            .setHeader(carHeader("Claude", Action.APP_ICON, listOf(fresh, tasks)))
             .setIcon(micIcon())
             .addAction(main)
-            .setActionStrip(ActionStrip.Builder().addAction(fresh).addAction(tasks).build())
             .build()
     }
 

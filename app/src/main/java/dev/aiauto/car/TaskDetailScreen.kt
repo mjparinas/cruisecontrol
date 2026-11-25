@@ -4,7 +4,6 @@ import androidx.car.app.CarContext
 import androidx.car.app.CarToast
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
-import androidx.car.app.model.ActionStrip
 import androidx.car.app.model.CarColor
 import androidx.car.app.model.MessageTemplate
 import androidx.car.app.model.Pane
@@ -42,7 +41,7 @@ class TaskDetailScreen(carContext: CarContext, private val taskId: String) : Scr
 
     override fun onGetTemplate(): Template {
         val task = g.tasks.get(taskId)
-            ?: return MessageTemplate.Builder("This task was cleared.").setTitle("Task").setHeaderAction(Action.BACK).build()
+            ?: return MessageTemplate.Builder("This task was cleared.").setHeader(carHeader("Task")).build()
 
         val pane = Pane.Builder()
         task.approval?.let { step ->
@@ -66,16 +65,14 @@ class TaskDetailScreen(carContext: CarContext, private val taskId: String) : Scr
         when {
             task.approval != null -> { main += approve(); main += deny(); strip += stop(); strip += readAloud(task) }
             working -> { main += reply(task, primary = true); main += stop(); strip += readAloud(task); strip += history() }
-            // The strip only holds two actions, so Clear moves onto the History screen here.
+            // The header only holds two end actions, so Clear moves onto the History screen here.
             failed -> { main += tryAgain(); main += reply(task, primary = false); strip += readAloud(task); strip += history() }
             task.hasOpenPr && task.status != TaskStatus.NeedsInput -> { main += pullRequest(task); main += reply(task, primary = false); strip += readAloud(task); strip += history() }
             else -> { main += reply(task, primary = true); main += readAloud(task); strip += history(); strip += clear() }
         }
         main.forEach { pane.addAction(it) }
         return PaneTemplate.Builder(pane.build())
-            .setTitle(task.title)
-            .setHeaderAction(Action.BACK)
-            .setActionStrip(ActionStrip.Builder().apply { strip.forEach { addAction(it) } }.build())
+            .setHeader(carHeader(task.title, end = strip))
             .build()
     }
 

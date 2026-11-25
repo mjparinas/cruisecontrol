@@ -4,7 +4,6 @@ import androidx.car.app.CarContext
 import androidx.car.app.CarToast
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
-import androidx.car.app.model.ActionStrip
 import androidx.car.app.model.CarIcon
 import androidx.car.app.model.CarText
 import androidx.car.app.model.ItemList
@@ -102,10 +101,8 @@ class TasksScreen(carContext: CarContext) : Screen(carContext) {
             .setOnClickListener { screenManager.push(ProjectsScreen(carContext)) }
             .build()
         return ListTemplate.Builder()
-            .setTitle("Claude tasks")
-            .setHeaderAction(Action.APP_ICON)
+            .setHeader(carHeader("Claude tasks", Action.APP_ICON, listOf(newTask, projects)))
             .setSingleList(items.build())
-            .setActionStrip(ActionStrip.Builder().addAction(newTask).addAction(projects).build())
             .build()
     }
 

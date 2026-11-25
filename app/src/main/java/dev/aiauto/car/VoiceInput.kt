@@ -201,6 +201,10 @@ class VoiceInput(private val context: Context) {
     /** Streams the car microphone into the recognizer through a pipe. */
     @RequiresApi(33)
     private fun addCarMicrophone(intent: Intent) {
+        // Recording needs the microphone permission; without it the caller falls back to the phone's microphone.
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            throw SecurityException("The microphone permission isn't granted.")
+        }
         val (readSide, writeSide) = ParcelFileDescriptor.createPipe()
         carAudioFd = readSide
         val record = CarAudioRecord.create(checkNotNull(carContext))

@@ -15,8 +15,7 @@ class ConfirmScreen(
     private val onConfirm: () -> Unit,
 ) : Screen(carContext) {
     override fun onGetTemplate(): Template = MessageTemplate.Builder(question)
-        .setTitle("Are you sure?")
-        .setHeaderAction(Action.BACK)
+        .setHeader(carHeader("Are you sure?"))
         .addAction(
             Action.Builder()
                 .setTitle(confirmLabel)

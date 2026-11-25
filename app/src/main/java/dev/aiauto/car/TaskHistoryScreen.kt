@@ -4,7 +4,6 @@ import androidx.car.app.CarContext
 import androidx.car.app.CarToast
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
-import androidx.car.app.model.ActionStrip
 import androidx.car.app.model.ItemList
 import androidx.car.app.model.ListTemplate
 import androidx.car.app.model.MessageTemplate
@@ -40,7 +39,7 @@ class TaskHistoryScreen(carContext: CarContext, private val taskId: String) : Sc
 
     override fun onGetTemplate(): Template {
         val task = g.tasks.get(taskId) ?: g.tasks.cleared().firstOrNull { it.id == taskId }
-            ?: return MessageTemplate.Builder("This task was cleared.").setTitle("History").setHeaderAction(Action.BACK).build()
+            ?: return MessageTemplate.Builder("This task was cleared.").setHeader(carHeader("History")).build()
 
         // One row goes to the repo's history, so the messages share what's left of the car's list.
         val page = RepoHistory.page(RepoHistory.messages(task), RepoHistory.CAR_ROWS - 1, skip)
@@ -66,15 +65,8 @@ class TaskHistoryScreen(carContext: CarContext, private val taskId: String) : Sc
         if (page.older > 0) items.addItem(historyPageRow(this, "Older messages", page.older) { earlierSkips.addLast(skip); skip += page.items.size })
 
         return ListTemplate.Builder()
-            .setTitle(task.title)
-            .setHeaderAction(Action.BACK)
+            .setHeader(carHeader(task.title, end = listOfNotNull(reader.action { RepoHistory.spokenTask(task) }, clear().takeIf { !task.cleared })))
             .setSingleList(items.build())
-            .setActionStrip(
-                ActionStrip.Builder()
-                    .addAction(reader.action { RepoHistory.spokenTask(task) })
-                    .apply { if (!task.cleared) addAction(clear()) }
-                    .build(),
-            )
             .build()
     }
 

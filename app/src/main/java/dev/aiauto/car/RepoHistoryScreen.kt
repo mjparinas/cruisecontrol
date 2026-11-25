@@ -3,7 +3,6 @@ package dev.aiauto.car
 import androidx.car.app.CarContext
 import androidx.car.app.Screen
 import androidx.car.app.model.Action
-import androidx.car.app.model.ActionStrip
 import androidx.car.app.model.ItemList
 import androidx.car.app.model.ListTemplate
 import androidx.car.app.model.Row
@@ -52,10 +51,8 @@ class RepoHistoryScreen(carContext: CarContext, private val repo: RepoRef) : Scr
         if (page.older > 0) items.addItem(historyPageRow(this, "Older tasks", page.older) { earlierSkips.addLast(skip); skip += page.items.size })
 
         return ListTemplate.Builder()
-            .setTitle("${repo.name} history")
-            .setHeaderAction(Action.BACK)
+            .setHeader(carHeader("${repo.name} history", end = listOf(reader.action { RepoHistory.spokenRepo(g.tasks.tasks.value, repo) })))
             .setSingleList(items.build())
-            .setActionStrip(ActionStrip.Builder().addAction(reader.action { RepoHistory.spokenRepo(g.tasks.tasks.value, repo) }).build())
             .build()
     }
 }

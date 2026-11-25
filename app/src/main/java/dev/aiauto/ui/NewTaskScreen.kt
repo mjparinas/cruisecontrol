@@ -225,8 +225,7 @@ fun NewTaskScreen(
             }
 
             if (!askMode) SectionHeader("Templates")
-            if (!askMode)
-            SettingsCard {
+            if (!askMode) SettingsCard {
                 templates.forEach { template ->
                     TemplateRow(
                         template,

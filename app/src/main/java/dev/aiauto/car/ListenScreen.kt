@@ -55,8 +55,7 @@ class ListenScreen(
 
     override fun onGetTemplate(): Template {
         val template = MessageTemplate.Builder(message)
-            .setTitle(title)
-            .setHeaderAction(Action.BACK)
+            .setHeader(carHeader(title))
         if (failed) {
             template.addAction(Action.Builder().setTitle("Try again").setOnClickListener { listen() }.build())
             template.addAction(

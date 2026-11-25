@@ -39,8 +39,7 @@ class ProjectsScreen(carContext: CarContext) : Screen(carContext) {
             )
         }
         return ListTemplate.Builder()
-            .setTitle("Projects")
-            .setHeaderAction(Action.BACK)
+            .setHeader(carHeader("Projects"))
             .setSingleList(items.build())
             .build()
     }
