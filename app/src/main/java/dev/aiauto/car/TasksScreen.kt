@@ -114,6 +114,7 @@ class TasksScreen(carContext: CarContext) : Screen(carContext) {
 
         fun statusLabel(task: Task): String {
             val pr = SpokenStatus.pullRequest(task)
+            task.startAtMillis?.let { return "Starts " + dev.aiauto.core.StartLater.spoken(it, System.currentTimeMillis()) }
             return when (task.status) {
                 TaskStatus.Starting -> "Starting"
                 TaskStatus.Working -> if (task.approval != null) "Needs your approval" else "Working"

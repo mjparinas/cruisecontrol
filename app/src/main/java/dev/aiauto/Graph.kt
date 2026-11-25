@@ -41,6 +41,8 @@ class Graph(context: Context) {
     val repos = RepoStore(context)
     val availableRepos = AvailableRepoStore(context)
     val chatMemory = FileChatMemory(context)
+    /** Pictures shared into tasks, kept until their first prompt is sent. */
+    val imageStash = dev.aiauto.data.ImageStash(context)
     /** Recent errors for Settings. The app makes it before anything else; this covers a Graph made without it. */
     val errors: ErrorStore = AppLog.store ?: ErrorStore(context).also { AppLog.store = it }
     val templates = TemplateStore(context)
@@ -67,6 +69,9 @@ class Graph(context: Context) {
             override fun spentThisMonthUsd() = settings.spentThisMonthUsd
             override fun addSpend(usd: Double) = this@Graph.addSpend(usd)
             override fun repoSettings(repo: RepoRef) = settings.repoSettings(repo)
+            override fun saveImages(taskId: String, images: List<dev.aiauto.core.TaskImage>) = imageStash.save(taskId, images)
+            override fun images(taskId: String) = imageStash.load(taskId)
+            override fun dropImages(taskId: String) = imageStash.drop(taskId)
         },
         scope = scope,
         onMessage = { task, message ->
@@ -100,7 +105,8 @@ class Graph(context: Context) {
                         (t.lastMessage?.let { ". Last said: ${it.text.take(300)}" } ?: "")
                 }.ifEmpty { "none" }
                 val saved = templates.templates.value.joinToString("\n") { "- ${it.name}: ${it.prompt}" }.ifEmpty { "none" }
-                return "Repos, most recently used first: $repoList\nRecent tasks:\n$recent\nTask templates (saved requests the driver can start by name):\n$saved"
+                val localTime = java.time.ZonedDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d, h:mm a", java.util.Locale.US))
+                return "Local time now: $localTime\nRepos, most recently used first: $repoList\nRecent tasks:\n$recent\nTask templates (saved requests the driver can start by name):\n$saved"
             }
 
             override fun startTask(repo: String, request: String): String {
@@ -109,6 +115,15 @@ class Graph(context: Context) {
                 val task = engine.start(match, request)
                 TaskService.ensureRunning(appContext)
                 return "Started task ${task.id} in ${match.fullName}."
+            }
+
+            override fun startTaskLater(repo: String, request: String, minutes: Int): String {
+                require(request.isNotBlank()) { "The request is empty." }
+                val match = repoBySpokenName(repo)
+                val now = System.currentTimeMillis()
+                val at = dev.aiauto.core.StartLater.inMinutes(now, minutes)
+                val task = engine.start(match, request, startAtMillis = at)
+                return "Saved task ${task.id} in ${match.fullName}. It starts ${dev.aiauto.core.StartLater.spoken(at, now)}."
             }
 
             override fun startIssue(repo: String, issue: dev.aiauto.core.GitHubIssue): String {
@@ -317,6 +332,17 @@ class Graph(context: Context) {
 
     /** True while a task is running or waiting to reconnect, so the foreground service should be up. */
     fun hasActiveWork(): Boolean = tasks.all().any { engine.isRunning(it.id) } || engine.isReconnecting()
+
+    /** Keeps the alarm for tasks saved for later set to the next one due, whenever the task list changes. */
+    fun watchStartLater(context: Context) {
+        val app = context.applicationContext
+        scope.launch {
+            tasks.tasks.collect {
+                dev.aiauto.notify.StartLaterAlarm.schedule(app, engine.nextStartMillis())
+                delay(1_000)
+            }
+        }
+    }
 
     /** Keeps the home-screen widget in step with the task list, at most about once a second. */
     fun watchWidget(context: Context) {

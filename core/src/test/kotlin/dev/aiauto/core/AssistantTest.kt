@@ -15,6 +15,7 @@ import kotlin.test.fail
 class AssistantTest {
     private val started = mutableListOf<Pair<String, String>>()
     private val startedIssues = mutableListOf<Pair<String, Int>>()
+    private val startedLater = mutableListOf<Triple<String, String, Int>>()
     private val issue = GitHubIssue(34, "Fix login", "2026-01-02T03:04:05Z", body = "The login fails.")
 
     private val actions = object : AssistantActions {
@@ -22,6 +23,10 @@ class AssistantTest {
         override fun startTask(repo: String, request: String): String {
             started += repo to request
             return "Started task ab12 in $repo."
+        }
+        override fun startTaskLater(repo: String, request: String, minutes: Int): String {
+            startedLater += Triple(repo, request, minutes)
+            return "Saved a task in $repo for later."
         }
         override fun startIssue(repo: String, issue: GitHubIssue): String {
             startedIssues += repo to issue.number
@@ -147,6 +152,22 @@ class AssistantTest {
         assertEquals("The build is running.", assistant.ask("repeat that"))
         assertEquals("Quiet mode is on.", assistant.ask("quiet"))
         assertEquals(1, http.sent.size)
+    }
+
+    @Test
+    fun aTaskForLaterIsReadBackWithItsDelayAndSavedOnYes() {
+        val http = FakeHttp(
+            """{"output": [{"type": "function_call", "id": "fc_1", "call_id": "call_1", "name": "start_coding_task",
+                "arguments": "{\"repo\":\"me/app\",\"request\":\"Update the dependencies\",\"start_in_minutes\":150}"}], "usage": {}}""",
+        )
+        val assistant = assistant(ChatModel.GptLuna, http)
+        assertEquals(
+            "I heard: Update the dependencies in me/app. Say yes to save it for 2 hours and 30 minutes from now, or no to cancel.",
+            assistant.ask("Update the dependencies in app tonight"),
+        )
+        assertEquals("Saved a task in me/app for later.", assistant.ask("yes"))
+        assertEquals(listOf(Triple("me/app", "Update the dependencies", 150)), startedLater)
+        assertTrue(started.isEmpty())
     }
 
     @Test

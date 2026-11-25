@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- Keeps tasks running after Android Auto disconnects and the screen turns off. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Sets the alarm for tasks saved for later again after the phone restarts. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Installs new versions downloaded from the app's GitHub releases. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -52,6 +54,17 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <!-- Screenshots and other pictures shared into a new task. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
             <!-- Google Assistant shortcut for starting a task by voice. -->
             <meta-data
                 android:name="android.app.shortcuts"
@@ -77,6 +90,16 @@
         <receiver
             android:name=".notify.ReplyReceiver"
             android:exported="false" />
+
+        <!-- Starts tasks saved for later when they're due, and after a restart sets that alarm again. -->
+        <receiver
+            android:name=".notify.StartLaterAlarm"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Home-screen widget with running tasks and today's spend. -->
         <receiver

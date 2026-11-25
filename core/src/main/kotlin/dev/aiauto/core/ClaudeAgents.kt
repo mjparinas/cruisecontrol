@@ -18,6 +18,7 @@ import com.anthropic.models.beta.sessions.BetaManagedAgentsGitHubRepositoryResou
 import com.anthropic.models.beta.sessions.SessionCreateParams
 import com.anthropic.models.beta.sessions.events.BetaManagedAgentsAgentEvaluatedPermission
 import com.anthropic.models.beta.sessions.events.BetaManagedAgentsStreamSessionEvents
+import com.anthropic.models.beta.sessions.events.BetaManagedAgentsBase64ImageSource
 import com.anthropic.models.beta.sessions.events.BetaManagedAgentsUserMessageEventParams
 import com.anthropic.models.beta.sessions.events.BetaManagedAgentsUserToolConfirmationEventParams
 import com.anthropic.models.beta.sessions.events.EventSendParams
@@ -73,6 +74,9 @@ interface AgentClient : AutoCloseable {
     fun createSetup(profile: AgentProfile = AgentProfile(), existing: AgentSetup? = null): AgentSetup
     fun createSession(setup: AgentSetup, task: Task, githubToken: String): String
     fun sendPrompt(sessionId: String, prompt: String)
+
+    /** Sends a prompt with pictures, such as screenshots shared into a new task. Clients without pictures drop them. */
+    fun sendPrompt(sessionId: String, prompt: String, images: List<TaskImage>) = sendPrompt(sessionId, prompt)
     fun follow(
         sessionId: String,
         seenEventIds: MutableSet<String>,
@@ -208,17 +212,18 @@ class ClaudeAgents(apiKey: String) : AgentClient {
     }
 
     /** Sends a spoken or typed prompt. The first prompt of a task carries the branch to use. */
-    override fun sendPrompt(sessionId: String, prompt: String) {
-        client.beta().sessions().events().send(
-            sessionId,
-            EventSendParams.builder()
-                .addEvent(
-                    BetaManagedAgentsUserMessageEventParams.builder()
-                        .addTextContent(prompt)
-                        .build(),
-                )
-                .build(),
-        )
+    override fun sendPrompt(sessionId: String, prompt: String) = sendPrompt(sessionId, prompt, emptyList())
+
+    /** Sends the prompt with any pictures first, so Claude sees them before reading what to do with them. */
+    override fun sendPrompt(sessionId: String, prompt: String, images: List<TaskImage>) {
+        val message = BetaManagedAgentsUserMessageEventParams.builder()
+        images.forEach { image ->
+            message.addImageContent(
+                BetaManagedAgentsBase64ImageSource.builder().mediaType(image.mediaType).data(image.base64).build(),
+            )
+        }
+        message.addTextContent(prompt)
+        client.beta().sessions().events().send(sessionId, EventSendParams.builder().addEvent(message.build()).build())
     }
 
     /**

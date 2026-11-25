@@ -145,6 +145,15 @@ Tasks, repos and sync:
   the car chat use `RepoRef.choices`: repos with tasks first, newest task first, then saved repos, then the rest in
   GitHub's most recently pushed order. The token's list is cached on the device so the car picker opens without
   waiting on GitHub; it isn't synced, and saved repos still decide what Projects shows and what syncs.
+- Pictures shared into the app (up to four, scaled to 1568 pixels on the longest side, sent as JPEG) go with the
+  next task's first prompt. They're kept in a file on the device that started the task until that prompt is sent,
+  never in the synced task, so sync stays small and pictures never leave that phone except to Claude.
+- Tasks can be saved for later (`Task.startAtMillis`, `core/src/main/kotlin/dev/aiauto/core/StartLater.kt`): on the
+  phone's confirmation, or from the car chat with `start_in_minutes`, which the model works out from the local time
+  in its context and the driver confirms. They wait on the device that made them, don't count as active, and start
+  from an inexact alarm (`app/src/main/java/dev/aiauto/notify/StartLaterAlarm.kt`), since exact alarms need a
+  special permission and a few minutes late doesn't matter. The alarm is set again when the app starts, including
+  after the phone restarts. A task can wait at most a week.
 - The car assistant can list open issues and start a task from a numbered issue. It reads the issue body, requires
   a separate yes, and the task's pull request closes that issue when merged. Review comments on task pull requests
   are announced once; replying includes the comment and the driver's response in the prompt to Claude.
@@ -332,6 +341,8 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- Screenshots shared into the app go with the next task, kept only on that device. Tasks can be saved for later
+  from the phone's confirmation or by voice, and start from an inexact alarm.
 - Spending limits hold across synced devices: each device's own daily and monthly totals sync and are added up,
   reversing "the total stays per device" from PR 73. Passing 80% of a limit is said once. Caught errors are kept on
   the phone for a Recent errors screen with Copy.

@@ -37,6 +37,16 @@ interface EngineConfig {
     /** Adds a cost to both today's and this month's totals. */
     fun addSpend(usd: Double) {}
 
+    /**
+     * Keeps a new task's pictures until its first prompt reaches Claude, so a task started later, or one that
+     * outlives a restart, still sends them. The app saves them to a file; the default keeps nothing.
+     */
+    fun saveImages(taskId: String, images: List<TaskImage>) {}
+    /** The pictures saved for [taskId], or none. */
+    fun images(taskId: String): List<TaskImage> = emptyList()
+    /** Forgets [taskId]'s pictures once they've been sent, or the task is cleared. */
+    fun dropImages(taskId: String) {}
+
     /** What happens to [repo]'s pull requests, and the rules Claude follows on every task in it. */
     fun repoSettings(repo: RepoRef): RepoSettings = RepoSettings.MANUAL
 }

@@ -174,7 +174,14 @@ data class Task(
     /** Kept only in this device's local history after the task is cleared. */
     val cleared: Boolean = false,
     val clearedAtMillis: Long? = null,
+    /** When a task saved for later starts on its own. Null once it has started, or for a task started straight away. */
+    val startAtMillis: Long? = null,
+    /** Pictures sent with the first prompt. The pictures themselves stay on the device that started the task. */
+    val imageCount: Int = 0,
 ) {
+    /** Saved for later and not started yet. */
+    val isScheduled: Boolean get() = startAtMillis != null
+
     /** A pull request exists and hasn't been merged or closed yet. */
     val hasOpenPr: Boolean get() = prNumber != null && (prState ?: PrState.Open) == PrState.Open
 
@@ -184,7 +191,7 @@ data class Task(
 
     /** Mid-turn, or cut off by a lost connection and still resumable. */
     val isActive: Boolean
-        get() = status == TaskStatus.Working || status == TaskStatus.Starting || interrupted
+        get() = !isScheduled && (status == TaskStatus.Working || status == TaskStatus.Starting || interrupted)
 
     /** Nothing left to do or watch: safe to clear from the list. */
     val isFinished: Boolean

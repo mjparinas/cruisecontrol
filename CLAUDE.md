@@ -35,7 +35,9 @@ reads the updates aloud, opens the pull request and follows its checks. The READ
     automatic prompt caching, and `ModelChoice` holds each model's cache hit price. `VoiceCommand.kt` and `VoiceControls.kt` handle short spoken
     replies; `SpokenStatus.kt` turns text into speech-friendly sentences; `SpendMeter.kt` backs the home screen's spending card; `SpendLedger.kt` syncs each device's spend so the limits
     count every device, and holds `SpendWarning` (said once at 80% of a limit); `ErrorLog.kt` formats the errors that
-    the app's `AppLog` keeps for Settings' Recent errors screen; `Briefing.kt` is the drive briefing;
+    the app's `AppLog` keeps for Settings' Recent errors screen; `Briefing.kt` is the drive briefing; `StartLater.kt`
+    has the times a task can be saved for (the app's `notify/StartLaterAlarm.kt` starts them) and `TaskImages.kt`
+    the limits for pictures shared into a task;
     `VoiceShortcut.kt` turns a Google Assistant shortcut request into a repo and task (`MainActivity` runs it).
     `SteeringWheel.kt` maps the experimental steering-wheel buttons to actions; the app's `car/WheelButtons.kt`
     media session feeds it while the car screen shows.
