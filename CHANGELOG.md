@@ -2,8 +2,18 @@
 
 ## Unreleased
 
+- Before a task starts, the app reads your request back and waits for a separate yes. This works from the phone,
+  Android Auto's car screen and messaging reply, and the Google Assistant shortcut.
+- The car assistant can list a repo's open issues and start work on an issue. The task includes its description, and
+  the pull request closes it when merged. New pull request review comments are read aloud; replying sends the comment
+  and your response to Claude together.
+- The car assistant can repeat its last answer or turn on quiet mode without starting a model turn. Car lists now
+  show up to ten rows, and the phone gets one reminder when the car first becomes parked with unfinished work.
+- Car repo history includes archived tasks and up to 100 recently cleared task histories kept on this device only.
+  When available, Claude's session history fills older messages trimmed from a synced task.
 - The car has History screens for each task and each repo with the whole conversation, Claude's earlier messages
-  included. Tap a message to hear it, or Read all to hear everything; older messages scroll back only while parked.
+  included. Tap a message to hear it, or Read all to hear everything; up to ten rows are shown at a time and older
+  messages scroll back only while parked.
 - Bug fixes: a question Claude asked in an earlier turn no longer marks a finished turn as waiting on you or alerts
   again; turning on GitHub's auto-merge is no longer announced as merged; a spoken repo name with a capitalized
   "Slash" still finds the repo; the Accent colour setting uses Canadian spelling.

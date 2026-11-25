@@ -84,6 +84,8 @@ class AgentsDocTest {
 
     @Test fun numbersMatchTheCode() {
         val dailyLimit = find(read("app/src/main/java/dev/aiauto/data/Stores.kt"), """DEFAULT_DAILY_LIMIT = ([\d.]+)""", "the default daily limit")
+        val issueBodyLimit = find(read("core/src/main/kotlin/dev/aiauto/core/TaskEngine.kt"), """MAX_ISSUE_BODY_CHARS = ([\d_]+)""", "the issue body limit")
+            .replace("_", "")
         assertMatches(
             "Numbers the code depends on",
             mapOf(
@@ -96,6 +98,9 @@ class AgentsDocTest {
                 "Stuck task alert (minutes)" to (TaskEngine.STUCK_MILLIS / 60_000).toString(),
                 "Car chat exchanges remembered" to ChatMemory.KEEP.toString(),
                 "Synced messages per task" to SyncMerge.MESSAGES_PER_TASK.toString(),
+                "Car history rows" to RepoHistory.CAR_ROWS.toString(),
+                "Cleared task histories kept locally" to RepoHistory.CLEARED_TASKS_KEEP.toString(),
+                "Issue body included in a task (characters)" to issueBodyLimit,
                 "Sync repo" to RepoSync.REPO,
                 "Update source" to UpdateSource.APP_REPO,
                 "Repository notes file" to ClaudeAgents.NOTES_FILE,

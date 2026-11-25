@@ -47,8 +47,8 @@ class RepoStatusScreen(carContext: CarContext, private val repo: RepoRef) : Scre
                 .addText(latest?.let { c -> c.message + (c.timeMillis?.let { " · " + SpokenStatus.ago(System.currentTimeMillis() - it) } ?: "") } ?: "No commits yet")
                 .build(),
         )
-        // Car lists hold six rows: the branch, up to four pull requests and the history.
-        status.pulls.take(4).forEach { p ->
+        // Keep the branch and task history alongside as many recent pull requests as the larger list permits.
+        status.pulls.take(dev.aiauto.core.RepoHistory.CAR_ROWS - 2).forEach { p ->
             items.addItem(
                 Row.Builder()
                     .setTitle("#${p.pull.number} ${p.pull.title}")
@@ -62,7 +62,7 @@ class RepoStatusScreen(carContext: CarContext, private val repo: RepoRef) : Scre
         items.addItem(
             Row.Builder()
                 .setTitle("Task history")
-                .addText(RepoHistory.tasks(g.tasks.tasks.value, repo).size.let { if (it == 1) "1 task" else "$it tasks" })
+                .addText(RepoHistory.tasks(g.tasks.tasks.value + g.tasks.cleared(), repo).size.let { if (it == 1) "1 task" else "$it tasks" })
                 .setOnClickListener { screenManager.push(RepoHistoryScreen(carContext, repo)) }
                 .setBrowsable(true)
                 .build(),

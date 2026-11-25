@@ -21,7 +21,7 @@ class TemplatesScreen(carContext: CarContext) : Screen(carContext) {
 
     override fun onGetTemplate(): Template {
         val items = ItemList.Builder().setNoItemsMessage("Save templates in New task on your phone.")
-        g.templates.templates.value.take(MAX_ROWS).forEach { template ->
+        g.templates.templates.value.take(dev.aiauto.core.RepoHistory.CAR_ROWS).forEach { template ->
             items.addItem(
                 Row.Builder()
                     .setTitle(template.name)
@@ -38,9 +38,5 @@ class TemplatesScreen(carContext: CarContext) : Screen(carContext) {
             .setHeaderAction(Action.BACK)
             .setSingleList(items.build())
             .build()
-    }
-
-    private companion object {
-        const val MAX_ROWS = 6
     }
 }

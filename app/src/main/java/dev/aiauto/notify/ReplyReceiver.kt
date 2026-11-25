@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.core.app.RemoteInput
 import dev.aiauto.TaskService
 import dev.aiauto.core.CarChat
+import dev.aiauto.core.VoiceCommand
 import dev.aiauto.graph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -58,9 +59,29 @@ class ReplyReceiver : BroadcastReceiver() {
         }
         if (target.startsWith(Notifier.NEW_PREFIX)) {
             val repo = g.repos.find(target.removePrefix(Notifier.NEW_PREFIX)) ?: return
-            g.notifier.clearNewTask(repo)
-            val task = g.engine.start(repo, text)
-            g.notifier.post(task)
+            if (g.notifier.expireNewTaskConfirmation(repo)) return
+            val pending = g.notifier.pendingNewTask(repo)
+            if (pending == null) {
+                if (VoiceCommand.confirmation(text) != null) {
+                    g.notifier.answerNewTaskConfirmation(repo, "Tell me what you want to work on.")
+                } else {
+                    g.notifier.confirmNewTask(repo, text)
+                }
+                return
+            }
+            when (VoiceCommand.confirmation(text)) {
+                VoiceCommand.Yes -> {
+                    g.notifier.clearNewTask(repo)
+                    val task = g.engine.start(repo, pending)
+                    g.notifier.post(task)
+                }
+                VoiceCommand.No -> g.notifier.answerNewTaskConfirmation(repo, "Okay, I won't start it.")
+                else -> g.notifier.answerNewTaskConfirmation(
+                    repo,
+                    "Reply yes to start the request I read back, or no to cancel.",
+                    keepPending = true,
+                )
+            }
         } else {
             g.engine.prompt(target, text)
             g.tasks.get(target)?.let(g.notifier::post)

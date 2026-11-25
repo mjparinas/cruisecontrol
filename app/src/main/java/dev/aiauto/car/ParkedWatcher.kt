@@ -24,7 +24,11 @@ import dev.aiauto.graph
 class ParkedWatcher(private val carContext: CarContext) : DefaultLifecycleObserver {
     private val engine = carContext.graph.engine
     private val handler = Handler(Looper.getMainLooper())
-    private val markParked = Runnable { waiting = false; engine.setParked(true) }
+    private val markParked = Runnable {
+        waiting = false
+        engine.setParked(true)
+        carContext.graph.notifier.parkedWithUnfinishedWork(carContext.graph.tasks.all())
+    }
     private var waiting = false
     private val listener = OnCarDataAvailableListener<Speed> { speed ->
         val raw = speed.rawSpeedMetersPerSecond

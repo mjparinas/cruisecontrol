@@ -28,7 +28,7 @@ class ProjectsScreen(carContext: CarContext) : Screen(carContext) {
 
     override fun onGetTemplate(): Template {
         val items = ItemList.Builder().setNoItemsMessage("Add a repo on your phone first.")
-        g.repos.repos.value.take(6).forEach { repo ->
+        g.repos.repos.value.take(dev.aiauto.core.RepoHistory.CAR_ROWS).forEach { repo ->
             items.addItem(
                 Row.Builder()
                     .setTitle(repo.name)

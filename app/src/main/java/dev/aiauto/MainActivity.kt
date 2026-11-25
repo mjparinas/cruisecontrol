@@ -51,6 +51,7 @@ private sealed interface Screen {
 class MainActivity : ComponentActivity() {
     private var screen by mutableStateOf<Screen>(Screen.Home)
     private var sharedRequest by mutableStateOf<String?>(null)
+    private var shortcutRequest by mutableStateOf<Pair<RepoRef, String>?>(null)
     private var confirmMergeTask by mutableStateOf<String?>(null)
     private var autoListen by mutableStateOf(false)
     private var lifecycleTick by mutableIntStateOf(0)
@@ -186,30 +187,37 @@ class MainActivity : ComponentActivity() {
                     )
                     Screen.NewTask -> NewTaskScreen(
                         repos = repoChoices,
-                        lastUsed = tasks.maxByOrNull { it.createdMillis }?.repo,
+                        lastUsed = shortcutRequest?.first ?: tasks.maxByOrNull { it.createdMillis }?.repo,
                         templates = templates,
                         onAddTemplate = { name, prompt -> g.templates.add(name, prompt) },
                         onDeleteTemplate = { g.templates.remove(it.id) },
                         onStartAsk = { repo, text ->
                             val task = g.engine.startAsk(repo, text)
                             TaskService.ensureRunning(this)
+                            shortcutRequest = null
                             screen = Screen.Detail(task.id)
                         },
                         listenUntilStop = g.settings.listenUntilStop,
                         sharedText = sharedRequest,
+                        initialRequest = shortcutRequest,
+                        onReadBack = { spoken, done ->
+                            if (g.speaker.inCar) g.speaker.speak(spoken, done) else done()
+                        },
                         autoListen = autoListen,
                         onAutoListenHandled = { autoListen = false },
                         onStartShared = { repo, text ->
                             val task = g.engine.start(repo, text)
                             TaskService.ensureRunning(this)
                             sharedRequest = null
+                            shortcutRequest = null
                             screen = Screen.Detail(task.id)
                         },
-                        onBack = { sharedRequest = null; screen = Screen.Home },
+                        onBack = { sharedRequest = null; shortcutRequest = null; screen = Screen.Home },
                         onStart = { repo, text ->
                             val task = g.engine.start(repo, text)
                             TaskService.ensureRunning(this)
                             sharedRequest = null
+                            shortcutRequest = null
                             screen = Screen.Detail(task.id)
                         },
                     )
@@ -431,15 +439,16 @@ class MainActivity : ComponentActivity() {
             templates = g.templates.templates.value,
             configured = g.isConfigured,
         )
-        if (g.settings.readAloudInCar && g.speaker.inCar) g.speaker.speak(result.spoken)
-        else android.widget.Toast.makeText(this@MainActivity, result.spoken, android.widget.Toast.LENGTH_LONG).show()
         return when (result) {
             is dev.aiauto.core.VoiceShortcut.Start -> {
-                val task = g.engine.start(result.repo, result.request)
-                TaskService.ensureRunning(this@MainActivity)
-                Screen.Detail(task.id)
+                shortcutRequest = result.repo to result.request
+                Screen.NewTask
             }
-            is dev.aiauto.core.VoiceShortcut.Problem -> if (g.isConfigured && repos.isNotEmpty()) Screen.NewTask else Screen.Settings
+            is dev.aiauto.core.VoiceShortcut.Problem -> {
+                if (g.settings.readAloudInCar && g.speaker.inCar) g.speaker.speak(result.spoken)
+                else android.widget.Toast.makeText(this@MainActivity, result.spoken, android.widget.Toast.LENGTH_LONG).show()
+                if (g.isConfigured && repos.isNotEmpty()) Screen.NewTask else Screen.Settings
+            }
         }
     }
 
