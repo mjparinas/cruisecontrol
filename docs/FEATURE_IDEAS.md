@@ -56,6 +56,10 @@ These started on this list and are now in the app. See the README for how they w
 - **Steering-wheel buttons (experiment)**: behind the Steering-wheel buttons setting, off by default, play or pause
   starts Talk and next or previous repeats the last update. Still to learn: whether cars send the buttons to it
   reliably, and whether a media browser service is needed for that.
+- **Failing log tail in "fix it"**: when checks fail, "fix it" (and automatic fixes) send Claude the last lines of
+  each failed Actions job's log when the token can read Actions, and fall back to check names only when it can't.
+- **Close or reopen a pull request by voice**: the car chat can close a pull request without merging, or reopen one
+  that was closed without merging, with the same two-turn confirmation as merge.
 
 ### Coding tasks on other providers
 
@@ -63,10 +67,3 @@ The car chat can use OpenAI or Gemini, but coding tasks still need Claude, becau
 Agents session: a hosted sandbox with the repo mounted, the GitHub token kept out of reach, a session budget and an
 event stream the engine follows. Running tasks on another provider would need an equivalent hosted runtime behind
 the `AgentClient` interface, with the same budget and token protections, rather than a plain chat API.
-
-## Still missing
-
-### In a separate open pull request
-
-- **Failing Actions log context and voice close/reopen controls** are already being implemented in PR #116. They are
-  intentionally not duplicated in this branch.

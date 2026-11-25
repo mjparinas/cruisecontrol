@@ -26,8 +26,9 @@ as messages that the car reads aloud. Every task starts by having Claude read th
 Tap **Talk** on the car screen and say anything. Claude (Opus 5.5, low effort for quick answers) replies out loud
 through the car speakers, then listens for your reply, which is sent as soon as you stop talking. Say nothing to end
 the conversation. Claude can also start a coding task in any repo your GitHub token can push to or answer a running task when you
-ask it to. You can also add a repo by voice: say something like "add my repo aiauto" and Claude finds it among the
-repos your GitHub token can push to and saves it. **New chat** starts the conversation over. Each answer counts toward the daily and monthly spending limits.
+ask it to, and can merge, close or reopen a pull request after asking you to confirm. You can also add a repo by voice: say
+something like "add my repo aiauto" and Claude finds it among the repos your GitHub token can push to and saves it.
+**New chat** starts the conversation over. Each answer counts toward the daily and monthly spending limits.
 Claude's answers use prompt caching, so the instructions and earlier turns of the conversation cost a fraction of
 the usual price when you ask again within five minutes.
 If there's no signal when you ask, or the chat briefly can't get through (a timeout, rate limit or server blip),
@@ -142,8 +143,8 @@ When you reply to a task, the app handles a few short phrases itself without wai
 - **"Stop"** interrupts Claude.
 - **"Merge it"** refreshes the pull request's checks and asks you to confirm. Say **"yes"** to merge or **"no"** to
   leave it. If checks failed, it won't merge. It offers to have Claude fix them instead.
-- **"Fix it"** sends the names of the failing checks to Claude. When the app announces failed checks, you can also
-  just say **"yes"**.
+- **"Fix it"** sends the failing checks to Claude, with the last lines of each failed Actions job's log when your
+  token can read Actions. When the app announces failed checks, you can also just say **"yes"**.
 - **"Repeat that"** (or "say that again") reads the task's last message aloud again, for when a turn or a passenger
   drowned it out. A question the app asked stays open, so you can still answer it.
 - **"Quiet"** turns on quiet mode, so only results and alerts are read out. Turn it off again in Settings.
@@ -188,8 +189,10 @@ app opens New task and reads the request back, then waits for a separate yes bef
    account. Tasks use Claude Opus 5.5 by default, and each task is a Managed Agents session.
 3. **GitHub token.** Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new) for
    the repos you want to use. Set **Contents** and **Pull requests** to read and write, and **Issues**, **Checks** and
-   **Commit statuses** to read. For sync across devices, the token also needs the private `cruise-control-sync` repo
-   (see below). To let GitHub merge on its own, turn on **Allow auto-merge** in the repo's settings.
+   **Commit statuses** to read. **Actions: read** is optional: with it, "fix it" and automatic check fixes send Claude
+   the last lines of each failed job's log; without it they still work from the check names alone. For sync across
+   devices, the token also needs the private `cruise-control-sync` repo (see below). To let GitHub merge on its own,
+   turn on **Allow auto-merge** in the repo's settings.
 4. **Settings in the app.** Paste both, then add repos as `owner/name`. Tap a repo for its own settings, or to
    remove it with **Remove** and a confirmation. Its running tasks keep going and nothing changes on GitHub. You can
    also add an OpenAI or Gemini API key to use their models for the car chat (see below). The keys and token are

@@ -108,6 +108,9 @@ sealed interface MergeResult {
     data class Refused(val reason: String) : MergeResult
 }
 
+/** Last lines of a failed Actions job log, for the fix-checks prompt. */
+data class FailingJobLog(val name: String, val tail: String)
+
 /** The few GitHub REST calls the app needs, authenticated with the user's token. Open so tests can fake it. */
 open class GitHub(
     private val token: String,
@@ -218,6 +221,48 @@ open class GitHub(
     /** Submits an approving review on GitHub. */
     open fun approvePull(repo: RepoRef, number: Int) {
         send("POST", "/repos/${repo.fullName}/pulls/$number/reviews", "{\"event\":\"APPROVE\"}")
+    }
+
+    /** Opens or closes a pull request. Merged ones can't be reopened. */
+    open fun setPullState(repo: RepoRef, number: Int, open: Boolean): PullRequest {
+        val state = if (open) "open" else "closed"
+        return json.decodeFromString(send("PATCH", "/repos/${repo.fullName}/pulls/$number", "{\"state\":\"$state\"}"))
+    }
+
+    /**
+     * Last lines of each failed Actions job for [sha], for Claude's fix prompt. Empty when the token can't
+     * read Actions, the commit has no Actions runs, or the logs aren't there yet.
+     */
+    open fun failingJobLogs(repo: RepoRef, sha: String, maxJobs: Int = LOG_MAX_JOBS, maxLines: Int = LOG_MAX_LINES): List<FailingJobLog> {
+        if (sha.isBlank()) return emptyList()
+        val runs = try {
+            json.decodeFromString<WorkflowRuns>(get("/repos/${repo.fullName}/actions/runs?head_sha=$sha&per_page=20")).workflowRuns
+        } catch (e: GitHubException) {
+            if (e.code == 403 || e.code == 404) return emptyList()
+            throw e
+        }
+        val logs = mutableListOf<FailingJobLog>()
+        for (run in runs) {
+            if (logs.size >= maxJobs) break
+            if (run.status != "completed" || run.conclusion !in FAILING_CONCLUSIONS) continue
+            val jobs = try {
+                json.decodeFromString<WorkflowJobs>(get("/repos/${repo.fullName}/actions/runs/${run.id}/jobs")).jobs
+            } catch (e: GitHubException) {
+                if (e.code == 403 || e.code == 404) continue else throw e
+            }
+            for (job in jobs) {
+                if (logs.size >= maxJobs) break
+                if (job.status != "completed" || job.conclusion !in FAILING_CONCLUSIONS) continue
+                val text = try {
+                    get("/repos/${repo.fullName}/actions/jobs/${job.id}/logs")
+                } catch (e: GitHubException) {
+                    if (e.code == 403 || e.code == 404) continue else throw e
+                }
+                val tail = tailLines(text, maxLines)
+                if (tail.isNotBlank()) logs += FailingJobLog(job.name.ifBlank { run.name }.ifBlank { "job" }, tail)
+            }
+        }
+        return logs
     }
 
     open fun openPulls(repo: RepoRef, limit: Int = 10): List<PullRequest> =
@@ -518,10 +563,31 @@ open class GitHub(
         }
     }
 
+    @Serializable
+    private data class WorkflowRuns(@SerialName("workflow_runs") val workflowRuns: List<WorkflowRun> = emptyList()) {
+        @Serializable data class WorkflowRun(val id: Long = 0, val name: String = "", val status: String = "", val conclusion: String? = null)
+    }
+
+    @Serializable
+    private data class WorkflowJobs(val jobs: List<Job> = emptyList()) {
+        @Serializable data class Job(val id: Long = 0, val name: String = "", val status: String = "", val conclusion: String? = null)
+    }
+
     companion object {
         private val OK_CONCLUSIONS = setOf("success", "neutral", "skipped")
+        private val FAILING_CONCLUSIONS = setOf("failure", "timed_out", "cancelled", "startup_failure", "action_required")
         private const val GIST_RAW_HOST = "gist.githubusercontent.com"
         private const val SEND_ATTEMPTS = 3
+        private const val LOG_MAX_JOBS = 3
+        private const val LOG_MAX_LINES = 80
+        private const val LOG_MAX_CHARS = 8_000
+
+        /** Last [maxLines] of [text], capped so a huge log can't blow the fix prompt. */
+        fun tailLines(text: String, maxLines: Int = LOG_MAX_LINES, maxChars: Int = LOG_MAX_CHARS): String {
+            val lines = text.lineSequence().toList()
+            val tail = lines.takeLast(maxLines.coerceAtLeast(0)).joinToString("\n").trim()
+            return if (tail.length <= maxChars) tail else "…\n" + tail.takeLast(maxChars)
+        }
 
         /** Shared client with timeouts so a hung GitHub call can't leave a task stuck forever. */
         fun defaultClient(): OkHttpClient = OkHttpClient.Builder()

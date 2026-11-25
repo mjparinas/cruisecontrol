@@ -440,4 +440,41 @@ class GitHubClientTest {
         assertTrue("\"private\":true" in body)
         assertTrue("\"auto_init\":true" in body)
     }
+
+    // ---- Close / reopen and Actions logs --------------------------------------------------------------------
+
+    @Test fun closesAndReopensAPullRequest() {
+        on("PATCH", "/repos/me/app/pulls/7", 200, pullJson(""""state": "closed", "merged": false"""))
+        assertEquals(PrState.Closed, github.setPullState(repo, 7, open = false).prState)
+        assertEquals("""{"state":"closed"}""", sent.last().body)
+        responses.clear()
+        sent.clear()
+        on("PATCH", "/repos/me/app/pulls/7", 200, pullJson(""""state": "open", "merged": false"""))
+        assertEquals(PrState.Open, github.setPullState(repo, 7, open = true).prState)
+        assertEquals("""{"state":"open"}""", sent.last().body)
+    }
+
+    @Test fun failingJobLogsReturnsTheLastLinesOfEachFailedJob() {
+        on(
+            "GET", "/repos/me/app/actions/runs?head_sha=abc&per_page=20", 200,
+            """{"workflow_runs":[{"id":11,"name":"CI","status":"completed","conclusion":"failure"},{"id":12,"name":"ok","status":"completed","conclusion":"success"}]}""",
+        )
+        on(
+            "GET", "/repos/me/app/actions/runs/11/jobs", 200,
+            """{"jobs":[{"id":21,"name":"build","status":"completed","conclusion":"failure"},{"id":22,"name":"lint","status":"completed","conclusion":"success"}]}""",
+        )
+        on("GET", "/repos/me/app/actions/jobs/21/logs", 200, "line1\nline2\nAssertion failed")
+        val logs = github.failingJobLogs(repo, "abc")
+        assertEquals(listOf(FailingJobLog("build", "line1\nline2\nAssertion failed")), logs)
+    }
+
+    @Test fun failingJobLogsAreEmptyWhenActionsCannotBeRead() {
+        on("GET", "/repos/me/app/actions/runs?head_sha=abc&per_page=20", 403, """{"message": "Resource not accessible by personal access token"}""")
+        assertTrue(github.failingJobLogs(repo, "abc").isEmpty())
+    }
+
+    @Test fun tailLinesKeepsTheEndAndCapsLength() {
+        assertEquals("b\nc", GitHub.tailLines("a\nb\nc", maxLines = 2))
+        assertEquals("…\n2345", GitHub.tailLines("12345", maxLines = 10, maxChars = 4))
+    }
 }

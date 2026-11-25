@@ -115,7 +115,7 @@ class AssistantTest {
         assertEquals("low", first["reasoning"]!!.jsonObject["effort"]!!.jsonPrimitive.content)
         assertEquals("false", first["store"]!!.jsonPrimitive.content)
         assertTrue(first["instructions"]!!.jsonPrimitive.content.startsWith("You are ChatGPT,"))
-        assertEquals(7, first["tools"]!!.jsonArray.size)
+        assertEquals(8, first["tools"]!!.jsonArray.size)
         assertEquals(1, http.sent.size, "confirmation should not start another model turn")
     }
 

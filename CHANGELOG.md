@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- "Fix it" and automatic check fixes send Claude the last lines of each failed Actions job's log when the GitHub
+  token can read Actions, and still fall back to check names alone when it can't.
+- The car chat can close a pull request without merging, or reopen one that was closed without merging, with the same
+  two-turn confirmation as merge.
 - Before a task starts, the app reads your request back and waits for a separate yes. This works from the phone,
   Android Auto's car screen and messaging reply, and the Google Assistant shortcut.
 - The car assistant can list a repo's open issues and start work on an issue. The task includes its description, and

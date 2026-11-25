@@ -93,12 +93,14 @@ class VoiceCommandTest {
     private class FakeGitHub : GitHub("token") {
         var pr = PullRequest(7, "https://github.com/me/app/pull/7", nodeId = "PR_7", head = PullRequest.Head("abc"))
         var checksResult = ChecksSummary(Checks.Passing, total = 1)
+        var jobLogs = emptyList<FailingJobLog>()
         val merges = mutableListOf<Int>()
         override fun branchExists(repo: RepoRef, branch: String) = true
         override fun findPull(repo: RepoRef, branch: String): PullRequest? = pr
         override fun pull(repo: RepoRef, number: Int) = pr
         override fun reviewComments(repo: RepoRef, number: Int, afterId: Long?) = emptyList<ReviewComment>()
         override fun checks(repo: RepoRef, sha: String) = checksResult
+        override fun failingJobLogs(repo: RepoRef, sha: String, maxJobs: Int, maxLines: Int) = jobLogs
         override fun enableAutoMerge(pull: PullRequest) = false
         override fun merge(repo: RepoRef, number: Int): MergeResult {
             merges += number
@@ -178,6 +180,16 @@ class VoiceCommandTest {
         taskWithPr(ChecksSummary(Checks.Failing, failing = listOf("lint", "test"), total = 2))
         engine.prompt("t1", "fix it")
         assertTrue(claude.sent.last().contains("lint, test"))
+        assertTrue(claude.sent.last().contains("You can't see their logs."))
+    }
+
+    @Test fun fixItIncludesFailingJobLogTailsWhenAvailable() {
+        github.jobLogs = listOf(FailingJobLog("lint", "e: Unresolved reference: foo"))
+        taskWithPr(ChecksSummary(Checks.Failing, failing = listOf("lint"), total = 1))
+        engine.prompt("t1", "fix it")
+        val prompt = claude.sent.last()
+        assertTrue("### lint" in prompt && "Unresolved reference: foo" in prompt, prompt)
+        assertTrue("You can't see their logs." !in prompt, prompt)
     }
 
     @Test fun fixItWithoutFailingChecksGoesToClaudeAsIs() {
