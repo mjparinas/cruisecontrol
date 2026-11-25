@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.Autorenew
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ClearAll
 import androidx.compose.material.icons.rounded.Delete
@@ -322,7 +323,7 @@ private fun ConfirmClearDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 
 @Composable
 private fun TaskCard(task: Task, swipes: Set<CardSwipe>, onArchive: () -> Unit, onClear: () -> Unit, onClick: () -> Unit) {
-    val (icon, hue) = task.status.badge(task.interrupted)
+    val (icon, hue) = if (task.isScheduled) Icons.Rounded.Schedule to BadgeHue.Blue else task.status.badge(task.interrupted)
     // Swiping is hard or impossible with TalkBack or switch access, so the swipe actions are also in the card's actions menu.
     val actions = Modifier.semantics {
         customActions = swipes.map {

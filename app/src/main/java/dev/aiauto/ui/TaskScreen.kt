@@ -82,6 +82,7 @@ fun TaskScreen(
     listenUntilStop: Boolean = false,
     confirmMergeOnOpen: Boolean = false,
     onMergePromptShown: () -> Unit = {},
+    onStartNow: () -> Unit = {},
     onSend: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -152,10 +153,11 @@ fun TaskScreen(
         },
         bottomBar = {
             Column(Modifier.bottomBarInsets()) {
-                if (task.status == TaskStatus.Working || task.status == TaskStatus.Starting) {
+                if (!task.isScheduled && (task.status == TaskStatus.Working || task.status == TaskStatus.Starting)) {
                     LinearProgressIndicator(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary)
                 }
                 if (task.status == TaskStatus.Failed) StoppedBanner(task, onRetry)
+                task.startAtMillis?.let { LaterBanner(it, onStartNow) }
             }
         },
         floatingActionButton = { MicButton(listenUntilStop = listenUntilStop, onSend = onSend) },
@@ -226,6 +228,28 @@ private fun PrCard(task: Task, onOpen: () -> Unit, onMerge: () -> Unit) {
                 TextButton(onClick = onMerge) { Text("Merge") }
             }
         }
+    }
+}
+
+/** Says when a task saved for later starts, with a button to start it now. Stop in the top bar cancels it. */
+@Composable
+private fun LaterBanner(startAtMillis: Long, onStartNow: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "Saved for later. Claude starts " + dev.aiauto.core.StartLater.spoken(startAtMillis, System.currentTimeMillis()) + ".",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onStartNow) { Text("Start now") }
     }
 }
 

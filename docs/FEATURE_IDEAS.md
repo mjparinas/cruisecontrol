@@ -60,6 +60,11 @@ These started on this list and are now in the app. See the README for how they w
   each failed Actions job's log when the token can read Actions, and fall back to check names only when it can't.
 - **Close or reopen a pull request by voice**: the car chat can close a pull request without merging, or reopen one
   that was closed without merging, with the same two-turn confirmation as merge.
+- **Spending limits across devices**: each synced device's spend counts toward the daily and monthly limits, and the
+  app says once when either passes 80%.
+- **Recent errors**: Settings keeps the last 50 errors the app caught, with Copy for bug reports.
+- **Screenshots into a task**: pictures shared into the app go with the next task.
+- **Tasks for later**: save a task to start in an hour, tonight or tomorrow morning, or by voice in the car.
 
 ### Coding tasks on other providers
 

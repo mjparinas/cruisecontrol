@@ -25,6 +25,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Visibility
@@ -69,7 +70,13 @@ fun NewTaskScreen(
     onAutoListenHandled: () -> Unit = {},
     initialRequest: Pair<RepoRef, String>? = null,
     onReadBack: (String, () -> Unit) -> Unit = { _, done -> done() },
+    /** Pictures shared from another app, sent with the next task started here. */
+    sharedImages: List<dev.aiauto.core.TaskImage> = emptyList(),
+    onRemoveImages: () -> Unit = {},
+    /** Saves the task to start on its own at the given time. Null hides Later. */
+    onStartLater: ((RepoRef, String, Long) -> Unit)? = null,
 ) {
+    var choosingLater by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(lastUsed?.takeIf { it in repos } ?: repos.firstOrNull()) }
     var askMode by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
@@ -80,7 +87,8 @@ fun NewTaskScreen(
     var autoConfirmListen by remember(initialRequest) { mutableStateOf(false) }
     fun readBack(start: PendingTaskStart, done: () -> Unit = {}) {
         val request = SpokenStatus.clean(start.request)
-        onReadBack("I heard: $request in ${start.repo.name}. Say yes to start, or no to cancel.", done)
+        val pictures = if (sharedImages.isNotEmpty() && !start.ask) ", with ${dev.aiauto.core.TaskImages.describe(sharedImages.size)}" else ""
+        onReadBack("I heard: $request in ${start.repo.name}$pictures. Say yes to start, or no to cancel.", done)
     }
     fun requestStart(repo: RepoRef, request: String, ask: Boolean = false, shared: Boolean = false) {
         val start = PendingTaskStart(repo, request, ask, shared)
@@ -111,14 +119,48 @@ fun NewTaskScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("In ${start.repo.fullName}")
                     Text(start.request)
+                    if (sharedImages.isNotEmpty() && !start.ask) Text("With ${dev.aiauto.core.TaskImages.describe(sharedImages.size)}")
                 }
             },
             confirmButton = {
                 TextButton(onClick = ::startPending) { Text(if (start.ask) "Ask Claude" else "Start task") }
             },
             dismissButton = {
-                TextButton(onClick = { pendingStart = null; waitingForConfirmation = false }) { Text("Cancel") }
+                Row {
+                    if (onStartLater != null && !start.ask) TextButton(onClick = { choosingLater = true }) { Text("Later") }
+                    TextButton(onClick = { pendingStart = null; waitingForConfirmation = false }) { Text("Cancel") }
+                }
             },
+        )
+    }
+    if (choosingLater) pendingStart?.let { start ->
+        val options = remember { dev.aiauto.core.StartLater.options(System.currentTimeMillis()) }
+        AlertDialog(
+            onDismissRequest = { choosingLater = false },
+            shape = RoundedCornerShape(28.dp),
+            title = { Text("Start later") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "The task waits on this phone and starts on its own. Keep the phone on and online.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    options.forEach { option ->
+                        TextButton(
+                            onClick = {
+                                choosingLater = false
+                                pendingStart = null
+                                waitingForConfirmation = false
+                                onStartLater?.invoke(start.repo, start.request, option.atMillis)
+                            },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        ) { Text(option.label, Modifier.fillMaxWidth()) }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { choosingLater = false }) { Text("Back") } },
         )
     }
     Scaffold(
@@ -150,14 +192,21 @@ fun NewTaskScreen(
     ) { padding ->
         // The bottom padding keeps the last card clear of the floating microphone.
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 136.dp)) {
-            if (!sharedText.isNullOrBlank()) {
+            if (!sharedText.isNullOrBlank() || sharedImages.isNotEmpty()) {
                 SectionHeader("Shared from another app")
                 SettingsCard {
-                    Text(sharedText, Modifier.fillMaxWidth().padding(16.dp))
-                    if (onStartShared != null) SettingRow(Icons.Rounded.PlayArrow, BadgeHue.Accent, "Start this request", "Starts a task in the selected repo.") {
+                    if (!sharedText.isNullOrBlank()) Text(sharedText, Modifier.fillMaxWidth().padding(16.dp))
+                    if (sharedImages.isNotEmpty()) SettingRow(
+                        Icons.Rounded.Image, BadgeHue.Teal, dev.aiauto.core.TaskImages.describe(sharedImages.size).replaceFirstChar { it.uppercase() },
+                        "Sent with the task you start next. Tap to remove.",
+                        onClickLabel = "Remove the shared pictures",
+                        onClick = onRemoveImages,
+                    )
+                    if (onStartShared != null && !sharedText.isNullOrBlank()) SettingRow(Icons.Rounded.PlayArrow, BadgeHue.Accent, "Start this request", "Starts a task in the selected repo.") {
                         selected?.let { requestStart(it, sharedText, shared = true) }
                     }
                 }
+                if (sharedText.isNullOrBlank()) Note("Say what Claude should do with ${if (sharedImages.size == 1) "it" else "them"}.")
             }
             SectionHeader("Repository")
             SettingsCard {

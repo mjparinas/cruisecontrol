@@ -66,6 +66,7 @@ import dev.aiauto.core.TaskStatus
 fun StatusPill(task: Task, modifier: Modifier = Modifier) {
     val (label, color) = when {
         task.status == TaskStatus.Failed && task.interrupted -> "Offline" to BadgeHue.Amber.colour()
+        task.isScheduled -> "Later" to BadgeHue.Blue.colour()
         // Claude is done but the pull request's checks aren't, so it isn't done yet.
         task.checksRunning -> "Checks running" to BadgeHue.Amber.colour()
         else -> when (task.status) {

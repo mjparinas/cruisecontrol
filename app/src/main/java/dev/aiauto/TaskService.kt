@@ -52,6 +52,7 @@ class TaskService : Service() {
                     try {
                         graph.engine.resumeInterrupted()
                         graph.engine.checkStuck()
+                        graph.engine.startDue()
                         if (sinceRefresh >= PR_REFRESH_MILLIS) {
                             graph.engine.refreshPullRequests()
                             sinceRefresh = 0

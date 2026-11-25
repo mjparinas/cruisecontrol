@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Share screenshots or other pictures into Cruise Control, up to four, and they go with the next task you start, so
+  Claude can see the bug you mean.
+- Tasks for later: pick Later when confirming a task (in an hour, tonight or tomorrow morning), or ask the car
+  assistant for it "tonight" or "in two hours". The task waits on the phone and starts on its own, with Start now
+  and Stop on its screen.
 - The daily and monthly spending limits count every synced device: each device's spend for today and this month
   now syncs, so two phones can't each spend the full limit.
 - The app says once, and shows an alert, when spending passes 80% of the daily or monthly limit, before Claude

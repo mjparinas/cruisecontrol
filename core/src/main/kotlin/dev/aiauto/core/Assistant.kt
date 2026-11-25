@@ -12,6 +12,9 @@ interface AssistantActions {
     /** Starts a coding task. Returns what to tell Claude, such as "Started task ab12cd34 in owner/repo". */
     fun startTask(repo: String, request: String): String
 
+    /** Saves a coding task for later, to start in [minutes]. Apps without tasks for later start it now. */
+    fun startTaskLater(repo: String, request: String, minutes: Int): String = startTask(repo, request)
+
     /** Starts a task from a previously fetched issue. */
     fun startIssue(repo: String, issue: GitHubIssue): String =
         throw UnsupportedOperationException("Starting tasks from issues isn't available.")
@@ -89,6 +92,8 @@ class Assistant(
         val request: String,
         val issue: GitHubIssue?,
         val askedMillis: Long,
+        /** Minutes from the yes until the task starts, for a task saved for later. Null starts it straight away. */
+        val laterMinutes: Int? = null,
     )
     private var pendingStart: PendingStart? = null
     private var lastAnswer: String? = null
@@ -117,8 +122,11 @@ class Assistant(
                     if (apiKey(ChatProvider.Anthropic) == null) return "Add your Claude API key in the app on your phone first."
                     if (!canSpend()) return "You've reached your daily or monthly spending limit, so I can't start a task right now."
                     return runCatching {
-                        if (pending.issue != null) actions.startIssue(pending.repo, pending.issue)
-                        else actions.startTask(pending.repo, pending.request)
+                        when {
+                            pending.issue != null -> actions.startIssue(pending.repo, pending.issue)
+                            pending.laterMinutes != null -> actions.startTaskLater(pending.repo, pending.request, pending.laterMinutes)
+                            else -> actions.startTask(pending.repo, pending.request)
+                        }
                     }.getOrElse { Failures.describe(it) }
                 }
                 VoiceCommand.No -> {
@@ -237,7 +245,7 @@ class Assistant(
         acted = true
         val (text, error) = runCatching {
             when (call.name) {
-                START_TASK -> confirmTaskStart(arg("repo"), arg("request"), number("issue_number"))
+                START_TASK -> confirmTaskStart(arg("repo"), arg("request"), number("issue_number"), number("start_in_minutes"))
                 LIST_ISSUES -> actions.openIssues(arg("repo"))
                 REPLY_TO_TASK -> actions.replyToTask(arg("task_id"), arg("text"))
                 ADD_REPO -> actions.addRepo(arg("name"))
@@ -251,21 +259,33 @@ class Assistant(
         return ToolResult(call.id, text, error)
     }
 
-    private fun confirmTaskStart(repo: String, request: String, issueNumber: Int?): String {
+    private fun confirmTaskStart(repo: String, request: String, issueNumber: Int?, laterMinutes: Int? = null): String {
         require(repo.isNotBlank()) { "Name the repository to start a task." }
         val issue = issueNumber?.let {
             require(it > 0) { "Issue numbers must be positive." }
             actions.issue(repo, it)
         }
         require(issue != null || request.isNotBlank()) { "Say what you want the task to do." }
-        val pending = PendingStart(repo, request, issue, clock())
+        // Issue tasks always start now, and a delay of zero or less means now too.
+        val later = laterMinutes?.takeIf { it > 0 && issue == null }?.coerceAtMost(StartLater.MAX_WAIT_MINUTES)
+        val pending = PendingStart(repo, request, issue, clock(), later)
         pendingStart = pending
         return confirmationText(pending)
     }
 
     private fun confirmationText(pending: PendingStart): String {
         val request = pending.issue?.let { "fix issue ${it.number}, ${it.title}" } ?: pending.request
-        return "I heard: ${SpokenStatus.clean(request)} in ${pending.repo}. Say yes to start, or no to cancel."
+        val start = pending.laterMinutes?.let { "Say yes to save it for ${spokenDelay(it)} from now" } ?: "Say yes to start"
+        return "I heard: ${SpokenStatus.clean(request)} in ${pending.repo}. $start, or no to cancel."
+    }
+
+    /** "45 minutes", "an hour", "3 hours and 20 minutes". */
+    private fun spokenDelay(minutes: Int): String {
+        val hours = minutes / 60
+        val rest = minutes % 60
+        val h = when (hours) { 0 -> null; 1 -> "an hour"; else -> "$hours hours" }
+        val m = when (rest) { 0 -> null; 1 -> "1 minute"; else -> "$rest minutes" }
+        return listOfNotNull(h, m).joinToString(" and ")
     }
 
     private fun system(provider: ChatProvider): String {
@@ -318,6 +338,8 @@ class Assistant(
             You can also start coding tasks in the driver's GitHub repos and reply to running tasks with the tools.
             Only start a task when the driver clearly asks for one. The app reads the request back and requires a
             separate yes before starting; never claim it started before that confirmation.
+            When the driver wants a task done later, such as tonight or after they get home, pass start_in_minutes,
+            worked out from the local time in the app state. The app keeps it on the phone and starts it then.
             When asked to find or list issues, call list_open_issues. When asked to fix a numbered issue, use its
             number in start_coding_task so the issue title and body are included and the pull request closes it.
             "Repeat that" repeats your last answer. "Quiet" turns on quiet mode without starting a task.
@@ -345,6 +367,11 @@ class Assistant(
                     Triple("repo", "string", "The repo as owner/name, from the saved repos list."),
                     Triple("request", "string", "What to do, in the driver's words, made clear and complete."),
                     Triple("issue_number", "integer", "Optional GitHub issue number to fetch and close on the pull request."),
+                    Triple(
+                        "start_in_minutes", "integer",
+                        "Only when the driver wants it done later, like tonight or in two hours: minutes from now until " +
+                            "it starts, worked out from the local time in the app state. Leave out to start right away.",
+                    ),
                 ),
                 required = listOf("repo"),
             ),

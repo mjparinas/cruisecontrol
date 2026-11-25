@@ -43,6 +43,8 @@ class TaskEngine(
     /** Waits between retries. Tests pass a no-op. */
     private val sleep: suspend (Long) -> Unit = { delay(it) },
     private val dispatcher: CoroutineContext = Dispatchers.IO,
+    /** The time zone tasks for later are said in. Tests pass a fixed one. */
+    private val zone: () -> java.time.ZoneId = java.time.ZoneId::systemDefault,
 ) {
     private val journal = TaskJournal(store, clock, onMessage, onProgress, config::quietMode)
     private val spending = SpendingLimit(store, config, journal)
@@ -70,10 +72,12 @@ class TaskEngine(
 
     // ---- Task lifecycle ------------------------------------------------------------------------
 
-    /** Starts a new task on [repo] from a spoken or typed [request]. Returns the new task. */
-    fun start(repo: RepoRef, request: String): Task {
-        return start(repo, request, readOnly = false, issueNumber = null)
-    }
+    /**
+     * Starts a new task on [repo] from a spoken or typed [request], with any [images] shared into it. With
+     * [startAtMillis] in the future, the task is saved for later and [startDue] starts it then. Returns the new task.
+     */
+    fun start(repo: RepoRef, request: String, images: List<TaskImage> = emptyList(), startAtMillis: Long? = null): Task =
+        start(repo, request, readOnly = false, issueNumber = null, images = images, startAtMillis = startAtMillis)
 
     /** Starts a repository question session whose prompt forbids edits, commits and pushes. */
     fun startAsk(repo: RepoRef, request: String): Task = start(repo, request, readOnly = true, issueNumber = null)
@@ -94,9 +98,18 @@ class TaskEngine(
         return start(repo, request, readOnly = false, issueNumber = issue.number)
     }
 
-    private fun start(repo: RepoRef, request: String, readOnly: Boolean, issueNumber: Int?): Task {
+    private fun start(
+        repo: RepoRef,
+        request: String,
+        readOnly: Boolean,
+        issueNumber: Int?,
+        images: List<TaskImage> = emptyList(),
+        startAtMillis: Long? = null,
+    ): Task {
         val now = clock()
         val id = UUID.randomUUID().toString().take(8)
+        val pictures = images.take(TaskImages.MAX)
+        val later = startAtMillis?.takeIf { it > now }
         val task = Task(
             id = id,
             repo = repo,
@@ -107,10 +120,18 @@ class TaskEngine(
             createdMillis = now,
             updatedMillis = now,
             device = config.deviceId(),
+            startAtMillis = later,
+            imageCount = pictures.size,
         )
+        if (pictures.isNotEmpty()) config.saveImages(id, pictures)
         store.put(task)
         journal.append(id, Speaker.You, request)
-        launchTurn(id)
+        if (pictures.isNotEmpty()) journal.status(id, "With ${TaskImages.describe(pictures.size)}.", notify = false)
+        if (later != null) {
+            journal.status(id, "Saved for later. Claude starts ${StartLater.spoken(later, now, zone())}.")
+        } else {
+            launchTurn(id)
+        }
         return store.get(id) ?: task
     }
 
@@ -248,7 +269,30 @@ class TaskEngine(
     /** Re-attaches to tasks that were mid-turn when the app was closed, and to tasks cut off by a lost connection. */
     fun resumeAll() {
         mine().filter { it.isActive }.forEach { retry(it.id) }
+        startDue()
     }
+
+    // ---- Tasks for later -----------------------------------------------------------------------
+
+    /** Starts every task saved for later whose time has come. Call it from an alarm and whenever the app wakes. */
+    fun startDue() {
+        val now = clock()
+        mine().filter { it.isScheduled && (it.startAtMillis ?: Long.MAX_VALUE) <= now && !isRunning(it.id) }.forEach { task ->
+            journal.status(task.id, "Starting now, as planned.", notify = false)
+            launchTurn(task.id)
+        }
+    }
+
+    /** Starts a task saved for later right away. */
+    fun startNow(taskId: String) {
+        val task = store.get(taskId) ?: return
+        if (!task.isScheduled || isRunning(taskId)) return
+        journal.status(taskId, "Starting now instead of later.", notify = false)
+        launchTurn(taskId)
+    }
+
+    /** When the next task saved for later on this device starts, or null when there's none, for the app's alarm. */
+    fun nextStartMillis(): Long? = mine().mapNotNull { it.startAtMillis }.minOrNull()
 
     /** Call when the phone gets a working network again. Resumes tasks that stopped because it was lost. */
     fun onNetworkAvailable() {
@@ -400,8 +444,10 @@ class TaskEngine(
     fun stop(taskId: String) {
         val wasRunning = running.remove(taskId)?.also { it.cancel() } != null
         val task = store.get(taskId) ?: return
-        if (!wasRunning && !task.isActive) return
-        journal.update(taskId) { it.copy(status = TaskStatus.Stopped, interrupted = false, interruptedSinceMillis = null, pendingPrompt = null, approval = null) }
+        if (!wasRunning && !task.isActive && !task.isScheduled) return
+        journal.update(taskId) {
+            it.copy(status = TaskStatus.Stopped, interrupted = false, interruptedSinceMillis = null, pendingPrompt = null, approval = null, startAtMillis = null)
+        }
         journal.status(taskId, "Stopped. Reply to give Claude a new direction.", notify = false)
         val sessionId = task.sessionId ?: return
         scope.launch(dispatcher) {
@@ -417,6 +463,7 @@ class TaskEngine(
         running.remove(taskId)?.cancel()
         val task = store.get(taskId) ?: return
         store.remove(taskId)
+        runCatching { config.dropImages(taskId) }
         seenEvents.remove(taskId)
         historyRefreshed.remove(taskId)
         val sessionId = task.sessionId ?: return
@@ -568,7 +615,7 @@ class TaskEngine(
         stuckAlerted -= taskId
         // Running a turn here makes this device the one that follows the task from now on.
         val me = config.deviceId()
-        journal.update(taskId) { it.copy(status = TaskStatus.Working, interrupted = false, device = me ?: it.device) }
+        journal.update(taskId) { it.copy(status = TaskStatus.Working, interrupted = false, device = me ?: it.device, startAtMillis = null) }
         val job = scope.launch(dispatcher, start = CoroutineStart.LAZY) {
             val key = config.anthropicKey()
             if (key == null) {
@@ -617,8 +664,10 @@ class TaskEngine(
         val current = store.get(taskId) ?: return
         val prompt = current.pendingPrompt ?: return
         spending.capSession(claude, current)
-        claude.sendPrompt(current.sessionId!!, prompt)
+        val images = if (current.imageCount > 0) config.images(taskId) else emptyList()
+        if (images.isEmpty()) claude.sendPrompt(current.sessionId!!, prompt) else claude.sendPrompt(current.sessionId!!, prompt, images)
         journal.update(taskId) { if (it.pendingPrompt == prompt) it.copy(pendingPrompt = null) else it }
+        if (images.isNotEmpty()) runCatching { config.dropImages(taskId) }
     }
 
     /** The saved agent, or a new one when there's none yet or its settings no longer match what Settings asks for. */

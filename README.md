@@ -120,6 +120,17 @@ merge actions. Settings has a setup checklist for keys, repository access and ph
 another app can start a task, and the widget microphone, launcher shortcuts and Quick Settings tile open voice input.
 The launcher also has direct shortcuts for **Talk to Claude** and your last-used repo.
 
+**Screenshots and pictures** can be shared into Cruise Control too, up to four at once. They go with the next task you
+start on New task, so you can share a screenshot of a bug and say "fix the button that's cut off here". Each picture is
+shrunk so its longest side is 1568 pixels before it's sent, and it stays on the phone that started the task; sync
+doesn't copy it.
+
+**Tasks for later**: the confirmation before a task starts has **Later**, with in an hour, tonight at 8 PM and tomorrow
+at 8 AM. In the car, ask for it in your own words, like "update the dependencies in app tonight", and the assistant
+reads back how long it'll wait before you say yes. The task waits on the phone, shows **Later** with its start time,
+and starts on its own; **Start now** on the task starts it early, and **Stop** cancels it. The phone needs to be on
+and online then. Android may run it a few minutes late while the phone sleeps.
+
 While you're in the car, the app reads Claude's messages and short progress notes like "Building or testing"
 aloud, ducking your music while it talks. You can turn this off in Settings. While the microphone is listening to
 you, new updates wait and are read once it stops, so the car doesn't talk over you.

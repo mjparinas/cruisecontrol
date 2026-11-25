@@ -489,3 +489,32 @@ class ErrorStore(context: Context) {
     @Synchronized
     fun clear() = list.set(emptyList())
 }
+
+/**
+ * Pictures shared into a task, kept in a file until its first prompt reaches Claude, so a task for later or a restart
+ * doesn't lose them. They never sync; only the device that started the task sends them.
+ */
+class ImageStash(context: Context) {
+    private val dir = File(context.filesDir, "task-images")
+    private val serializer = ListSerializer(dev.aiauto.core.TaskImage.serializer())
+
+    private fun file(taskId: String) = File(dir, taskId.filter { it.isLetterOrDigit() || it == '-' } + ".json")
+
+    @Synchronized
+    fun save(taskId: String, images: List<dev.aiauto.core.TaskImage>) {
+        runCatching {
+            dir.mkdirs()
+            file(taskId).writeText(json.encodeToString(serializer, images))
+        }.onFailure { dev.aiauto.AppLog.w("Couldn't keep a task's pictures", it) }
+    }
+
+    @Synchronized
+    fun load(taskId: String): List<dev.aiauto.core.TaskImage> = runCatching {
+        file(taskId).takeIf { it.exists() }?.readText()?.let { json.decodeFromString(serializer, it) }
+    }.getOrNull().orEmpty()
+
+    @Synchronized
+    fun drop(taskId: String) {
+        runCatching { file(taskId).delete() }
+    }
+}

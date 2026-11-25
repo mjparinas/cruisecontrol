@@ -30,6 +30,7 @@ class AiAutoApp : Application() {
         safely("watch network") { graph.watchNetwork(this) }
         safely("watch car") { graph.watchCar(this) }
         safely("watch widget") { graph.watchWidget(this) }
+        safely("watch tasks for later") { graph.watchStartLater(this) }
         safely("start sync") { graph.sync.start() }
         safely("refresh pull requests") { graph.engine.refreshPullRequests() }
         safely("start service") { if (graph.hasActiveWork() || graph.engine.isWatchingPullRequests()) TaskService.ensureRunning(this) }

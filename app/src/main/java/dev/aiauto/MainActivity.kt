@@ -51,6 +51,8 @@ private sealed interface Screen {
 class MainActivity : ComponentActivity() {
     private var screen by mutableStateOf<Screen>(Screen.Home)
     private var sharedRequest by mutableStateOf<String?>(null)
+    /** Pictures shared into a new task, already shrunk to what Claude takes. */
+    private var sharedImages by mutableStateOf<List<dev.aiauto.core.TaskImage>>(emptyList())
     private var shortcutRequest by mutableStateOf<Pair<RepoRef, String>?>(null)
     private var confirmMergeTask by mutableStateOf<String?>(null)
     private var autoListen by mutableStateOf(false)
@@ -85,9 +87,10 @@ class MainActivity : ComponentActivity() {
         // A recreated activity or one reopened from Recents still carries the shortcut, which already started its task.
         val fresh = savedInstanceState == null && (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
         sharedRequest = intent.sharedRequest()
+        takeSharedImages(intent)
         autoListen = intent.action == ACTION_WIDGET_MIC
         confirmMergeTask = intent.getStringExtra(EXTRA_TASK)?.takeIf { intent.getBooleanExtra(EXTRA_CONFIRM_MERGE, false) }
-        screen = intent.taskTarget() ?: intent.takeIf { fresh }?.startFromShortcut() ?: if (sharedRequest != null) Screen.NewTask else if (g.isConfigured) Screen.Home else Screen.Settings
+        screen = intent.taskTarget() ?: intent.takeIf { fresh }?.startFromShortcut() ?: if (sharedRequest != null || intent.hasSharedImages()) Screen.NewTask else if (g.isConfigured) Screen.Home else Screen.Settings
         if (intent.action == ACTION_OPEN_NEW_TASK || intent.action == ACTION_WIDGET_MIC) screen = Screen.NewTask
         if (intent.action == ACTION_TALK_TO_CLAUDE) { screen = Screen.Talk; autoListen = true }
         installLauncherShortcuts()
@@ -206,18 +209,29 @@ class MainActivity : ComponentActivity() {
                         },
                         autoListen = autoListen,
                         onAutoListenHandled = { autoListen = false },
+                        sharedImages = sharedImages,
+                        onRemoveImages = { sharedImages = emptyList() },
+                        onStartLater = { repo, text, at ->
+                            g.engine.start(repo, text, sharedImages, startAtMillis = at)
+                            sharedRequest = null
+                            sharedImages = emptyList()
+                            shortcutRequest = null
+                            screen = Screen.Home
+                        },
                         onStartShared = { repo, text ->
-                            val task = g.engine.start(repo, text)
+                            val task = g.engine.start(repo, text, sharedImages)
                             TaskService.ensureRunning(this)
                             sharedRequest = null
+                            sharedImages = emptyList()
                             shortcutRequest = null
                             screen = Screen.Detail(task.id)
                         },
-                        onBack = { sharedRequest = null; shortcutRequest = null; screen = Screen.Home },
+                        onBack = { sharedRequest = null; sharedImages = emptyList(); shortcutRequest = null; screen = Screen.Home },
                         onStart = { repo, text ->
-                            val task = g.engine.start(repo, text)
+                            val task = g.engine.start(repo, text, sharedImages)
                             TaskService.ensureRunning(this)
                             sharedRequest = null
+                            sharedImages = emptyList()
                             shortcutRequest = null
                             screen = Screen.Detail(task.id)
                         },
@@ -252,6 +266,10 @@ class MainActivity : ComponentActivity() {
                             listenUntilStop = g.settings.listenUntilStop,
                             confirmMergeOnOpen = confirmMergeTask == task.id,
                             onMergePromptShown = { confirmMergeTask = null },
+                            onStartNow = {
+                                g.engine.startNow(task.id)
+                                TaskService.ensureRunning(this)
+                            },
                         ) { text ->
                             g.engine.prompt(task.id, text)
                             TaskService.ensureRunning(this)
@@ -389,6 +407,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.sharedRequest()?.let { sharedRequest = it; screen = Screen.NewTask }
+        if (intent.hasSharedImages()) { takeSharedImages(intent); screen = Screen.NewTask }
         if (intent.action == ACTION_WIDGET_MIC) { autoListen = true; screen = Screen.NewTask }
         if (intent.action == ACTION_TALK_TO_CLAUDE) { autoListen = true; screen = Screen.Talk }
         confirmMergeTask = intent.getStringExtra(EXTRA_TASK)?.takeIf { intent.getBooleanExtra(EXTRA_CONFIRM_MERGE, false) }
@@ -424,8 +443,28 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private fun Intent.sharedRequest(): String? = if (action == Intent.ACTION_SEND && type?.startsWith("text/") == true)
-        extras?.get(Intent.EXTRA_TEXT)?.toString()?.trim()?.takeIf { it.isNotEmpty() } else null
+    private fun Intent.sharedRequest(): String? =
+        if ((action == Intent.ACTION_SEND && type?.startsWith("text/") == true) || hasSharedImages())
+            getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.trim()?.takeIf { it.isNotEmpty() } else null
+
+    private fun Intent.hasSharedImages(): Boolean =
+        (action == Intent.ACTION_SEND || action == Intent.ACTION_SEND_MULTIPLE) && type?.startsWith("image/") == true
+
+    /** Reads the pictures shared into a new task off the main thread, shrinking each to what Claude takes. */
+    private fun takeSharedImages(intent: Intent) {
+        if (!intent.hasSharedImages()) return
+        val uris = if (intent.action == Intent.ACTION_SEND_MULTIPLE) {
+            androidx.core.content.IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, android.net.Uri::class.java).orEmpty()
+        } else {
+            listOfNotNull(androidx.core.content.IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, android.net.Uri::class.java))
+        }
+        if (uris.isEmpty()) return
+        val app = applicationContext
+        graph.scope.launch(Dispatchers.IO) {
+            val images = dev.aiauto.data.SharedImages.load(app, uris)
+            withContext(Dispatchers.Main) { sharedImages = images }
+        }
+    }
 
     /**
      * Starts the task a Google Assistant shortcut asked for and says so, or says what's missing. Null when the
