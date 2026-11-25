@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.9.0
+
 - Fixed the Quick Settings tile: tapping it no longer crashes on Android 14 and later, and adding it no longer crashes
   on Android 8 and 9.
 - Under the hood: the car screens use the Car App Library's current header, Android Lint errors now fail the build,

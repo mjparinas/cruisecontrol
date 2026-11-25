@@ -346,6 +346,9 @@ Each line is checked against the code by `AgentsDocTest`.
 
 Newest first. Earlier work (before PR 13) isn't in the history; add older decisions here if they come up.
 
+- v0.9.0 cut as a minor release: spending limits across devices, the 80% warning, Recent errors, screenshots
+  into tasks, tasks for later, targetSdk 36, lint errors failing the build and the car Header move (PRs 119 to 122),
+  plus the notes merged since v0.8.2.
 - Lint errors now fail the build, after fixing the five it found. The car screens moved to Car App 1.7's `Header`,
   and app unit tests build the car templates on the JVM.
 - targetSdk raised to 36 (Android 16) for Google Play's August 2026 rule, after checking Android 16's behaviour
